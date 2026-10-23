@@ -17,6 +17,17 @@ export async function addProject(name: string, path: string): Promise<Project> {
   return invoke<Project>("add_project", { name, path });
 }
 
+// 元の値も送り、別の操作による更新をRust側で検出する。
+export async function updateProject(project: Project, name: string, path: string): Promise<Project> {
+  requireDesktop();
+  return invoke<Project>("update_project", { project, name, path });
+}
+
+export async function removeProject(project: Project): Promise<void> {
+  requireDesktop();
+  return invoke<void>("remove_project", { project });
+}
+
 export async function selectProjectDirectory(): Promise<SelectedDirectory | null> {
   requireDesktop();
   return invoke<SelectedDirectory | null>("select_project_directory");

@@ -43,6 +43,27 @@ pub fn directory_path(path: &Path) -> Result<String, String> {
         .ok_or_else(|| "このフォルダのパスは文字列として扱えません。".into())
 }
 
+fn project_name(name: &str) -> Result<String, String> {
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > 100 {
+        return Err("プロジェクト名は1〜100文字で入力してください。".into());
+    }
+    Ok(name.into())
+}
+
+fn matching_project(projects: &[Project], expected: &Project) -> Result<usize, String> {
+    let index = projects
+        .iter()
+        .position(|project| project.id == expected.id)
+        .ok_or("このプロジェクトはすでに登録解除されています。一覧を再読み込みしてください。")?;
+    if projects[index] != *expected {
+        return Err(
+            "このプロジェクトは別の操作で更新されています。一覧を再読み込みしてください。".into(),
+        );
+    }
+    Ok(index)
+}
+
 impl ProjectStore {
     pub fn new(directory: PathBuf) -> Self {
         Self { directory }
@@ -106,25 +127,66 @@ impl ProjectStore {
         Ok(self.read()?.projects)
     }
 
-    pub fn add(&self, name: &str, path: &Path) -> Result<Project, String> {
-        let name = name.trim();
-        if name.is_empty() || name.chars().count() > 100 {
-            return Err("プロジェクト名は1〜100文字で入力してください。".into());
-        }
-        let path = directory_path(path)?;
+    fn change<T>(
+        &self,
+        operation: impl FnOnce(&mut Vec<Project>) -> Result<T, String>,
+    ) -> Result<T, String> {
         let _lock = self.lock()?;
         let mut document = self.read()?;
-        if document.projects.iter().any(|project| project.path == path) {
-            return Err("このフォルダはすでに登録されています。".into());
-        }
-        let project = Project {
-            id: Uuid::new_v4().to_string(),
-            name: name.into(),
-            path,
-        };
-        document.projects.push(project.clone());
+        let result = operation(&mut document.projects)?;
         self.write(&document)?;
-        Ok(project)
+        Ok(result)
+    }
+
+    pub fn add(&self, name: &str, path: &Path) -> Result<Project, String> {
+        let name = project_name(name)?;
+        let path = directory_path(path)?;
+        self.change(|projects| {
+            if projects.iter().any(|project| project.path == path) {
+                return Err("このフォルダはすでに登録されています。".into());
+            }
+            let project = Project {
+                id: Uuid::new_v4().to_string(),
+                name,
+                path,
+            };
+            projects.push(project.clone());
+            Ok(project)
+        })
+    }
+
+    pub fn update(&self, expected: &Project, name: &str, path: &Path) -> Result<Project, String> {
+        let name = project_name(name)?;
+        self.change(|projects| {
+            let index = matching_project(projects, expected)?;
+            // フォルダが移動・削除済みでも、パスを変えない名前の編集は許可する。
+            let path = if path == Path::new(&projects[index].path) {
+                projects[index].path.clone()
+            } else {
+                directory_path(path)?
+            };
+            if projects
+                .iter()
+                .any(|project| project.id != expected.id && project.path == path)
+            {
+                return Err("このフォルダはすでに登録されています。".into());
+            }
+            let project = Project {
+                id: expected.id.clone(),
+                name,
+                path,
+            };
+            projects[index] = project.clone();
+            Ok(project)
+        })
+    }
+
+    pub fn remove(&self, expected: &Project) -> Result<(), String> {
+        self.change(|projects| {
+            let index = matching_project(projects, expected)?;
+            projects.remove(index);
+            Ok(())
+        })
     }
 
     fn write(&self, document: &ProjectDocument) -> Result<(), String> {

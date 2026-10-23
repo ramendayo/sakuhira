@@ -146,3 +146,112 @@ fn concurrent_registrations_do_not_lose_updates() {
     }
     assert_eq!(ProjectStore::new(data).list().unwrap().len(), 8);
 }
+
+#[test]
+fn editing_preserves_id_and_other_projects_and_survives_reopening() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let first = store.add("First", root.path()).unwrap();
+    let second = store.add("Second", &store.directory).unwrap();
+    let new_folder = root.path().join("new");
+    fs::create_dir(&new_folder).unwrap();
+    let edited = store.update(&first, "  Renamed  ", &new_folder).unwrap();
+    assert_eq!(edited.id, first.id);
+    assert_eq!(edited.name, "Renamed");
+    assert_eq!(edited.path, directory_path(&new_folder).unwrap());
+    assert_eq!(
+        ProjectStore::new(store.directory).list().unwrap(),
+        vec![edited, second]
+    );
+}
+
+#[test]
+fn failed_edit_keeps_saved_data_unchanged() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("First", root.path()).unwrap();
+    let second = store.add("Second", &store.directory).unwrap();
+    let before = fs::read(store.directory.join("projects.json")).unwrap();
+    assert!(store.update(&project, " ", root.path()).is_err());
+    assert!(
+        store
+            .update(&project, &"a".repeat(101), root.path())
+            .is_err()
+    );
+    assert!(
+        store
+            .update(&project, "Duplicate", Path::new(&second.path))
+            .is_err()
+    );
+    assert!(
+        store
+            .update(&project, "Invalid", &root.path().join("missing"))
+            .is_err()
+    );
+    assert_eq!(
+        fs::read(store.directory.join("projects.json")).unwrap(),
+        before
+    );
+}
+
+#[test]
+fn missing_folder_can_be_renamed_and_unregistered() {
+    let root = tempdir().unwrap();
+    let folder = root.path().join("folder");
+    fs::create_dir(&folder).unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Missing", &folder).unwrap();
+    fs::remove_dir(&folder).unwrap();
+    let edited = store
+        .update(&project, "Renamed", Path::new(&project.path))
+        .unwrap();
+    store.remove(&edited).unwrap();
+    assert!(store.list().unwrap().is_empty());
+}
+
+#[test]
+fn unregistering_only_removes_metadata_and_preserves_folder_contents() {
+    let root = tempdir().unwrap();
+    let folder = root.path().join("folder");
+    fs::create_dir(&folder).unwrap();
+    fs::write(folder.join("keep.txt"), "keep this").unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Remove", &folder).unwrap();
+    let other = store.add("Other", root.path()).unwrap();
+    store.remove(&project).unwrap();
+    assert_eq!(
+        ProjectStore::new(store.directory).list().unwrap(),
+        vec![other]
+    );
+    assert_eq!(
+        fs::read_to_string(folder.join("keep.txt")).unwrap(),
+        "keep this"
+    );
+}
+
+#[test]
+fn stale_edits_and_removals_do_not_overwrite_newer_data() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Original", root.path()).unwrap();
+    let updated = store.update(&project, "Newer", root.path()).unwrap();
+    assert!(store.update(&project, "Stale", root.path()).is_err());
+    assert!(store.remove(&project).is_err());
+    assert_eq!(store.list().unwrap(), vec![updated.clone()]);
+    store.remove(&updated).unwrap();
+    assert!(store.update(&updated, "Resurrected", root.path()).is_err());
+    assert!(store.remove(&updated).is_err());
+    assert!(store.list().unwrap().is_empty());
+}
+
+#[test]
+fn corrupted_document_is_preserved_during_edit_and_removal() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Original", root.path()).unwrap();
+    let file = store.directory.join("projects.json");
+    fs::write(&file, "{corrupt").unwrap();
+    assert!(store.update(&project, "Edit", root.path()).is_err());
+    assert!(store.remove(&project).is_err());
+    assert_eq!(fs::read_to_string(file).unwrap(), "{corrupt");
+}

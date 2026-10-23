@@ -17,6 +17,21 @@ pub fn add_project(
     store.add(&name, Path::new(&path))
 }
 
+#[tauri::command(async)]
+pub fn update_project(
+    store: State<'_, ProjectStore>,
+    project: Project,
+    name: String,
+    path: String,
+) -> Result<Project, String> {
+    store.update(&project, &name, Path::new(&path))
+}
+
+#[tauri::command(async)]
+pub fn remove_project(store: State<'_, ProjectStore>, project: Project) -> Result<(), String> {
+    store.remove(&project)
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SelectedDirectory {

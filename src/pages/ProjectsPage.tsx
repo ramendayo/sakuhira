@@ -1,13 +1,27 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import ProjectDetails from "./ProjectDetails";
 import ProjectForm from "../components/ProjectForm";
 import { useProjects } from "../hooks/useProjects";
 import type { Project } from "../types/project";
 
-function ProjectsPage() {
-  const { projects, status, error, retry, append } = useProjects();
+type ProjectsPageProps = {
+  selectedId: string | null;
+  onSelect: Dispatch<SetStateAction<string | null>>;
+};
+
+function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
+  const { projects, status, error, retry, append, replace, remove } = useProjects();
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
   const addButton = useRef<HTMLButtonElement>(null);
+
+  const listHeading = useRef<HTMLHeadingElement>(null);
+  const previousSelection = useRef<string | null>(null);
+  useEffect(() => {
+    if (previousSelection.current && !selectedId) listHeading.current?.focus();
+    previousSelection.current = selectedId;
+  }, [selectedId]);
 
   function closeForm() {
     setShowForm(false);
@@ -20,13 +34,28 @@ function ProjectsPage() {
     closeForm();
   }
 
+  const selected = projects.find((project) => project.id === selectedId);
+  if (selected && status === "ready") {
+    return <ProjectDetails
+      key={selected.id}
+      project={selected}
+      onBack={() => onSelect(null)}
+      onUpdated={replace}
+      onRemoved={(project) => {
+        remove(project.id);
+        onSelect((current) => current === project.id ? null : current);
+        setNotice(`「${project.name}」の登録を解除しました。`);
+      }}
+    />;
+  }
+
   return (
     <section id="projects" aria-labelledby="projects-heading">
       <header className="border-b border-zinc-800 px-6 py-8 lg:px-10">
         <p className="text-xs font-medium tracking-widest text-teal-300">YOUR WORKSPACE</p>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-5">
           <div>
-            <h1 id="projects-heading" className="text-2xl font-semibold tracking-tight">
+            <h1 id="projects-heading" ref={listHeading} tabIndex={-1} className="text-2xl font-semibold tracking-tight">
               プロジェクト
             </h1>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
@@ -62,11 +91,12 @@ function ProjectsPage() {
         )}
         {status === "ready" && (
           <>
-            <div className="mb-5 flex items-center gap-3">
+            <div className="mb-5 flex flex-wrap items-center gap-3">
               <h2 className="text-sm font-medium text-zinc-300">すべてのプロジェクト</h2>
               <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-xs text-zinc-400">
                 {projects.length} 件
               </span>
+              <button type="button" onClick={retry} disabled={showForm} className="ml-auto rounded text-sm text-zinc-400 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-50">再読み込み</button>
             </div>
 
             {projects.length > 0 ? (
@@ -75,6 +105,10 @@ function ProjectsPage() {
                   <li key={project.id} className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
                     <h3 className="break-words text-lg font-medium">{project.name}</h3>
                     <p className="mt-3 break-all font-mono text-xs leading-6 text-zinc-400">{project.path}</p>
+                    <button type="button" aria-label={`${project.name}の詳細を開く`} onClick={() => {
+                      setShowForm(false);
+                      onSelect(project.id);
+                    }} className="mt-4 rounded text-sm font-medium text-teal-300 hover:text-teal-200">詳細を開く →</button>
                   </li>
                 ))}
               </ul>

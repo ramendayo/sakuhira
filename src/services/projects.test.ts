@@ -36,3 +36,15 @@ it("reports browser-only execution without attempting native commands", async ()
   await expect(listProjects()).rejects.toThrow("デスクトップアプリ");
   expect(handler).not.toHaveBeenCalled();
 });
+
+it("sends the original record with edit and removal commands to detect conflicts", async () => {
+  const { updateProject, removeProject } = await import("./projects");
+  const project = { id: "id", name: "Original", path: "/original" };
+  const edited = { ...project, name: "Edited", path: "/edited" };
+  const handler = vi.fn((command: string) => command === "update_project" ? edited : undefined);
+  mockIPC(handler);
+  expect(await updateProject(project, edited.name, edited.path)).toEqual(edited);
+  await removeProject(edited);
+  expect(handler).toHaveBeenNthCalledWith(1, "update_project", { project, name: edited.name, path: edited.path });
+  expect(handler).toHaveBeenNthCalledWith(2, "remove_project", { project: edited });
+});

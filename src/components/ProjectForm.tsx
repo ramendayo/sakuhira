@@ -1,17 +1,20 @@
 import { useId, useState } from "react";
 import type { FormEvent } from "react";
-import { addProject, errorMessage, selectProjectDirectory } from "../services/projects";
+import { addProject, errorMessage, selectProjectDirectory, updateProject } from "../services/projects";
 import type { Project } from "../types/project";
 
 type ProjectFormProps = {
+  project?: Project;
   onSaved: (project: Project) => void;
   onCancel: () => void;
 };
 
-function ProjectForm({ onSaved, onCancel }: ProjectFormProps) {
+function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectFormProps) {
+  // 入力開始時の値を保持し、編集中に届いた更新で競合検出の基準を変えない。
+  const [project] = useState(initialProject);
   const id = useId();
-  const [name, setName] = useState("");
-  const [path, setPath] = useState("");
+  const [name, setName] = useState(project?.name ?? "");
+  const [path, setPath] = useState(project?.path ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<"picking" | "saving" | null>(null);
 
@@ -41,8 +44,10 @@ function ProjectForm({ onSaved, onCancel }: ProjectFormProps) {
     setError(null);
     setPending("saving");
     try {
-      const project = await addProject(name.trim(), path);
-      onSaved(project);
+      const saved = project
+        ? await updateProject(project, name.trim(), path)
+        : await addProject(name.trim(), path);
+      onSaved(saved);
     } catch (error) {
       setError(errorMessage(error));
     } finally {
@@ -57,7 +62,7 @@ function ProjectForm({ onSaved, onCancel }: ProjectFormProps) {
       aria-busy={pending !== null}
       className="mb-8 rounded-2xl border border-zinc-700 bg-zinc-900/60 p-6"
     >
-      <h2 id={`${id}-heading`} className="text-lg font-medium">プロジェクトを登録</h2>
+      <h2 id={`${id}-heading`} className="text-lg font-medium">{project ? "プロジェクトを編集" : "プロジェクトを登録"}</h2>
       <p className="mt-2 text-sm leading-6 text-zinc-400">
         ローカルフォルダを選び、表示名を入力してください。
       </p>
@@ -91,11 +96,11 @@ function ProjectForm({ onSaved, onCancel }: ProjectFormProps) {
             className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm"
           />
         </div>
-        <p className="text-xs leading-6 text-zinc-400">登録してもフォルダ内のファイルは変更されません。</p>
+        <p className="text-xs leading-6 text-zinc-400">フォルダ内のファイルは変更されません。</p>
         <div className="flex flex-wrap justify-end gap-3">
           <button type="button" onClick={onCancel} className="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm hover:bg-zinc-800 disabled:cursor-wait">キャンセル</button>
           <button type="submit" className="rounded-lg bg-teal-300 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-teal-200 disabled:cursor-wait">
-            {pending === "saving" ? "保存中…" : "登録する"}
+            {pending === "saving" ? "保存中…" : project ? "変更を保存" : "登録する"}
           </button>
         </div>
       </fieldset>

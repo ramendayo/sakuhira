@@ -34,6 +34,8 @@ export function useProjects() {
     status,
     error,
     retry: () => setRevision((current) => current + 1),
+    replace: (project: Project) => setProjects((current) => current.map((item) => item.id === project.id ? project : item)),
+    remove: (id: string) => setProjects((current) => current.filter((item) => item.id !== id)),
     append: (project: Project) => setProjects((current) => [...current, project]),
   };
 }

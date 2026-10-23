@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 
 type AppLayoutProps = {
   children: ReactNode;
+  onProjectsNavigate: () => void;
 };
 
-function AppLayout({ children }: AppLayoutProps) {
+function AppLayout({ children, onProjectsNavigate }: AppLayoutProps) {
   return (
     <div className="min-h-screen md:grid md:grid-cols-[220px_minmax(0,1fr)]">
       <a
@@ -30,6 +31,7 @@ function AppLayout({ children }: AppLayoutProps) {
           </p>
           <a
             href="#projects"
+            onClick={onProjectsNavigate}
             aria-current="page"
             className="flex items-center gap-3 rounded-lg border border-zinc-700/60 bg-zinc-800/70 px-3 py-3 text-sm font-medium text-zinc-100 hover:bg-zinc-800"
           >
