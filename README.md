@@ -7,7 +7,8 @@ macOS向けMVPを段階的に開発しています。
 
 ## 現在の実装範囲
 
-初期構築のみ完了しています。Tauri 2のウィンドウにReactの起動画面を表示します。
+初期構築と基本レイアウトが完了しています。サイドバーとホーム画面に、プロジェクト一覧の空状態を表示します。
+プロジェクト追加・設定は準備中のため無効表示です。
 プロジェクト管理、保存、Git情報取得、エディタ起動などは今後追加します。
 
 ## 技術構成
@@ -52,6 +53,8 @@ npm run tauri build -- --debug --no-bundle
 ## ディレクトリ構成
 
 - `src/`: React UIとスタイル
+- `src/components/`: アプリ共通のレイアウト
+- `src/pages/`: 画面ごとのUI
 - `src-tauri/src/`: Rustのアプリ起動処理
 - `src-tauri/tauri.conf.json`: アプリ、ウィンドウ、CSP、ビルド設定
 - `src-tauri/capabilities/`: ウィンドウに許可するTauriの権限
