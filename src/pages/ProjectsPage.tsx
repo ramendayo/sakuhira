@@ -1,4 +1,25 @@
+import { useRef, useState } from "react";
+import ProjectForm from "../components/ProjectForm";
+import { useProjects } from "../hooks/useProjects";
+import type { Project } from "../types/project";
+
 function ProjectsPage() {
+  const { projects, status, error, retry, append } = useProjects();
+  const [showForm, setShowForm] = useState(false);
+  const [notice, setNotice] = useState("");
+  const addButton = useRef<HTMLButtonElement>(null);
+
+  function closeForm() {
+    setShowForm(false);
+    addButton.current?.focus();
+  }
+
+  function registered(project: Project) {
+    append(project);
+    setNotice(`「${project.name}」を登録しました。`);
+    closeForm();
+  }
+
   return (
     <section id="projects" aria-labelledby="projects-heading">
       <header className="border-b border-zinc-800 px-6 py-8 lg:px-10">
@@ -14,9 +35,12 @@ function ProjectsPage() {
           </div>
           <button
             type="button"
-            disabled
-            aria-describedby="registration-notice"
-            className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-400 disabled:cursor-not-allowed disabled:opacity-70"
+            ref={addButton}
+            disabled={status !== "ready"}
+            aria-expanded={showForm}
+            aria-controls="project-registration"
+            onClick={() => { setShowForm(true); setNotice(""); }}
+            className="rounded-lg bg-teal-300 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-teal-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span aria-hidden="true" className="mr-2">+</span>
             プロジェクトを追加
@@ -25,41 +49,65 @@ function ProjectsPage() {
       </header>
 
       <div className="px-6 py-8 lg:px-10">
-        <div className="mb-5 flex items-center gap-3">
-          <h2 className="text-sm font-medium text-zinc-300">すべてのプロジェクト</h2>
-          <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-xs text-zinc-400">
-            0 件
-          </span>
+        <p role="status" className="mb-4 text-sm text-teal-300">{notice}</p>
+        <div id="project-registration">
+          {showForm && <ProjectForm onSaved={registered} onCancel={closeForm} />}
         </div>
-
-        <div className="flex min-h-80 items-center justify-center rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-900/30 px-6 py-14 text-center">
-          <div className="max-w-sm">
-            <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-teal-300">
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="size-6"
-              >
-                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-                <path d="M9 14h6m-3-3v6" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-zinc-100">
-              まだプロジェクトがありません
-            </h3>
-            <p className="mt-3 text-sm leading-7 text-zinc-400">
-              プロジェクトを登録すると、Gitの状態や作業メモをここから確認できます。
-            </p>
-            <p id="registration-notice" className="mt-6 text-xs leading-6 text-zinc-500">
-              プロジェクト登録は準備中です。
-            </p>
+        {status === "loading" && <p role="status" className="text-sm text-zinc-400">プロジェクトを読み込み中…</p>}
+        {status === "error" && (
+          <div className="rounded-xl border border-red-400/30 bg-red-400/5 p-5">
+            <p role="alert" className="break-words text-sm leading-6 text-red-300">{error}</p>
+            <button type="button" onClick={retry} className="mt-4 rounded-lg border border-zinc-600 px-4 py-2 text-sm hover:bg-zinc-800">再読み込み</button>
           </div>
-        </div>
+        )}
+        {status === "ready" && (
+          <>
+            <div className="mb-5 flex items-center gap-3">
+              <h2 className="text-sm font-medium text-zinc-300">すべてのプロジェクト</h2>
+              <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-xs text-zinc-400">
+                {projects.length} 件
+              </span>
+            </div>
+
+            {projects.length > 0 ? (
+              <ul className="grid gap-4 lg:grid-cols-2" aria-label="登録済みプロジェクト">
+                {projects.map((project) => (
+                  <li key={project.id} className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+                    <h3 className="break-words text-lg font-medium">{project.name}</h3>
+                    <p className="mt-3 break-all font-mono text-xs leading-6 text-zinc-400">{project.path}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : <div className="flex min-h-80 items-center justify-center rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-900/30 px-6 py-14 text-center">
+              <div className="max-w-sm">
+                <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-teal-300">
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-6"
+                  >
+                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                    <path d="M9 14h6m-3-3v6" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-zinc-100">
+                  まだプロジェクトがありません
+                </h3>
+                <p className="mt-3 text-sm leading-7 text-zinc-400">
+                  プロジェクトを登録すると、Gitの状態や作業メモをここから確認できます。
+                </p>
+                <p className="mt-6 text-xs leading-6 text-zinc-400">
+                  「プロジェクトを追加」から、最初のフォルダを登録しましょう。
+                </p>
+              </div>
+            </div>}
+          </>
+        )}
       </div>
     </section>
   );
