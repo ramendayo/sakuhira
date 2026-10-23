@@ -32,6 +32,21 @@ pub fn remove_project(store: State<'_, ProjectStore>, project: Project) -> Resul
     store.remove(&project)
 }
 
+#[tauri::command]
+pub async fn get_git_status(
+    store: State<'_, ProjectStore>,
+    project_id: String,
+) -> Result<crate::git_status::GitStatus, String> {
+    let project = store
+        .list()?
+        .into_iter()
+        .find(|project| project.id == project_id)
+        .ok_or("このプロジェクトは登録されていません。一覧を再読み込みしてください。")?;
+    tauri::async_runtime::spawn_blocking(move || crate::git_status::read(Path::new(&project.path)))
+        .await
+        .map_err(|error| format!("Gitの状態取得を完了できません: {error}"))?
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SelectedDirectory {

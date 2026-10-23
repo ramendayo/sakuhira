@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import ProjectDetails from "./ProjectDetails";
+import ProjectGitStatus from "../components/ProjectGitStatus";
 import ProjectForm from "../components/ProjectForm";
 import { useProjects } from "../hooks/useProjects";
 import type { Project } from "../types/project";
@@ -105,6 +106,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
                   <li key={project.id} className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
                     <h3 className="break-words text-lg font-medium">{project.name}</h3>
                     <p className="mt-3 break-all font-mono text-xs leading-6 text-zinc-400">{project.path}</p>
+                    <ProjectGitStatus project={project} />
                     <button type="button" aria-label={`${project.name}の詳細を開く`} onClick={() => {
                       setShowForm(false);
                       onSelect(project.id);

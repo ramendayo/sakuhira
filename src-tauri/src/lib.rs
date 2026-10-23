@@ -1,4 +1,5 @@
 mod commands;
+mod git_status;
 mod projects;
 
 use tauri::Manager;
@@ -13,6 +14,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_projects,
+            commands::get_git_status,
             commands::add_project,
             commands::update_project,
             commands::remove_project,

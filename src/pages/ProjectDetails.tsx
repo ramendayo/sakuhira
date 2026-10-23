@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ProjectGitStatus from "../components/ProjectGitStatus";
 import ProjectForm from "../components/ProjectForm";
 import { errorMessage, removeProject } from "../services/projects";
 import type { Project } from "../types/project";
@@ -98,6 +99,8 @@ function ProjectDetails({ project, onBack, onUpdated, onRemoved }: ProjectDetail
           )}
         </div>
       )}
+
+      {mode === "view" && <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/50 px-6 pb-6"><ProjectGitStatus project={project} /></div>}
 
       {mode === "remove" && (
         <section aria-labelledby="removal-heading" aria-busy={pending} className="mt-6 rounded-xl border border-red-400/30 bg-red-400/5 p-6">

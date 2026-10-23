@@ -14,6 +14,10 @@ vi.mock("../services/projects", async (importOriginal) => ({
   selectProjectDirectory: vi.fn(),
 }));
 
+vi.mock("../services/git", () => ({
+  getGitStatus: vi.fn(async () => ({ kind: "notRepository" })),
+}));
+
 const project: Project = { id: "project-id", name: "Reentry", path: "/projects/Reentry" };
 
 beforeEach(() => {
