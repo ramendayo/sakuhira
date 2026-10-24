@@ -18,7 +18,7 @@ vi.mock("../services/git", () => ({
   getGitStatus: vi.fn(async () => ({ kind: "notRepository" })),
 }));
 
-const project: Project = { id: "project-id", name: "Reentry", path: "/projects/Reentry" };
+const project: Project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -63,7 +63,7 @@ describe("project registration", () => {
     expect(screen.getByRole("form")).toBeTruthy();
     finishSave(project);
     expect(await screen.findByRole("heading", { name: project.name })).toBeTruthy();
-    expect(screen.queryByRole("form")).toBeNull();
+    expect(screen.queryByRole("form", { name: /プロジェクトを/ })).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "プロジェクトを追加" }));
   });
 
@@ -100,7 +100,7 @@ describe("project registration", () => {
     await user.click(screen.getByRole("button", { name: "フォルダを選択" }));
     expect((await screen.findByRole("alert")).textContent).toBe("選択に失敗しました");
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
-    expect(screen.queryByRole("form")).toBeNull();
+    expect(screen.queryByRole("form", { name: /プロジェクトを/ })).toBeNull();
     expect(api.addProject).not.toHaveBeenCalled();
   });
 
@@ -135,7 +135,7 @@ describe("project details", () => {
   });
 
   it("prepopulates editing, persists changes, and updates the list", async () => {
-    const updated = { ...project, name: "Renamed", path: "/new/path" };
+    const updated = { ...project, name: "Renamed", path: "/new/path", launchUrl: null };
     vi.mocked(api.updateProject).mockResolvedValue(updated);
     const user = await openDetails();
     await user.click(screen.getByRole("button", { name: "編集する" }));
@@ -164,7 +164,7 @@ describe("project details", () => {
     expect((screen.getByLabelText("プロジェクト名") as HTMLInputElement).value).toBe("Reentry edited");
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(screen.getByRole("heading", { name: project.name })).toBeTruthy();
-    expect(screen.queryByRole("form")).toBeNull();
+    expect(screen.queryByRole("form", { name: /プロジェクトを/ })).toBeNull();
   });
 
   it("requires confirmation, permits cancellation, and sends removal once", async () => {
@@ -208,7 +208,7 @@ describe("project details", () => {
 });
 
 it("does not close another project's details when an earlier removal finishes", async () => {
-  const other = { id: "other", name: "Other", path: "/other" };
+  const other = { id: "other", name: "Other", path: "/other", launchUrl: null };
   let finishRemoval!: () => void;
   vi.mocked(api.removeProject).mockImplementation(() => new Promise<void>((resolve) => { finishRemoval = resolve; }));
   const user = await openDetails([project, other]);

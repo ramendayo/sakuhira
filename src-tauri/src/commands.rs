@@ -85,3 +85,24 @@ pub async fn select_project_directory(
     .await
     .map_err(|error| format!("フォルダ選択を完了できません: {error}"))?
 }
+
+#[tauri::command(async)]
+pub fn set_project_launch_url(
+    store: State<'_, ProjectStore>,
+    project: Project,
+    url: Option<String>,
+) -> Result<Project, String> {
+    store.set_launch_url(&project, url.as_deref())
+}
+
+#[tauri::command]
+pub async fn resume_project(
+    app: tauri::AppHandle,
+    store: State<'_, ProjectStore>,
+    project: Project,
+) -> Result<crate::launch::ResumeReport, String> {
+    let project = store.get_matching(&project)?;
+    tauri::async_runtime::spawn_blocking(move || crate::launch::resume(&app, &project))
+        .await
+        .map_err(|error| format!("起動処理を完了できません: {error}"))?
+}

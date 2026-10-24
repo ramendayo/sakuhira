@@ -14,6 +14,8 @@ pub struct Project {
     pub id: String,
     pub name: String,
     pub path: String,
+    #[serde(default, rename = "launchUrl")]
+    pub launch_url: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -105,6 +107,7 @@ impl ProjectStore {
         let mut ids = HashSet::new();
         let mut paths = HashSet::new();
         for project in &document.projects {
+            crate::launch::normalize_url(project.launch_url.as_deref())?;
             // 登録後に削除・移動されたフォルダでも、保存済み情報は読み込む。
             if Uuid::parse_str(&project.id).is_err()
                 || project.name.trim().is_empty()
@@ -149,6 +152,7 @@ impl ProjectStore {
                 id: Uuid::new_v4().to_string(),
                 name,
                 path,
+                launch_url: None,
             };
             projects.push(project.clone());
             Ok(project)
@@ -175,6 +179,7 @@ impl ProjectStore {
                 id: expected.id.clone(),
                 name,
                 path,
+                launch_url: expected.launch_url.clone(),
             };
             projects[index] = project.clone();
             Ok(project)
@@ -186,6 +191,22 @@ impl ProjectStore {
             let index = matching_project(projects, expected)?;
             projects.remove(index);
             Ok(())
+        })
+    }
+
+    pub fn get_matching(&self, expected: &Project) -> Result<Project, String> {
+        let _lock = self.lock()?;
+        let document = self.read()?;
+        let index = matching_project(&document.projects, expected)?;
+        Ok(document.projects[index].clone())
+    }
+
+    pub fn set_launch_url(&self, expected: &Project, url: Option<&str>) -> Result<Project, String> {
+        let url = crate::launch::normalize_url(url)?;
+        self.change(|projects| {
+            let index = matching_project(projects, expected)?;
+            projects[index].launch_url = url;
+            Ok(projects[index].clone())
         })
     }
 

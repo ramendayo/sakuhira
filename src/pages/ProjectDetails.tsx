@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import ResumeProject from "../components/ResumeProject";
+import ProjectLaunchSettings from "../components/ProjectLaunchSettings";
 import ProjectGitStatus from "../components/ProjectGitStatus";
 import ProjectForm from "../components/ProjectForm";
 import { errorMessage, removeProject } from "../services/projects";
@@ -99,6 +101,9 @@ function ProjectDetails({ project, onBack, onUpdated, onRemoved }: ProjectDetail
           )}
         </div>
       )}
+
+      {mode === "view" && <ResumeProject project={project} />}
+      {mode === "view" && <ProjectLaunchSettings project={project} onSaved={onUpdated} />}
 
       {mode === "view" && <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/50 px-6 pb-6"><ProjectGitStatus project={project} /></div>}
 

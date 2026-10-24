@@ -255,3 +255,64 @@ fn corrupted_document_is_preserved_during_edit_and_removal() {
     assert!(store.remove(&project).is_err());
     assert_eq!(fs::read_to_string(file).unwrap(), "{corrupt");
 }
+
+#[test]
+fn older_json_without_launch_url_loads_without_rewriting() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Legacy", root.path()).unwrap();
+    let file = store.directory.join("projects.json");
+    let mut json: serde_json::Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    json["projects"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("launchUrl");
+    let bytes = serde_json::to_vec(&json).unwrap();
+    fs::write(&file, &bytes).unwrap();
+    assert_eq!(store.list().unwrap(), vec![project]);
+    assert_eq!(fs::read(file).unwrap(), bytes);
+}
+
+#[test]
+fn launch_url_persists_survives_name_edits_and_can_be_cleared() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Original", root.path()).unwrap();
+    let configured = store
+        .set_launch_url(&project, Some("https://example.com"))
+        .unwrap();
+    assert_eq!(
+        configured.launch_url.as_deref(),
+        Some("https://example.com/")
+    );
+    assert!(store.get_matching(&project).is_err());
+    let edited = store.update(&configured, "Edited", root.path()).unwrap();
+    assert_eq!(edited.launch_url, configured.launch_url);
+    assert_eq!(
+        ProjectStore::new(store.directory.clone()).list().unwrap(),
+        vec![edited.clone()]
+    );
+    let cleared = store.set_launch_url(&edited, Some(" ")).unwrap();
+    assert_eq!(cleared.launch_url, None);
+    assert_eq!(cleared.id, project.id);
+}
+
+#[test]
+fn invalid_and_stale_launch_settings_preserve_saved_data() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Project", root.path()).unwrap();
+    let before = fs::read(store.directory.join("projects.json")).unwrap();
+    assert!(store.set_launch_url(&project, Some("file:///tmp")).is_err());
+    assert_eq!(
+        fs::read(store.directory.join("projects.json")).unwrap(),
+        before
+    );
+    let configured = store
+        .set_launch_url(&project, Some("https://example.com"))
+        .unwrap();
+    assert!(store.set_launch_url(&project, None).is_err());
+    assert_eq!(store.get_matching(&configured).unwrap(), configured);
+    store.remove(&configured).unwrap();
+    assert!(store.get_matching(&configured).is_err());
+}
