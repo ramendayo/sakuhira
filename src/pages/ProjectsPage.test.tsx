@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import * as api from "../services/projects";
+import { setProjectNotes } from "../services/notes";
 import type { Project } from "../types/project";
 
 vi.mock("../services/projects", async (importOriginal) => ({
@@ -18,7 +19,9 @@ vi.mock("../services/git", () => ({
   getGitStatus: vi.fn(async () => ({ kind: "notRepository" })),
 }));
 
-const project: Project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null };
+vi.mock("../services/notes", () => ({ setProjectNotes: vi.fn() }));
+
+const project: Project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -135,7 +138,7 @@ describe("project details", () => {
   });
 
   it("prepopulates editing, persists changes, and updates the list", async () => {
-    const updated = { ...project, name: "Renamed", path: "/new/path", launchUrl: null };
+    const updated = { ...project, name: "Renamed", path: "/new/path", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
     vi.mocked(api.updateProject).mockResolvedValue(updated);
     const user = await openDetails();
     await user.click(screen.getByRole("button", { name: "編集する" }));
@@ -208,7 +211,7 @@ describe("project details", () => {
 });
 
 it("does not close another project's details when an earlier removal finishes", async () => {
-  const other = { id: "other", name: "Other", path: "/other", launchUrl: null };
+  const other = { id: "other", name: "Other", path: "/other", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
   let finishRemoval!: () => void;
   vi.mocked(api.removeProject).mockImplementation(() => new Promise<void>((resolve) => { finishRemoval = resolve; }));
   const user = await openDetails([project, other]);
@@ -221,4 +224,68 @@ it("does not close another project's details when an earlier removal finishes", 
   await user.click(screen.getByRole("button", { name: /プロジェクト一覧に戻る/ }));
   expect(screen.getByText("1 件")).toBeTruthy();
   expect(screen.queryByRole("button", { name: `${project.name}の詳細を開く` })).toBeNull();
+});
+
+describe("project notes", () => {
+  it("saves work and next steps, restores focus, and shows a list preview", async () => {
+    const notes = { lastWork: "  保存処理を実装\nテストを追加", nextTask: "次は設定画面", updatedAt: 1792904400000 };
+    vi.mocked(setProjectNotes).mockResolvedValue({ ...project, notes });
+    const user = await openDetails();
+    expect(screen.getByText("メモはまだ保存されていません。")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "メモを編集" }));
+    expect(document.activeElement).toBe(screen.getByLabelText("前回の作業内容"));
+    await user.type(screen.getByLabelText("前回の作業内容"), notes.lastWork);
+    await user.type(screen.getByLabelText("次にやること"), notes.nextTask);
+    await user.click(screen.getByRole("button", { name: "メモを保存" }));
+    expect(await screen.findByText("作業メモを保存しました。")).toBeTruthy();
+    expect(setProjectNotes).toHaveBeenCalledWith(project, notes.lastWork, notes.nextTask);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "メモを編集" }));
+    expect(document.querySelector("time")?.getAttribute("datetime")).toBe(new Date(notes.updatedAt).toISOString());
+    await user.click(screen.getByRole("button", { name: /プロジェクト一覧に戻る/ }));
+    expect(screen.getByText(notes.nextTask)).toBeTruthy();
+    expect(screen.getByText(/保存処理を実装/)).toBeTruthy();
+  });
+
+  it("prefills saved notes and discards cancelled edits without saving", async () => {
+    const saved = { ...project, notes: { lastWork: "Existing work", nextTask: "Existing next", updatedAt: 1792904400000 } };
+    const user = await openDetails([saved]);
+    await user.click(screen.getByRole("button", { name: "メモを編集" }));
+    expect((screen.getByLabelText("前回の作業内容") as HTMLTextAreaElement).value).toBe("Existing work");
+    await user.type(screen.getByLabelText("前回の作業内容"), " unsaved");
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+    expect(screen.getByText("Existing work")).toBeTruthy();
+    expect(screen.queryByText("Existing work unsaved")).toBeNull();
+    expect(setProjectNotes).not.toHaveBeenCalled();
+  });
+
+  it("keeps failed drafts for retry and blocks duplicate saves and cancellation while saving", async () => {
+    let finish!: (value: Project) => void;
+    vi.mocked(setProjectNotes).mockRejectedValueOnce("保存に失敗しました").mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const user = await openDetails();
+    await user.click(screen.getByRole("button", { name: "メモを編集" }));
+    await user.type(screen.getByLabelText("前回の作業内容"), "Draft work");
+    await user.click(screen.getByRole("button", { name: "メモを保存" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("保存に失敗しました");
+    expect((screen.getByLabelText("前回の作業内容") as HTMLTextAreaElement).value).toBe("Draft work");
+    await user.click(screen.getByRole("button", { name: "メモを保存" }));
+    await user.click(screen.getByRole("button", { name: "保存中…" }));
+    expect(setProjectNotes).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "キャンセル" }).matches(":disabled")).toBe(true);
+    finish({ ...project, notes: { lastWork: "Draft work", nextTask: "", updatedAt: 1792904400000 } });
+    expect(await screen.findByText("作業メモを保存しました。")).toBeTruthy();
+  });
+
+  it("allows clearing both notes and keeps the saved update time visible", async () => {
+    const saved = { ...project, notes: { lastWork: "Old", nextTask: "Next", updatedAt: 1792904400000 } };
+    vi.mocked(setProjectNotes).mockResolvedValue({ ...saved, notes: { lastWork: "", nextTask: "", updatedAt: 1792904401000 } });
+    const user = await openDetails([saved]);
+    await user.click(screen.getByRole("button", { name: "メモを編集" }));
+    await user.clear(screen.getByLabelText("前回の作業内容"));
+    await user.clear(screen.getByLabelText("次にやること"));
+    await user.click(screen.getByRole("button", { name: "メモを保存" }));
+    await screen.findByText("作業メモを保存しました。");
+    expect(setProjectNotes).toHaveBeenCalledWith(saved, "", "");
+    expect(screen.getAllByText("未記入")).toHaveLength(2);
+    expect(document.querySelector("time")).not.toBeNull();
+  });
 });

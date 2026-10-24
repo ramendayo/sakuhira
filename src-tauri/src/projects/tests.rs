@@ -316,3 +316,154 @@ fn invalid_and_stale_launch_settings_preserve_saved_data() {
     store.remove(&configured).unwrap();
     assert!(store.get_matching(&configured).is_err());
 }
+
+#[test]
+fn older_json_without_notes_loads_empty_notes_without_rewriting() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Legacy", root.path()).unwrap();
+    let file = store.directory.join("projects.json");
+    let mut json: serde_json::Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    json["projects"][0].as_object_mut().unwrap().remove("notes");
+    let bytes = serde_json::to_vec(&json).unwrap();
+    fs::write(&file, &bytes).unwrap();
+    assert_eq!(store.list().unwrap(), vec![project]);
+    assert_eq!(fs::read(file).unwrap(), bytes);
+}
+
+#[test]
+fn notes_preserve_whitespace_and_survive_reopening_and_other_edits() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Project", root.path()).unwrap();
+    let last_work = "  保存処理を追加\n    テストを確認\n";
+    let next_task = "次の作業\n- エラー表示を確認";
+    let before = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    let saved = store
+        .set_notes(&project, last_work.into(), next_task.into())
+        .unwrap();
+    let after = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    assert_eq!(saved.notes.last_work, last_work);
+    assert_eq!(saved.notes.next_task, next_task);
+    assert!((before..=after).contains(&saved.notes.updated_at.unwrap()));
+    assert_eq!(
+        ProjectStore::new(store.directory.clone()).list().unwrap(),
+        vec![saved.clone()]
+    );
+    let renamed = store.update(&saved, "Renamed", root.path()).unwrap();
+    let configured = store
+        .set_launch_url(&renamed, Some("https://example.com"))
+        .unwrap();
+    assert_eq!(configured.notes, saved.notes);
+    assert_eq!(configured.id, project.id);
+}
+
+#[test]
+fn notes_can_be_cleared_and_unchanged_resaves_keep_the_timestamp() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Project", root.path()).unwrap();
+    let first = store
+        .set_notes(&project, String::new(), String::new())
+        .unwrap();
+    assert!(first.notes.updated_at.is_some());
+    let saved = store
+        .set_notes(&first, "Previous work".into(), "Next task".into())
+        .unwrap();
+    let unchanged = store
+        .set_notes(
+            &saved,
+            saved.notes.last_work.clone(),
+            saved.notes.next_task.clone(),
+        )
+        .unwrap();
+    assert_eq!(unchanged.notes, saved.notes);
+    let cleared = store
+        .set_notes(&unchanged, String::new(), String::new())
+        .unwrap();
+    assert_eq!(cleared.notes.last_work, "");
+    assert_eq!(cleared.notes.next_task, "");
+    assert!(cleared.notes.updated_at.is_some());
+}
+
+#[test]
+fn invalid_and_stale_note_saves_preserve_existing_data() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Project", root.path()).unwrap();
+    let saved = store
+        .set_notes(&project, "Newer work".into(), "Next".into())
+        .unwrap();
+    let before = fs::read(store.directory.join("projects.json")).unwrap();
+    assert!(
+        store
+            .set_notes(&project, "Stale".into(), "".into())
+            .is_err()
+    );
+    assert!(
+        store
+            .set_notes(&saved, "a".repeat(10_001), "".into())
+            .is_err()
+    );
+    assert!(
+        store
+            .set_notes(&saved, "".into(), "😀".repeat(5_001))
+            .is_err()
+    );
+    assert_eq!(
+        fs::read(store.directory.join("projects.json")).unwrap(),
+        before
+    );
+    store.remove(&saved).unwrap();
+    assert!(
+        store
+            .set_notes(&saved, "Resurrected".into(), "".into())
+            .is_err()
+    );
+}
+
+#[test]
+fn note_updates_do_not_affect_other_projects_or_require_the_folder_to_exist() {
+    let root = tempdir().unwrap();
+    let folder = root.path().join("folder");
+    fs::create_dir(&folder).unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let first = store.add("First", &folder).unwrap();
+    let second = store.add("Second", root.path()).unwrap();
+    fs::remove_dir(folder).unwrap();
+    let updated = store
+        .set_notes(&first, "Recover this work".into(), "Locate folder".into())
+        .unwrap();
+    assert_eq!(store.list().unwrap(), vec![updated, second]);
+}
+
+#[test]
+fn corrupt_notes_and_invalid_timestamps_are_reported_without_overwriting() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Project", root.path()).unwrap();
+    let file = store.directory.join("projects.json");
+    let original = fs::read(&file).unwrap();
+    for notes in [
+        serde_json::json!({"lastWork":"x"}),
+        serde_json::json!({"lastWork":"", "nextTask":"", "updatedAt":8_640_000_000_000_001u64}),
+    ] {
+        let mut json: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        json["projects"][0]["notes"] = notes;
+        let bytes = serde_json::to_vec(&json).unwrap();
+        fs::write(&file, &bytes).unwrap();
+        assert!(store.list().is_err());
+        assert!(
+            store
+                .set_notes(&project, "Replacement".into(), "".into())
+                .is_err()
+        );
+        assert_eq!(fs::read(&file).unwrap(), bytes);
+    }
+}

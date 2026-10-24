@@ -4,6 +4,16 @@ use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
 #[tauri::command(async)]
+pub fn set_project_notes(
+    store: State<'_, ProjectStore>,
+    project: Project,
+    last_work: String,
+    next_task: String,
+) -> Result<Project, String> {
+    store.set_notes(&project, last_work, next_task)
+}
+
+#[tauri::command(async)]
 pub fn list_projects(store: State<'_, ProjectStore>) -> Result<Vec<Project>, String> {
     store.list()
 }

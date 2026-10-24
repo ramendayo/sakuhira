@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ProjectNotes from "../components/ProjectNotes";
 import ResumeProject from "../components/ResumeProject";
 import ProjectLaunchSettings from "../components/ProjectLaunchSettings";
 import ProjectGitStatus from "../components/ProjectGitStatus";
@@ -14,22 +15,24 @@ type ProjectDetailsProps = {
 };
 
 function ProjectDetails({ project, onBack, onUpdated, onRemoved }: ProjectDetailsProps) {
-  const [mode, setMode] = useState<"view" | "edit" | "remove">("view");
+  const [mode, setMode] = useState<"view" | "edit" | "remove" | "notes">("view");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
   const removeButton = useRef<HTMLButtonElement>(null);
+  const notesEditButton = useRef<HTMLButtonElement>(null);
   const cancelRemove = useRef<HTMLButtonElement>(null);
 
-  const returnFocus = useRef<"edit" | "remove" | null>(null);
+  const returnFocus = useRef<"edit" | "remove" | "notes" | null>(null);
 
   useEffect(() => { heading.current?.focus(); }, []);
   useEffect(() => {
     if (mode === "remove") cancelRemove.current?.focus();
     if (mode === "view") {
       // 編集・確認画面を閉じた後は、その操作の起点へ戻す。
+      if (returnFocus.current === "notes") notesEditButton.current?.focus();
       if (returnFocus.current === "edit") editButton.current?.focus();
       if (returnFocus.current === "remove") removeButton.current?.focus();
     }
@@ -103,6 +106,15 @@ function ProjectDetails({ project, onBack, onUpdated, onRemoved }: ProjectDetail
       )}
 
       {mode === "view" && <ResumeProject project={project} />}
+      {(mode === "view" || mode === "notes") && <ProjectNotes
+        project={project}
+        editing={mode === "notes"}
+        editButtonRef={notesEditButton}
+        onEdit={() => { returnFocus.current = "notes"; setMode("notes"); setNotice(""); }}
+        onCancel={() => setMode("view")}
+        onSaved={(updated) => { onUpdated(updated); setMode("view"); setNotice("作業メモを保存しました。"); }}
+      />}
+
       {mode === "view" && <ProjectLaunchSettings project={project} onSaved={onUpdated} />}
 
       {mode === "view" && <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/50 px-6 pb-6"><ProjectGitStatus project={project} /></div>}

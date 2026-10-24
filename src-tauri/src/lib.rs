@@ -16,6 +16,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_projects,
+            commands::set_project_notes,
             commands::get_git_status,
             commands::set_project_launch_url,
             commands::resume_project,

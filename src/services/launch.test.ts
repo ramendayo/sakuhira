@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { resumeProject, setProjectLaunchUrl } from "./launch";
 
-const project = { id: "id", name: "Project", path: "/project", launchUrl: null };
+const project = { id: "id", name: "Project", path: "/project", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 beforeEach(() => vi.stubGlobal("isTauri", true));
 afterEach(() => { clearMocks(); vi.unstubAllGlobals(); });
 

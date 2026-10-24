@@ -8,6 +8,7 @@ fn project(path: &Path, url: Option<&str>) -> Project {
         name: "Fixture".into(),
         path: path.to_str().unwrap().into(),
         launch_url: url.map(str::to_owned),
+        notes: Default::default(),
     }
 }
 

@@ -6,7 +6,7 @@ import { getGitStatus } from "../services/git";
 import type { GitStatus } from "../types/git";
 
 vi.mock("../services/git", () => ({ getGitStatus: vi.fn() }));
-const project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null };
+const project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 const clean: GitStatus = {
   kind: "repository", head: { kind: "branch", name: "main", unborn: false },
   changedFiles: 0, rootPath: "/projects/Reentry",
@@ -63,7 +63,7 @@ it("refetches after path changes and ignores a late result from the old path", a
   vi.mocked(getGitStatus).mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }))
     .mockResolvedValueOnce({ ...clean, head: { kind: "branch", name: "new-path", unborn: false } });
   const { rerender } = render(<ProjectGitStatus project={project} />);
-  rerender(<ProjectGitStatus project={{ ...project, path: "/new/path", launchUrl: null }} />);
+  rerender(<ProjectGitStatus project={{ ...project, path: "/new/path", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } }} />);
   await screen.findByText("ブランチ: new-path");
   finishOld(clean);
   await waitFor(() => expect(screen.queryByText("ブランチ: main")).toBeNull());

@@ -4,6 +4,7 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{ErrorKind, Write},
     path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
 };
 use tempfile::NamedTempFile;
 use uuid::Uuid;
@@ -16,6 +17,32 @@ pub struct Project {
     pub path: String,
     #[serde(default, rename = "launchUrl")]
     pub launch_url: Option<String>,
+    #[serde(default)]
+    pub notes: ProjectNotes,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectNotes {
+    pub last_work: String,
+    pub next_task: String,
+    pub updated_at: Option<u64>,
+}
+
+fn validate_notes(notes: &ProjectNotes) -> Result<(), String> {
+    if notes.last_work.encode_utf16().count() > 10_000
+        || notes.next_task.encode_utf16().count() > 10_000
+    {
+        return Err("作業メモは各欄10,000文字以内で入力してください。".into());
+    }
+    // UIのDateで表示できる範囲に制限し、不正な日時を正常な保存情報として扱わない。
+    if notes
+        .updated_at
+        .is_some_and(|timestamp| timestamp > 8_640_000_000_000_000)
+    {
+        return Err("作業メモの更新日時が不正です。".into());
+    }
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -108,6 +135,7 @@ impl ProjectStore {
         let mut paths = HashSet::new();
         for project in &document.projects {
             crate::launch::normalize_url(project.launch_url.as_deref())?;
+            validate_notes(&project.notes)?;
             // 登録後に削除・移動されたフォルダでも、保存済み情報は読み込む。
             if Uuid::parse_str(&project.id).is_err()
                 || project.name.trim().is_empty()
@@ -153,6 +181,7 @@ impl ProjectStore {
                 name,
                 path,
                 launch_url: None,
+                notes: ProjectNotes::default(),
             };
             projects.push(project.clone());
             Ok(project)
@@ -180,6 +209,7 @@ impl ProjectStore {
                 name,
                 path,
                 launch_url: expected.launch_url.clone(),
+                notes: expected.notes.clone(),
             };
             projects[index] = project.clone();
             Ok(project)
@@ -206,6 +236,39 @@ impl ProjectStore {
         self.change(|projects| {
             let index = matching_project(projects, expected)?;
             projects[index].launch_url = url;
+            Ok(projects[index].clone())
+        })
+    }
+
+    pub fn set_notes(
+        &self,
+        expected: &Project,
+        last_work: String,
+        next_task: String,
+    ) -> Result<Project, String> {
+        let mut notes = ProjectNotes {
+            last_work,
+            next_task,
+            updated_at: None,
+        };
+        validate_notes(&notes)?;
+        self.change(|projects| {
+            let index = matching_project(projects, expected)?;
+            if projects[index].notes.updated_at.is_none()
+                || projects[index].notes.last_work != notes.last_work
+                || projects[index].notes.next_task != notes.next_task
+            {
+                let millis = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map_err(|error| format!("更新日時を取得できません: {error}"))?
+                    .as_millis();
+                notes.updated_at = Some(
+                    u64::try_from(millis)
+                        .map_err(|error| format!("更新日時を保存できません: {error}"))?,
+                );
+                validate_notes(&notes)?;
+                projects[index].notes = notes;
+            }
             Ok(projects[index].clone())
         })
     }

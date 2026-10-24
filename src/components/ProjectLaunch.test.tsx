@@ -9,7 +9,7 @@ import type { Project } from "../types/project";
 import type { ResumeReport } from "../types/launch";
 
 vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
-const project: Project = { id: "id", name: "Reentry", path: "/projects/Reentry", launchUrl: null };
+const project: Project = { id: "id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 const success: ResumeReport = { editor: { status: "success" }, browser: null };
 beforeEach(() => vi.resetAllMocks());
 afterEach(cleanup);
