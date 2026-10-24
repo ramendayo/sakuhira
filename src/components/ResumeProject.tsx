@@ -40,7 +40,7 @@ function ResumeAction({ project }: { project: Project }) {
       <div className="mt-3 space-y-2 break-words text-xs leading-6">
         {error && <p role="alert" className="text-red-300">{error}</p>}
         {report && <>
-          <Outcome name="VS Code" result={report.editor} />
+          <Outcome name={report.editorName} result={report.editor} />
           {report.browser ? <Outcome name="ブラウザ" result={report.browser} /> : <p role="status" className="text-zinc-400">URL未設定のため、ブラウザは開きませんでした。</p>}
           <p className="text-zinc-400">起動先での読み込み完了は確認していません。</p>
         </>}

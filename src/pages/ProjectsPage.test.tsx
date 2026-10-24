@@ -21,6 +21,8 @@ vi.mock("../services/git", () => ({
 
 vi.mock("../services/notes", () => ({ setProjectNotes: vi.fn() }));
 
+vi.mock("../services/settings", () => ({ getSettings: vi.fn(async () => ({ defaultEditor: "vsCode" })) }));
+
 const project: Project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 
 beforeEach(() => {

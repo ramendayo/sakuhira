@@ -1,4 +1,5 @@
 use crate::projects::{Project, directory_path};
+use crate::settings::Editor;
 use serde::Serialize;
 use std::path::Path;
 use tauri_plugin_opener::OpenerExt;
@@ -50,20 +51,32 @@ impl From<Result<(), String>> for LaunchOutcome {
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct ResumeReport {
+    #[serde(rename = "editorName")]
+    pub editor_name: String,
     pub editor: LaunchOutcome,
     pub browser: Option<LaunchOutcome>,
 }
 
-pub fn resume(app: &tauri::AppHandle, project: &Project) -> Result<ResumeReport, String> {
-    resume_with(project, open_vscode, |url| {
-        app.opener()
-            .open_url(url, None::<&str>)
-            .map_err(|error| format!("既定ブラウザにURLを渡せません: {error}"))
-    })
+pub fn resume(
+    app: &tauri::AppHandle,
+    project: &Project,
+    selected: Editor,
+) -> Result<ResumeReport, String> {
+    resume_with(
+        project,
+        selected,
+        |path| open_editor(selected, path),
+        |url| {
+            app.opener()
+                .open_url(url, None::<&str>)
+                .map_err(|error| format!("既定ブラウザにURLを渡せません: {error}"))
+        },
+    )
 }
 
 fn resume_with(
     project: &Project,
+    selected: Editor,
     editor: impl FnOnce(&str) -> Result<(), String>,
     browser: impl FnOnce(&str) -> Result<(), String>,
 ) -> Result<ResumeReport, String> {
@@ -72,31 +85,37 @@ fn resume_with(
     let url = normalize_url(project.launch_url.as_deref())?;
     let editor = editor(&path).into();
     let browser = url.as_deref().map(|url| browser(url).into());
-    Ok(ResumeReport { editor, browser })
+    Ok(ResumeReport {
+        editor_name: selected.name().into(),
+        editor,
+        browser,
+    })
 }
 
 #[cfg(target_os = "macos")]
-fn open_vscode(path: &str) -> Result<(), String> {
+fn open_editor(editor: Editor, path: &str) -> Result<(), String> {
     use std::process::{Command, Stdio};
-    // アプリ識別子と実行ファイルは固定し、パスは独立した引数で渡す。
+    // 起動対象と実行ファイルは固定し、パスは独立した引数で渡す。
+    let (selector, target) = editor.macos_target();
     let output = Command::new("/usr/bin/open")
-        .args(["-b", "com.microsoft.VSCode", path])
+        .args([selector, target, path])
         .stdin(Stdio::null())
         .output()
-        .map_err(|error| format!("VS Codeへの起動要求に失敗しました: {error}"))?;
+        .map_err(|error| format!("{}への起動要求に失敗しました: {error}", editor.name()))?;
     if output.status.success() {
         Ok(())
     } else {
         Err(format!(
-            "VS Codeを開けません。インストール状況を確認してください: {}",
+            "{}を開けません。インストール状況を確認してください: {}",
+            editor.name(),
             String::from_utf8_lossy(&output.stderr).trim()
         ))
     }
 }
 
 #[cfg(not(target_os = "macos"))]
-fn open_vscode(_path: &str) -> Result<(), String> {
-    Err("VS Codeの起動は現在macOSのみ対応しています。".into())
+fn open_editor(_editor: Editor, _path: &str) -> Result<(), String> {
+    Err("エディタの起動は現在macOSのみ対応しています。".into())
 }
 
 #[cfg(test)]

@@ -2,10 +2,12 @@ import type { ReactNode } from "react";
 
 type AppLayoutProps = {
   children: ReactNode;
+  activePage: "projects" | "settings";
+  onSettingsNavigate: () => void;
   onProjectsNavigate: () => void;
 };
 
-function AppLayout({ children, onProjectsNavigate }: AppLayoutProps) {
+function AppLayout({ children, activePage, onProjectsNavigate, onSettingsNavigate }: AppLayoutProps) {
   return (
     <div className="min-h-screen md:grid md:grid-cols-[220px_minmax(0,1fr)]">
       <a
@@ -32,8 +34,8 @@ function AppLayout({ children, onProjectsNavigate }: AppLayoutProps) {
           <a
             href="#projects"
             onClick={onProjectsNavigate}
-            aria-current="page"
-            className="flex items-center gap-3 rounded-lg border border-zinc-700/60 bg-zinc-800/70 px-3 py-3 text-sm font-medium text-zinc-100 hover:bg-zinc-800"
+            aria-current={activePage === "projects" ? "page" : undefined}
+            className={`flex items-center gap-3 rounded-lg border px-3 py-3 text-sm font-medium hover:bg-zinc-800 ${activePage === "projects" ? "border-zinc-700/60 bg-zinc-800/70 text-zinc-100" : "border-transparent text-zinc-400"}`}
           >
             <span aria-hidden="true" className="size-2 rounded-full bg-teal-300" />
             プロジェクト
@@ -41,14 +43,9 @@ function AppLayout({ children, onProjectsNavigate }: AppLayoutProps) {
         </nav>
 
         <div className="mt-6 border-t border-zinc-800 pt-5 md:mt-auto">
-          <button
-            type="button"
-            disabled
-            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-zinc-500 disabled:cursor-not-allowed"
-          >
-            <span>設定</span>
-            <span className="text-xs">準備中</span>
-          </button>
+          <a href="#settings" onClick={onSettingsNavigate} aria-current={activePage === "settings" ? "page" : undefined} className={`block rounded-lg border px-3 py-3 text-sm hover:bg-zinc-800 ${activePage === "settings" ? "border-zinc-700/60 bg-zinc-800/70 text-zinc-100" : "border-transparent text-zinc-400"}`}>
+            設定
+          </a>
           <p className="mt-5 hidden px-3 text-xs leading-6 text-zinc-500 md:block">
             Your development workspace,
             <br />

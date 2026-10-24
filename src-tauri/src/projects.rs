@@ -1,12 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
-    fs::{self, File, OpenOptions},
-    io::{ErrorKind, Write},
+    fs::{self, File},
+    io::ErrorKind,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
-use tempfile::NamedTempFile;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -100,18 +99,7 @@ impl ProjectStore {
 
     // 別ウィンドウ・別プロセスの登録も、読み取りから保存まで直列化する。
     fn lock(&self) -> Result<File, String> {
-        fs::create_dir_all(&self.directory)
-            .map_err(|error| format!("保存先を作成できません: {error}"))?;
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(self.directory.join("projects.lock"))
-            .map_err(|error| format!("保存先を開けません: {error}"))?;
-        file.lock()
-            .map_err(|error| format!("保存先をロックできません: {error}"))?;
-        Ok(file)
+        crate::storage::lock(&self.directory, "projects.lock")
     }
 
     fn read(&self) -> Result<ProjectDocument, String> {
@@ -274,19 +262,7 @@ impl ProjectStore {
     }
 
     fn write(&self, document: &ProjectDocument) -> Result<(), String> {
-        let bytes = serde_json::to_vec_pretty(document)
-            .map_err(|error| format!("保存データを生成できません: {error}"))?;
-        // 保存先と同じディレクトリで一時ファイルを完成させ、途中のJSONを公開しない。
-        let mut temporary = NamedTempFile::new_in(&self.directory)
-            .map_err(|error| format!("一時ファイルを作成できません: {error}"))?;
-        temporary
-            .write_all(&bytes)
-            .and_then(|_| temporary.as_file().sync_all())
-            .map_err(|error| format!("プロジェクトを保存できません: {error}"))?;
-        temporary
-            .persist(self.directory.join("projects.json"))
-            .map_err(|error| format!("保存ファイルを置き換えられません: {error}"))?;
-        Ok(())
+        crate::storage::write_json(&self.directory, "projects.json", document)
     }
 }
 

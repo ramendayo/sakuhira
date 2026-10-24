@@ -3,6 +3,7 @@ export type LaunchOutcome =
   | { status: "error"; message: string };
 
 export type ResumeReport = {
+  editorName: string;
   editor: LaunchOutcome;
   browser: LaunchOutcome | null;
 };
