@@ -25,6 +25,27 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("moves keyboard focus to the page heading when navigating, including a failed project load", async () => {
+  const { listProjects } = await import("../services/projects");
+  vi.mocked(listProjects).mockRejectedValueOnce("プロジェクトを読み込めません");
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole("alert");
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "プロジェクト", level: 1 }));
+
+  screen.getByRole("link", { name: "設定" }).focus();
+  await user.keyboard("{Enter}");
+  await screen.findByLabelText("デフォルトエディタ");
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "設定", level: 1 }));
+  await user.tab();
+  expect(document.activeElement).toBe(screen.getByLabelText("デフォルトエディタ"));
+
+  screen.getByRole("link", { name: "プロジェクト" }).focus();
+  await user.keyboard("{Enter}");
+  await screen.findByRole("button", { name: "Exampleの詳細を開く" });
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "プロジェクト", level: 1 }));
+});
+
 it("saves a default editor, reloads it on return, and shows it in project details and launch results", async () => {
   const user = userEvent.setup();
   render(<App />);

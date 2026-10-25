@@ -20,6 +20,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   const addButton = useRef<HTMLButtonElement>(null);
 
   const listHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { listHeading.current?.focus(); }, []);
   const previousSelection = useRef<string | null>(null);
   useEffect(() => {
     if (previousSelection.current && !selectedId) listHeading.current?.focus();
