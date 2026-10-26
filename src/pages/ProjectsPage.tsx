@@ -18,7 +18,18 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects();
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
+  const [query, setQuery] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
   const addButton = useRef<HTMLButtonElement>(null);
+  const searchTerm = query.trim().toLowerCase();
+  const visibleProjects = projects.filter((project) =>
+    project.name.toLowerCase().includes(searchTerm) || project.path.toLowerCase().includes(searchTerm),
+  );
+
+  function clearSearch() {
+    setQuery("");
+    searchInput.current?.focus();
+  }
 
   const listHeading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { listHeading.current?.focus(); }, []);
@@ -35,6 +46,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
 
   function registered(project: Project) {
     append(project);
+    setQuery("");
     setNotice(`「${project.name}」を登録しました。`);
     closeForm();
   }
@@ -97,60 +109,72 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
         )}
         {status === "ready" && (
           <>
+            <div className="mb-5">
+              <label htmlFor="project-search" className="mb-2 block text-sm text-zinc-300">プロジェクトを検索</label>
+              <div className="flex flex-wrap gap-3">
+                <input id="project-search" ref={searchInput} type="search" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="名前・フォルダパスで検索" aria-controls="project-results" className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm" />
+                {query !== "" && <button type="button" onClick={clearSearch} className="rounded-lg border border-zinc-600 px-4 py-2.5 text-sm hover:bg-zinc-800">検索をクリア</button>}
+              </div>
+            </div>
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <h2 className="text-sm font-medium text-zinc-300">すべてのプロジェクト</h2>
               <span className="text-xs text-zinc-500">最近再開した順</span>
-              <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-xs text-zinc-400">
-                {projects.length} 件
+              <span role="status" aria-atomic="true" className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-xs text-zinc-400">
+                {searchTerm ? `${visibleProjects.length} / ${projects.length} 件` : `${projects.length} 件`}
               </span>
               <button type="button" onClick={retry} disabled={showForm} className="ml-auto rounded text-sm text-zinc-400 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-50">再読み込み</button>
             </div>
 
-            {projects.length > 0 ? (
-              <ul className="grid gap-4 lg:grid-cols-2" aria-label="登録済みプロジェクト">
-                {projects.map((project) => (
-                  <li key={project.id} className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
-                    <h3 className="break-words text-lg font-medium">{project.name}</h3>
-                    <p className="mt-3 break-all font-mono text-xs leading-6 text-zinc-400">{project.path}</p>
-                    <ProjectNotesPreview project={project} />
-                    <LastResumedAt timestamp={project.lastResumedAt} />
-                    <ResumeProject project={project} onResumed={recordResumed} />
-                    <ProjectGitStatus project={project} />
-                    <button type="button" aria-label={`${project.name}の詳細を開く`} onClick={() => {
-                      setShowForm(false);
-                      onSelect(project.id);
-                    }} className="mt-4 rounded text-sm font-medium text-teal-300 hover:text-teal-200">詳細を開く →</button>
-                  </li>
-                ))}
-              </ul>
-            ) : <div className="flex min-h-80 items-center justify-center rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-900/30 px-6 py-14 text-center">
-              <div className="max-w-sm">
-                <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-teal-300">
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="size-6"
-                  >
-                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-                    <path d="M9 14h6m-3-3v6" />
-                  </svg>
+            <div id="project-results">
+              {visibleProjects.length > 0 ? (
+                <ul className="grid gap-4 lg:grid-cols-2" aria-label="登録済みプロジェクト">
+                  {visibleProjects.map((project) => (
+                    <li key={project.id} className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+                      <h3 className="break-words text-lg font-medium">{project.name}</h3>
+                      <p className="mt-3 break-all font-mono text-xs leading-6 text-zinc-400">{project.path}</p>
+                      <ProjectNotesPreview project={project} />
+                      <LastResumedAt timestamp={project.lastResumedAt} />
+                      <ResumeProject project={project} onResumed={recordResumed} />
+                      <ProjectGitStatus project={project} />
+                      <button type="button" aria-label={`${project.name}の詳細を開く`} onClick={() => {
+                        setShowForm(false);
+                        onSelect(project.id);
+                      }} className="mt-4 rounded text-sm font-medium text-teal-300 hover:text-teal-200">詳細を開く →</button>
+                    </li>
+                  ))}
+                </ul>
+              ) : projects.length > 0 ? <div className="rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-900/30 px-6 py-14 text-center">
+                <h3 className="text-lg font-medium">一致するプロジェクトがありません</h3>
+                <p className="mt-3 text-sm leading-7 text-zinc-400">検索語を変えるか、検索をクリアしてください。</p>
+              </div> : <div className="flex min-h-80 items-center justify-center rounded-2xl border border-dashed border-zinc-700/70 bg-zinc-900/30 px-6 py-14 text-center">
+                <div className="max-w-sm">
+                  <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-teal-300">
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-6"
+                    >
+                      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                      <path d="M9 14h6m-3-3v6" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-zinc-100">
+                    まだプロジェクトがありません
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-zinc-400">
+                    プロジェクトを登録すると、Gitの状態や作業メモをここから確認できます。
+                  </p>
+                  <p className="mt-6 text-xs leading-6 text-zinc-400">
+                    「プロジェクトを追加」から、最初のフォルダを登録しましょう。
+                  </p>
                 </div>
-                <h3 className="text-lg font-medium text-zinc-100">
-                  まだプロジェクトがありません
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-zinc-400">
-                  プロジェクトを登録すると、Gitの状態や作業メモをここから確認できます。
-                </p>
-                <p className="mt-6 text-xs leading-6 text-zinc-400">
-                  「プロジェクトを追加」から、最初のフォルダを登録しましょう。
-                </p>
-              </div>
-            </div>}
+              </div>}
+            </div>
           </>
         )}
       </div>

@@ -67,6 +67,79 @@ it("sorts by resume history, updates it after launch without losing the report, 
   expect(resumeProject).toHaveBeenLastCalledWith({ ...project, lastResumedAt: 3000 });
 });
 
+describe("project search", () => {
+  const recent: Project = { ...project, id: "recent", name: "Reentry Docs", path: "/work/日本語/[draft]", lastResumedAt: 2000 };
+  const other: Project = { ...project, id: "other", name: "Website", path: "/work/website", notes: { ...project.notes, nextTask: "Reentry" } };
+
+  beforeEach(() => vi.mocked(api.listProjects).mockResolvedValue([project, other, recent]));
+
+  it("matches names and paths literally without case sensitivity and preserves resume order", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const search = await screen.findByRole("searchbox", { name: "プロジェクトを検索" });
+    const names = () => within(screen.getByRole("list", { name: "登録済みプロジェクト" })).getAllByRole("heading").map((heading) => heading.textContent);
+    await user.type(search, "  REENTRY  ");
+    expect(names()).toEqual(["Reentry Docs", "Reentry"]);
+    expect(screen.getByText("2 / 3 件")).toBeTruthy();
+    await user.clear(search);
+    await user.paste("/WORK/日本語/[draft]");
+    expect(names()).toEqual(["Reentry Docs"]);
+    await user.clear(search);
+    await user.type(search, "   ");
+    expect(names()).toEqual(["Reentry Docs", "Reentry", "Website"]);
+    expect(screen.getByText("3 件")).toBeTruthy();
+    expect(api.listProjects).toHaveBeenCalledTimes(1);
+    expect(api.updateProject).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes no matches from an empty registry and restores all projects on clear", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const search = await screen.findByRole("searchbox", { name: "プロジェクトを検索" });
+    await user.type(search, "missing");
+    expect(screen.getByText("0 / 3 件")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "一致するプロジェクトがありません" })).toBeTruthy();
+    expect(screen.queryByText("まだプロジェクトがありません")).toBeNull();
+    expect(screen.queryByRole("list", { name: "登録済みプロジェクト" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "検索をクリア" }));
+    expect((search as HTMLInputElement).value).toBe("");
+    expect(document.activeElement).toBe(search);
+    expect(screen.getByText("3 件")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /の詳細を開く/ })).toHaveLength(3);
+  });
+
+  it("keeps the search after viewing details and launches the selected saved project", async () => {
+    vi.mocked(resumeProject).mockResolvedValue({ editorName: "VS Code", editor: { status: "success" }, browser: null, history: { status: "saved", timestamp: 3000 } });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(await screen.findByRole("searchbox", { name: "プロジェクトを検索" }), "reentry");
+    await user.click(screen.getByRole("button", { name: "Reentryの詳細を開く" }));
+    await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
+    await screen.findByText("VS Code：起動要求を送信しました。");
+    expect(resumeProject).toHaveBeenCalledWith(project);
+    await user.click(screen.getByRole("button", { name: "← プロジェクト一覧に戻る" }));
+    expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("reentry");
+    expect(screen.getByText("2 / 3 件")).toBeTruthy();
+    const list = screen.getByRole("list", { name: "登録済みプロジェクト" });
+    expect(within(list).getAllByRole("heading").map((heading) => heading.textContent)).toEqual(["Reentry", "Reentry Docs"]);
+  });
+
+  it("clears the filter after registration so the newly added project is visible", async () => {
+    const added = { ...other, id: "added", name: "New app", path: "/new-app" };
+    vi.mocked(api.addProject).mockResolvedValue(added);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(await screen.findByRole("searchbox"), "missing");
+    await user.click(screen.getByRole("button", { name: "プロジェクトを追加" }));
+    await user.type(screen.getByLabelText("プロジェクト名"), added.name);
+    await user.type(screen.getByLabelText("フォルダ"), added.path);
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+    await screen.findByRole("heading", { name: added.name });
+    expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("");
+    expect(screen.getByText("4 件")).toBeTruthy();
+  });
+});
+
 describe("project registration", () => {
   it("loads saved projects and displays their names, paths, and count", async () => {
     vi.mocked(api.listProjects).mockResolvedValue([project]);
