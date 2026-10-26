@@ -17,6 +17,7 @@ it("keeps the editing baseline when newer data arrives during editing", async ()
   const user = userEvent.setup();
   const onSaved = vi.fn();
   const { rerender } = render(<ProjectForm project={original} onSaved={onSaved} onCancel={vi.fn()} />);
+  expect(screen.queryByLabelText("起動URL（任意）")).toBeNull();
   await user.clear(screen.getByLabelText("プロジェクト名"));
   await user.type(screen.getByLabelText("プロジェクト名"), "My draft");
   rerender(<ProjectForm project={newer} onSaved={onSaved} onCancel={vi.fn()} />);

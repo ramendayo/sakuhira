@@ -17,7 +17,7 @@ fn project(path: &Path, url: Option<&str>) -> Project {
 fn history_is_recorded_only_for_editor_success_and_keeps_partial_launch_results() {
     let root = tempdir().unwrap();
     let store = crate::projects::ProjectStore::new(root.path().join("data"));
-    let project = store.add("Example", root.path()).unwrap();
+    let project = store.add("Example", root.path(), None).unwrap();
     let failed = resume_with(
         &project,
         Editor::VsCode,

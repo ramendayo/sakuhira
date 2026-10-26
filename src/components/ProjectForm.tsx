@@ -15,6 +15,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
   const id = useId();
   const [name, setName] = useState(project?.name ?? "");
   const [path, setPath] = useState(project?.path ?? "");
+  const [launchUrl, setLaunchUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<"picking" | "saving" | null>(null);
 
@@ -46,7 +47,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     try {
       const saved = project
         ? await updateProject(project, name.trim(), path)
-        : await addProject(name.trim(), path);
+        : await addProject(name.trim(), path, launchUrl);
       onSaved(saved);
     } catch (error) {
       setError(errorMessage(error));
@@ -96,6 +97,11 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
             className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm"
           />
         </div>
+        {!project && <div>
+          <label htmlFor={`${id}-launch-url`} className="mb-2 block text-sm text-zinc-300">起動URL（任意）</label>
+          <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => setLaunchUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm" />
+          <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-zinc-400">空欄でも登録できます。HTTP/HTTPSのURLを設定すると、再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
+        </div>}
         <p className="text-xs leading-6 text-zinc-400">フォルダ内のファイルは変更されません。</p>
         <div className="flex flex-wrap justify-end gap-3">
           <button type="button" onClick={onCancel} className="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm hover:bg-zinc-800 disabled:cursor-wait">キャンセル</button>

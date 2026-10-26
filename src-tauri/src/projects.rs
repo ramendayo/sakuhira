@@ -182,9 +182,15 @@ impl ProjectStore {
         Ok(result)
     }
 
-    pub fn add(&self, name: &str, path: &Path) -> Result<Project, String> {
+    pub fn add(
+        &self,
+        name: &str,
+        path: &Path,
+        launch_url: Option<&str>,
+    ) -> Result<Project, String> {
         let name = project_name(name)?;
         let path = directory_path(path)?;
+        let launch_url = crate::launch::normalize_url(launch_url)?;
         self.change(|projects| {
             if projects.iter().any(|project| project.path == path) {
                 return Err("このフォルダはすでに登録されています。".into());
@@ -193,7 +199,7 @@ impl ProjectStore {
                 id: Uuid::new_v4().to_string(),
                 name,
                 path,
-                launch_url: None,
+                launch_url,
                 notes: ProjectNotes::default(),
                 last_resumed_at: None,
             };

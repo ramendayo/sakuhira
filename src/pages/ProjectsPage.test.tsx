@@ -164,6 +164,43 @@ describe("project search", () => {
 });
 
 describe("project registration", () => {
+  it("registers an optional URL and uses the saved URL when resuming", async () => {
+    const configured = { ...project, launchUrl: "http://localhost:3000/" };
+    vi.mocked(api.addProject).mockResolvedValue(configured);
+    vi.mocked(resumeProject).mockResolvedValue({ editorName: "VS Code", editor: { status: "success" }, browser: { status: "success" }, history: { status: "skipped" } });
+    const user = await openForm();
+    await user.type(screen.getByLabelText("プロジェクト名"), project.name);
+    await user.type(screen.getByLabelText("フォルダ"), project.path);
+    await user.type(screen.getByLabelText("起動URL（任意）"), "http://localhost:3000");
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+    await screen.findByRole("heading", { name: project.name });
+    expect(api.addProject).toHaveBeenCalledWith(project.name, project.path, "http://localhost:3000");
+    await user.click(screen.getByRole("button", { name: "Reentryの詳細を開く" }));
+    expect((screen.getByLabelText("起動URL（任意）") as HTMLInputElement).value).toBe(configured.launchUrl);
+    await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
+    await screen.findByText("ブラウザ：起動要求を送信しました。");
+    expect(resumeProject).toHaveBeenCalledWith(configured);
+  });
+
+  it("retains registration input after an invalid URL error and allows retrying without a URL", async () => {
+    vi.mocked(api.addProject).mockRejectedValueOnce("起動URLはHTTP/HTTPSにしてください。").mockResolvedValueOnce(project);
+    const user = await openForm();
+    await user.type(screen.getByLabelText("プロジェクト名"), project.name);
+    await user.type(screen.getByLabelText("フォルダ"), project.path);
+    const url = screen.getByLabelText("起動URL（任意）");
+    await user.type(url, "ftp://example.com");
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("HTTP/HTTPS");
+    expect((url as HTMLInputElement).value).toBe("ftp://example.com");
+    expect((screen.getByLabelText("プロジェクト名") as HTMLInputElement).value).toBe(project.name);
+    expect((screen.getByLabelText("フォルダ") as HTMLInputElement).value).toBe(project.path);
+    expect(screen.getByText("0 件")).toBeTruthy();
+    await user.clear(url);
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+    await screen.findByRole("heading", { name: project.name });
+    expect(api.addProject).toHaveBeenLastCalledWith(project.name, project.path, "");
+  });
+
   it("loads saved projects and displays their names, paths, and count", async () => {
     vi.mocked(api.listProjects).mockResolvedValue([project]);
     render(<App />);
@@ -184,7 +221,7 @@ describe("project registration", () => {
     await user.click(screen.getByRole("button", { name: "登録する" }));
     await user.click(screen.getByRole("button", { name: "保存中…" }));
     expect(api.addProject).toHaveBeenCalledTimes(1);
-    expect(api.addProject).toHaveBeenCalledWith(project.name, project.path);
+    expect(api.addProject).toHaveBeenCalledWith(project.name, project.path, "");
     const cancel = screen.getByRole("button", { name: "キャンセル" });
     expect(cancel.matches(":disabled")).toBe(true);
     await user.click(cancel);

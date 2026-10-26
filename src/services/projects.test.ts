@@ -13,7 +13,16 @@ it("passes registration arguments through the Tauri bridge", async () => {
   const handler = vi.fn(() => result);
   mockIPC(handler);
   expect(await addProject(result.name, result.path)).toEqual(result);
-  expect(handler).toHaveBeenCalledWith("add_project", { name: result.name, path: result.path });
+  expect(handler).toHaveBeenCalledWith("add_project", { name: result.name, path: result.path, launchUrl: null });
+});
+
+it("sends an optional registration URL and treats blank input as unset", async () => {
+  const handler = vi.fn(() => ({}));
+  mockIPC(handler);
+  await addProject("Example", "/example", " https://example.com ");
+  expect(handler).toHaveBeenLastCalledWith("add_project", { name: "Example", path: "/example", launchUrl: "https://example.com" });
+  await addProject("Example", "/example", "   ");
+  expect(handler).toHaveBeenLastCalledWith("add_project", { name: "Example", path: "/example", launchUrl: null });
 });
 
 it("loads projects and treats folder picker cancellation as a normal result", async () => {

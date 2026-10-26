@@ -2,11 +2,64 @@ use super::*;
 use tempfile::tempdir;
 
 #[test]
+fn registration_accepts_optional_urls_and_persists_normalized_values() {
+    for (url, expected) in [
+        (None, None),
+        (Some("   "), None),
+        (Some(" HTTPS://Example.com "), Some("https://example.com/")),
+        (
+            Some("http://localhost:3000"),
+            Some("http://localhost:3000/"),
+        ),
+    ] {
+        let root = tempdir().unwrap();
+        let data = root.path().join("data");
+        let store = ProjectStore::new(data.clone());
+        let project = store.add("Example", root.path(), url).unwrap();
+        assert_eq!(project.launch_url.as_deref(), expected);
+        assert_eq!(ProjectStore::new(data).list().unwrap(), vec![project]);
+    }
+}
+
+#[test]
+fn invalid_registration_urls_leave_no_partial_project_or_changes() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let file = store.directory.join("projects.json");
+    assert!(
+        store
+            .add("Invalid", root.path(), Some("file:///tmp"))
+            .is_err()
+    );
+    assert!(!file.exists());
+    let original = store.add("Original", root.path(), None).unwrap();
+    let folder = root.path().join("second");
+    fs::create_dir(&folder).unwrap();
+    let bytes = fs::read(&file).unwrap();
+    for url in [
+        "ftp://example.com",
+        "javascript:alert(1)",
+        "https://user:secret@example.com",
+        "https://example.com/a b",
+    ] {
+        assert!(store.add("Invalid", &folder, Some(url)).is_err());
+        assert_eq!(fs::read(&file).unwrap(), bytes);
+        assert_eq!(store.list().unwrap(), vec![original.clone()]);
+    }
+    assert!(
+        store
+            .add("Valid", &folder, Some("https://example.com"))
+            .is_ok()
+    );
+    assert_eq!(store.list().unwrap().len(), 2);
+}
+
+#[test]
 fn resume_history_survives_reopening_and_does_not_conflict_with_note_edits() {
     let root = tempdir().unwrap();
     let data = root.path().join("data");
     let store = ProjectStore::new(data.clone());
-    let project = store.add("Example", root.path()).unwrap();
+    let project = store.add("Example", root.path(), None).unwrap();
     assert_eq!(project.last_resumed_at, None);
     let timestamp = store.record_resume(&project).unwrap();
     assert!(timestamp > 0);
@@ -34,7 +87,7 @@ fn resume_history_survives_reopening_and_does_not_conflict_with_note_edits() {
 fn legacy_history_defaults_to_none_and_invalid_history_is_not_overwritten() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Example", root.path()).unwrap();
+    let project = store.add("Example", root.path(), None).unwrap();
     let path = store.directory.join("projects.json");
     let mut json: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     json["projects"][0]
@@ -72,13 +125,13 @@ fn projects_survive_reopening_and_subsequent_saves() {
     let root = tempdir().unwrap();
     let data = root.path().join("data");
     let first = ProjectStore::new(data.clone())
-        .add("  日本語プロジェクト  ", root.path())
+        .add("  日本語プロジェクト  ", root.path(), None)
         .unwrap();
     assert_eq!(first.name, "日本語プロジェクト");
     let folder = root.path().join("second project");
     fs::create_dir(&folder).unwrap();
     let second = ProjectStore::new(data.clone())
-        .add("Second", &folder)
+        .add("Second", &folder, None)
         .unwrap();
     assert_ne!(first.id, second.id);
     assert_eq!(ProjectStore::new(data).list().unwrap(), vec![first, second]);
@@ -88,13 +141,17 @@ fn projects_survive_reopening_and_subsequent_saves() {
 fn invalid_inputs_do_not_create_document() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    assert!(store.add("  ", root.path()).is_err());
-    assert!(store.add(&"あ".repeat(101), root.path()).is_err());
-    assert!(store.add("Missing", &root.path().join("missing")).is_err());
-    assert!(store.add("Relative", Path::new(".")).is_err());
+    assert!(store.add("  ", root.path(), None).is_err());
+    assert!(store.add(&"あ".repeat(101), root.path(), None).is_err());
+    assert!(
+        store
+            .add("Missing", &root.path().join("missing"), None)
+            .is_err()
+    );
+    assert!(store.add("Relative", Path::new("."), None).is_err());
     let file = root.path().join("file");
     fs::write(&file, "content").unwrap();
-    assert!(store.add("File", &file).is_err());
+    assert!(store.add("File", &file, None).is_err());
     assert!(!store.directory.join("projects.json").exists());
 }
 
@@ -102,9 +159,13 @@ fn invalid_inputs_do_not_create_document() {
 fn duplicate_paths_are_rejected_without_changing_saved_data() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    store.add("First", root.path()).unwrap();
+    store.add("First", root.path(), None).unwrap();
     let before = fs::read(store.directory.join("projects.json")).unwrap();
-    assert!(store.add("Duplicate", &root.path().join(".")).is_err());
+    assert!(
+        store
+            .add("Duplicate", &root.path().join("."), None)
+            .is_err()
+    );
     assert_eq!(
         fs::read(store.directory.join("projects.json")).unwrap(),
         before
@@ -120,8 +181,8 @@ fn symlink_to_registered_folder_is_a_duplicate() {
     let alias = root.path().join("alias");
     std::os::unix::fs::symlink(&folder, &alias).unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    store.add("Original", &folder).unwrap();
-    assert!(store.add("Alias", &alias).is_err());
+    store.add("Original", &folder, None).unwrap();
+    assert!(store.add("Alias", &alias, None).is_err());
 }
 
 #[test]
@@ -139,7 +200,7 @@ fn invalid_documents_are_reported_and_never_overwritten() {
     ] {
         fs::write(store.directory.join("projects.json"), content).unwrap();
         assert!(store.list().is_err());
-        assert!(store.add("Valid", root.path()).is_err());
+        assert!(store.add("Valid", root.path(), None).is_err());
         assert_eq!(
             fs::read_to_string(store.directory.join("projects.json")).unwrap(),
             content
@@ -153,7 +214,7 @@ fn moved_project_folder_does_not_prevent_loading() {
     let folder = root.path().join("folder");
     fs::create_dir(&folder).unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Moved", &folder).unwrap();
+    let project = store.add("Moved", &folder, None).unwrap();
     fs::remove_dir(&folder).unwrap();
     assert_eq!(store.list().unwrap(), vec![project]);
 }
@@ -164,7 +225,7 @@ fn unreadable_document_is_not_treated_as_empty() {
     let store = ProjectStore::new(root.path().to_owned());
     fs::create_dir(root.path().join("projects.json")).unwrap();
     assert!(store.list().is_err());
-    assert!(store.add("Test", root.path()).is_err());
+    assert!(store.add("Test", root.path(), None).is_err());
 }
 
 #[test]
@@ -196,7 +257,7 @@ fn concurrent_registrations_do_not_lose_updates() {
         fs::create_dir(&folder).unwrap();
         let store = ProjectStore::new(data.clone());
         handles.push(std::thread::spawn(move || {
-            store.add(&index.to_string(), &folder).unwrap()
+            store.add(&index.to_string(), &folder, None).unwrap()
         }));
     }
     for handle in handles {
@@ -209,8 +270,8 @@ fn concurrent_registrations_do_not_lose_updates() {
 fn editing_preserves_id_and_other_projects_and_survives_reopening() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let first = store.add("First", root.path()).unwrap();
-    let second = store.add("Second", &store.directory).unwrap();
+    let first = store.add("First", root.path(), None).unwrap();
+    let second = store.add("Second", &store.directory, None).unwrap();
     let new_folder = root.path().join("new");
     fs::create_dir(&new_folder).unwrap();
     let edited = store.update(&first, "  Renamed  ", &new_folder).unwrap();
@@ -227,8 +288,8 @@ fn editing_preserves_id_and_other_projects_and_survives_reopening() {
 fn failed_edit_keeps_saved_data_unchanged() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("First", root.path()).unwrap();
-    let second = store.add("Second", &store.directory).unwrap();
+    let project = store.add("First", root.path(), None).unwrap();
+    let second = store.add("Second", &store.directory, None).unwrap();
     let before = fs::read(store.directory.join("projects.json")).unwrap();
     assert!(store.update(&project, " ", root.path()).is_err());
     assert!(
@@ -258,7 +319,7 @@ fn missing_folder_can_be_renamed_and_unregistered() {
     let folder = root.path().join("folder");
     fs::create_dir(&folder).unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Missing", &folder).unwrap();
+    let project = store.add("Missing", &folder, None).unwrap();
     fs::remove_dir(&folder).unwrap();
     let edited = store
         .update(&project, "Renamed", Path::new(&project.path))
@@ -274,8 +335,8 @@ fn unregistering_only_removes_metadata_and_preserves_folder_contents() {
     fs::create_dir(&folder).unwrap();
     fs::write(folder.join("keep.txt"), "keep this").unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Remove", &folder).unwrap();
-    let other = store.add("Other", root.path()).unwrap();
+    let project = store.add("Remove", &folder, None).unwrap();
+    let other = store.add("Other", root.path(), None).unwrap();
     store.remove(&project).unwrap();
     assert_eq!(
         ProjectStore::new(store.directory).list().unwrap(),
@@ -291,7 +352,7 @@ fn unregistering_only_removes_metadata_and_preserves_folder_contents() {
 fn stale_edits_and_removals_do_not_overwrite_newer_data() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Original", root.path()).unwrap();
+    let project = store.add("Original", root.path(), None).unwrap();
     let updated = store.update(&project, "Newer", root.path()).unwrap();
     assert!(store.update(&project, "Stale", root.path()).is_err());
     assert!(store.remove(&project).is_err());
@@ -306,7 +367,7 @@ fn stale_edits_and_removals_do_not_overwrite_newer_data() {
 fn corrupted_document_is_preserved_during_edit_and_removal() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Original", root.path()).unwrap();
+    let project = store.add("Original", root.path(), None).unwrap();
     let file = store.directory.join("projects.json");
     fs::write(&file, "{corrupt").unwrap();
     assert!(store.update(&project, "Edit", root.path()).is_err());
@@ -318,7 +379,7 @@ fn corrupted_document_is_preserved_during_edit_and_removal() {
 fn older_json_without_launch_url_loads_without_rewriting() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Legacy", root.path()).unwrap();
+    let project = store.add("Legacy", root.path(), None).unwrap();
     let file = store.directory.join("projects.json");
     let mut json: serde_json::Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
     json["projects"][0]
@@ -335,7 +396,7 @@ fn older_json_without_launch_url_loads_without_rewriting() {
 fn launch_url_persists_survives_name_edits_and_can_be_cleared() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Original", root.path()).unwrap();
+    let project = store.add("Original", root.path(), None).unwrap();
     let configured = store
         .set_launch_url(&project, Some("https://example.com"))
         .unwrap();
@@ -359,7 +420,7 @@ fn launch_url_persists_survives_name_edits_and_can_be_cleared() {
 fn invalid_and_stale_launch_settings_preserve_saved_data() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Project", root.path()).unwrap();
+    let project = store.add("Project", root.path(), None).unwrap();
     let before = fs::read(store.directory.join("projects.json")).unwrap();
     assert!(store.set_launch_url(&project, Some("file:///tmp")).is_err());
     assert_eq!(
@@ -379,7 +440,7 @@ fn invalid_and_stale_launch_settings_preserve_saved_data() {
 fn older_json_without_notes_loads_empty_notes_without_rewriting() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Legacy", root.path()).unwrap();
+    let project = store.add("Legacy", root.path(), None).unwrap();
     let file = store.directory.join("projects.json");
     let mut json: serde_json::Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
     json["projects"][0].as_object_mut().unwrap().remove("notes");
@@ -393,7 +454,7 @@ fn older_json_without_notes_loads_empty_notes_without_rewriting() {
 fn notes_preserve_whitespace_and_survive_reopening_and_other_edits() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Project", root.path()).unwrap();
+    let project = store.add("Project", root.path(), None).unwrap();
     let last_work = "  保存処理を追加\n    テストを確認\n";
     let next_task = "次の作業\n- エラー表示を確認";
     let before = SystemTime::now()
@@ -426,7 +487,7 @@ fn notes_preserve_whitespace_and_survive_reopening_and_other_edits() {
 fn notes_can_be_cleared_and_unchanged_resaves_keep_the_timestamp() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Project", root.path()).unwrap();
+    let project = store.add("Project", root.path(), None).unwrap();
     let first = store
         .set_notes(&project, String::new(), String::new())
         .unwrap();
@@ -454,7 +515,7 @@ fn notes_can_be_cleared_and_unchanged_resaves_keep_the_timestamp() {
 fn invalid_and_stale_note_saves_preserve_existing_data() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Project", root.path()).unwrap();
+    let project = store.add("Project", root.path(), None).unwrap();
     let saved = store
         .set_notes(&project, "Newer work".into(), "Next".into())
         .unwrap();
@@ -492,8 +553,8 @@ fn note_updates_do_not_affect_other_projects_or_require_the_folder_to_exist() {
     let folder = root.path().join("folder");
     fs::create_dir(&folder).unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let first = store.add("First", &folder).unwrap();
-    let second = store.add("Second", root.path()).unwrap();
+    let first = store.add("First", &folder, None).unwrap();
+    let second = store.add("Second", root.path(), None).unwrap();
     fs::remove_dir(folder).unwrap();
     let updated = store
         .set_notes(&first, "Recover this work".into(), "Locate folder".into())
@@ -505,7 +566,7 @@ fn note_updates_do_not_affect_other_projects_or_require_the_folder_to_exist() {
 fn corrupt_notes_and_invalid_timestamps_are_reported_without_overwriting() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
-    let project = store.add("Project", root.path()).unwrap();
+    let project = store.add("Project", root.path(), None).unwrap();
     let file = store.directory.join("projects.json");
     let original = fs::read(&file).unwrap();
     for notes in [

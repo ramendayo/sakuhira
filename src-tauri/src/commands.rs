@@ -23,8 +23,9 @@ pub fn add_project(
     store: State<'_, ProjectStore>,
     name: String,
     path: String,
+    launch_url: Option<String>,
 ) -> Result<Project, String> {
-    store.add(&name, Path::new(&path))
+    store.add(&name, Path::new(&path), launch_url.as_deref())
 }
 
 #[tauri::command(async)]
