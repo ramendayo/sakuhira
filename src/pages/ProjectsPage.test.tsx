@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import * as api from "../services/projects";
 import { setProjectNotes } from "../services/notes";
+import { resumeProject } from "../services/launch";
 import type { Project } from "../types/project";
 
 vi.mock("../services/projects", async (importOriginal) => ({
@@ -20,10 +21,11 @@ vi.mock("../services/git", () => ({
 }));
 
 vi.mock("../services/notes", () => ({ setProjectNotes: vi.fn() }));
+vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 
 vi.mock("../services/settings", () => ({ getSettings: vi.fn(async () => ({ defaultEditor: "vsCode" })) }));
 
-const project: Project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+const project: Project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -39,6 +41,31 @@ async function openForm() {
   await user.click(add);
   return user;
 }
+
+it("sorts by resume history, updates it after launch without losing the report, and shows it in details", async () => {
+  const recent = { ...project, id: "recent", name: "Recent", path: "/recent", lastResumedAt: 2000 };
+  const older = { ...project, id: "older", name: "Older", path: "/older", lastResumedAt: 1000 };
+  const never = { ...project, id: "never", name: "Never", path: "/never" };
+  vi.mocked(api.listProjects).mockResolvedValue([project, older, recent, never]);
+  vi.mocked(resumeProject).mockResolvedValue({ editorName: "VS Code", editor: { status: "success" }, browser: null, history: { status: "saved", timestamp: 3000 } });
+  const user = userEvent.setup();
+  render(<App />);
+  const list = await screen.findByRole("list", { name: "登録済みプロジェクト" });
+  const names = () => within(list).getAllByRole("heading").map((heading) => heading.textContent);
+  expect(names()).toEqual(["Recent", "Older", "Reentry", "Never"]);
+  expect(within(list).getAllByText("最終再開：記録なし")).toHaveLength(2);
+  await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
+  expect(await screen.findByText("VS Code：起動要求を送信しました。")).toBeTruthy();
+  expect(names()).toEqual(["Reentry", "Recent", "Older", "Never"]);
+  const card = within(list).getAllByRole("listitem")[0];
+  expect(card.querySelector("time")?.dateTime).toBe(new Date(3000).toISOString());
+  expect(resumeProject).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole("button", { name: "Reentryの詳細を開く" }));
+  expect(screen.getByText("最終再開：", { exact: false }).querySelector("time")?.dateTime).toBe(new Date(3000).toISOString());
+  await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
+  await screen.findByText("VS Code：起動要求を送信しました。");
+  expect(resumeProject).toHaveBeenLastCalledWith({ ...project, lastResumedAt: 3000 });
+});
 
 describe("project registration", () => {
   it("loads saved projects and displays their names, paths, and count", async () => {
@@ -140,7 +167,7 @@ describe("project details", () => {
   });
 
   it("prepopulates editing, persists changes, and updates the list", async () => {
-    const updated = { ...project, name: "Renamed", path: "/new/path", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+    const updated = { ...project, name: "Renamed", path: "/new/path", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
     vi.mocked(api.updateProject).mockResolvedValue(updated);
     const user = await openDetails();
     await user.click(screen.getByRole("button", { name: "編集する" }));
@@ -213,7 +240,7 @@ describe("project details", () => {
 });
 
 it("does not close another project's details when an earlier removal finishes", async () => {
-  const other = { id: "other", name: "Other", path: "/other", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+  const other = { id: "other", name: "Other", path: "/other", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
   let finishRemoval!: () => void;
   vi.mocked(api.removeProject).mockImplementation(() => new Promise<void>((resolve) => { finishRemoval = resolve; }));
   const user = await openDetails([project, other]);

@@ -11,7 +11,7 @@ vi.mock("../services/projects", async (importOriginal) => ({
 afterEach(cleanup);
 
 it("keeps the editing baseline when newer data arrives during editing", async () => {
-  const original = { id: "id", name: "Original", path: "/original", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+  const original = { id: "id", name: "Original", path: "/original", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
   const newer = { ...original, name: "Updated elsewhere" };
   vi.mocked(api.updateProject).mockRejectedValue("別の操作で更新されています");
   const user = userEvent.setup();

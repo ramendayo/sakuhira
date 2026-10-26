@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import LocalDateTime from "./LocalDateTime";
 import type { FormEvent, Ref } from "react";
 import { setProjectNotes } from "../services/notes";
 import { errorMessage } from "../services/projects";
@@ -6,8 +7,7 @@ import type { Project, ProjectNotes as Notes } from "../types/project";
 
 function NotesUpdatedAt({ notes }: { notes: Notes }) {
   if (notes.updatedAt === null) return <p className="text-xs text-zinc-400">メモはまだ保存されていません。</p>;
-  const date = new Date(notes.updatedAt);
-  return <p className="text-xs leading-6 text-zinc-400">メモ更新：<time dateTime={date.toISOString()}>{new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short" }).format(date)}</time></p>;
+  return <p className="text-xs leading-6 text-zinc-400">メモ更新：<LocalDateTime timestamp={notes.updatedAt} /></p>;
 }
 
 export function ProjectNotesPreview({ project }: { project: Project }) {

@@ -10,6 +10,7 @@ export type Project = {
   path: string;
   launchUrl: string | null;
   notes: ProjectNotes;
+  lastResumedAt: number | null;
 };
 
 export type SelectedDirectory = {

@@ -7,7 +7,7 @@ import type { Project } from "../types/project";
 
 vi.mock("../services/notes", () => ({ setProjectNotes: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
-const project: Project = { id: "id", name: "Project", path: "/project", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+const project: Project = { id: "id", name: "Project", path: "/project", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 
 it("does not replace an editing baseline or draft when newer project data arrives", async () => {
   vi.mocked(setProjectNotes).mockRejectedValue("別の操作で更新されています");

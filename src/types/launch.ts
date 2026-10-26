@@ -6,4 +6,8 @@ export type ResumeReport = {
   editorName: string;
   editor: LaunchOutcome;
   browser: LaunchOutcome | null;
+  history:
+    | { status: "skipped" }
+    | { status: "saved"; timestamp: number }
+    | { status: "error"; message: string };
 };

@@ -10,12 +10,14 @@ function Outcome({ name, result }: { name: string; result: LaunchOutcome }) {
     : <p role="alert" className="text-red-300">{name}：{result.message}</p>;
 }
 
-function ResumeProject({ project }: { project: Project }) {
+type ResumeProjectProps = { project: Project; onResumed?: (id: string, timestamp: number) => void };
+
+function ResumeProject({ project, onResumed }: ResumeProjectProps) {
   // 保存済みの起動先が変わったら、以前の起動結果を持ち越さない。
-  return <ResumeAction key={JSON.stringify(project)} project={project} />;
+  return <ResumeAction key={JSON.stringify({ ...project, lastResumedAt: null })} project={project} onResumed={onResumed} />;
 }
 
-function ResumeAction({ project }: { project: Project }) {
+function ResumeAction({ project, onResumed }: ResumeProjectProps) {
   const [pending, setPending] = useState(false);
   const [report, setReport] = useState<ResumeReport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +28,9 @@ function ResumeAction({ project }: { project: Project }) {
     setReport(null);
     setError(null);
     try {
-      setReport(await resumeProject(project));
+      const result = await resumeProject(project);
+      setReport(result);
+      if (result.history.status === "saved") onResumed?.(project.id, result.history.timestamp);
     } catch (error) {
       setError(errorMessage(error));
     } finally {
@@ -43,6 +47,7 @@ function ResumeAction({ project }: { project: Project }) {
           <Outcome name={report.editorName} result={report.editor} />
           {report.browser ? <Outcome name="ブラウザ" result={report.browser} /> : <p role="status" className="text-zinc-400">URL未設定のため、ブラウザは開きませんでした。</p>}
           <p className="text-zinc-400">起動先での読み込み完了は確認していません。</p>
+          {report.history.status === "error" && <p role="alert" className="text-red-300">最終再開日時を保存できませんでした：{report.history.message}</p>}
         </>}
       </div>
     </div>

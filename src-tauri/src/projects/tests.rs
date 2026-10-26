@@ -2,6 +2,64 @@ use super::*;
 use tempfile::tempdir;
 
 #[test]
+fn resume_history_survives_reopening_and_does_not_conflict_with_note_edits() {
+    let root = tempdir().unwrap();
+    let data = root.path().join("data");
+    let store = ProjectStore::new(data.clone());
+    let project = store.add("Example", root.path()).unwrap();
+    assert_eq!(project.last_resumed_at, None);
+    let timestamp = store.record_resume(&project).unwrap();
+    assert!(timestamp > 0);
+    let reopened = ProjectStore::new(data).list().unwrap().remove(0);
+    assert_eq!(reopened.last_resumed_at, Some(timestamp));
+    assert_eq!(reopened.notes, project.notes);
+    let renamed = store.update(&project, "Example", root.path()).unwrap();
+    assert_eq!(renamed.last_resumed_at, Some(timestamp));
+    let edited = store
+        .set_notes(&project, "Work".into(), "Next".into())
+        .unwrap();
+    assert_eq!(edited.last_resumed_at, Some(timestamp));
+    let before = fs::read(store.directory.join("projects.json")).unwrap();
+    assert!(store.record_resume(&project).is_err());
+    assert_eq!(
+        fs::read(store.directory.join("projects.json")).unwrap(),
+        before
+    );
+    store.remove(&edited).unwrap();
+    assert!(store.record_resume(&edited).is_err());
+    assert!(store.list().unwrap().is_empty());
+}
+
+#[test]
+fn legacy_history_defaults_to_none_and_invalid_history_is_not_overwritten() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store.add("Example", root.path()).unwrap();
+    let path = store.directory.join("projects.json");
+    let mut json: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    json["projects"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("lastResumedAt");
+    let legacy = serde_json::to_vec(&json).unwrap();
+    fs::write(&path, &legacy).unwrap();
+    assert_eq!(store.list().unwrap()[0].last_resumed_at, None);
+    assert_eq!(fs::read(&path).unwrap(), legacy);
+    for value in [
+        serde_json::json!(-1),
+        serde_json::json!(8_640_000_000_000_001u64),
+        serde_json::json!("invalid"),
+    ] {
+        json["projects"][0]["lastResumedAt"] = value;
+        let bytes = serde_json::to_vec(&json).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        assert!(store.list().is_err());
+        assert!(store.record_resume(&project).is_err());
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+    }
+}
+
+#[test]
 fn missing_document_is_empty_and_does_not_create_json() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));

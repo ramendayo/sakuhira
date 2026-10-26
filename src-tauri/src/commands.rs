@@ -114,9 +114,13 @@ pub async fn resume_project(
 ) -> Result<crate::launch::ResumeReport, String> {
     let project = store.get_matching(&project)?;
     let editor = settings.load()?.default_editor;
-    tauri::async_runtime::spawn_blocking(move || crate::launch::resume(&app, &project, editor))
-        .await
-        .map_err(|error| format!("起動処理を完了できません: {error}"))?
+    let store = store.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let report = crate::launch::resume(&app, &project, editor)?;
+        Ok(crate::launch::record_history(&store, &project, report))
+    })
+    .await
+    .map_err(|error| format!("起動処理を完了できません: {error}"))?
 }
 
 #[tauri::command(async)]

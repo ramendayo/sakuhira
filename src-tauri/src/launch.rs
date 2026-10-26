@@ -55,6 +55,29 @@ pub struct ResumeReport {
     pub editor_name: String,
     pub editor: LaunchOutcome,
     pub browser: Option<LaunchOutcome>,
+    pub history: ResumeHistory,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum ResumeHistory {
+    Skipped,
+    Saved { timestamp: u64 },
+    Error { message: String },
+}
+
+pub fn record_history(
+    store: &crate::projects::ProjectStore,
+    project: &Project,
+    mut report: ResumeReport,
+) -> ResumeReport {
+    if report.editor == LaunchOutcome::Success {
+        report.history = match store.record_resume(project) {
+            Ok(timestamp) => ResumeHistory::Saved { timestamp },
+            Err(message) => ResumeHistory::Error { message },
+        };
+    }
+    report
 }
 
 pub fn resume(
@@ -89,6 +112,7 @@ fn resume_with(
         editor_name: selected.name().into(),
         editor,
         browser,
+        history: ResumeHistory::Skipped,
     })
 }
 

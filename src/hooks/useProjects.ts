@@ -30,12 +30,13 @@ export function useProjects() {
   }, [revision]);
 
   return {
-    projects,
+    projects: [...projects].sort((a, b) => (b.lastResumedAt ?? -1) - (a.lastResumedAt ?? -1)),
     status,
     error,
     retry: () => setRevision((current) => current + 1),
     replace: (project: Project) => setProjects((current) => current.map((item) => item.id === project.id ? project : item)),
     remove: (id: string) => setProjects((current) => current.filter((item) => item.id !== id)),
     append: (project: Project) => setProjects((current) => [...current, project]),
+    recordResumed: (id: string, timestamp: number) => setProjects((current) => current.map((item) => item.id === id ? { ...item, lastResumedAt: Math.max(item.lastResumedAt ?? 0, timestamp) } : item)),
   };
 }

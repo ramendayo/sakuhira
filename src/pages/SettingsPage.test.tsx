@@ -12,7 +12,7 @@ vi.mock("../services/settings", () => ({ getSettings: vi.fn(), saveSettings: vi.
 vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 vi.mock("../services/projects", async (importOriginal) => ({
   ...await importOriginal<typeof import("../services/projects")>(),
-  listProjects: vi.fn(async () => [{ id: "id", name: "Example", path: "/project", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } } satisfies Project]),
+  listProjects: vi.fn(async () => [{ id: "id", name: "Example", path: "/project", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } } satisfies Project]),
 }));
 vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
 let stored: Settings;
@@ -21,7 +21,7 @@ beforeEach(() => {
   stored = { defaultEditor: "vsCode" };
   vi.mocked(getSettings).mockImplementation(async () => ({ ...stored }));
   vi.mocked(saveSettings).mockImplementation(async (_expected, settings) => { stored = { ...settings }; return { ...stored }; });
-  vi.mocked(resumeProject).mockImplementation(async () => ({ editorName: editorName(stored.defaultEditor), editor: { status: "success" }, browser: null }));
+  vi.mocked(resumeProject).mockImplementation(async () => ({ history: { status: "skipped" }, editorName: editorName(stored.defaultEditor), editor: { status: "success" }, browser: null }));
 });
 afterEach(cleanup);
 

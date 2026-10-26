@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 it("passes registration arguments through the Tauri bridge", async () => {
-  const result = { id: "id", name: "Example", path: "/example", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+  const result = { id: "id", name: "Example", path: "/example", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
   const handler = vi.fn(() => result);
   mockIPC(handler);
   expect(await addProject(result.name, result.path)).toEqual(result);
@@ -39,8 +39,8 @@ it("reports browser-only execution without attempting native commands", async ()
 
 it("sends the original record with edit and removal commands to detect conflicts", async () => {
   const { updateProject, removeProject } = await import("./projects");
-  const project = { id: "id", name: "Original", path: "/original", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
-  const edited = { ...project, name: "Edited", path: "/edited", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+  const project = { id: "id", name: "Original", path: "/original", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+  const edited = { ...project, name: "Edited", path: "/edited", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
   const handler = vi.fn((command: string) => command === "update_project" ? edited : undefined);
   mockIPC(handler);
   expect(await updateProject(project, edited.name, edited.path)).toEqual(edited);

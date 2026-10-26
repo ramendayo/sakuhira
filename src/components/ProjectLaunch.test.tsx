@@ -11,8 +11,8 @@ import type { ResumeReport } from "../types/launch";
 vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 vi.mock("../services/settings", () => ({ getSettings: vi.fn(async () => ({ defaultEditor: "vsCode" })) }));
 
-const project: Project = { id: "id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
-const success: ResumeReport = { editorName: "VS Code", editor: { status: "success" }, browser: null };
+const project: Project = { id: "id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+const success: ResumeReport = { history: { status: "skipped" }, editorName: "VS Code", editor: { status: "success" }, browser: null };
 beforeEach(() => vi.resetAllMocks());
 afterEach(cleanup);
 
@@ -21,10 +21,21 @@ function Harness() {
   return <><ProjectLaunchSettings project={current} onSaved={setCurrent} /><ResumeProject project={current} /></>;
 }
 
+it("shows launch success alongside a history storage error without reporting a saved timestamp", async () => {
+  vi.mocked(resumeProject).mockResolvedValue({ ...success, history: { status: "error", message: "保存先に書き込めません" } });
+  const onResumed = vi.fn();
+  const user = userEvent.setup();
+  render(<ResumeProject project={project} onResumed={onResumed} />);
+  await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
+  expect(await screen.findByText("VS Code：起動要求を送信しました。")).toBeTruthy();
+  expect((await screen.findByRole("alert")).textContent).toContain("最終再開日時を保存できませんでした");
+  expect(onResumed).not.toHaveBeenCalled();
+});
+
 it("saves a URL, uses the saved project when resuming, and clears the URL", async () => {
   const configured = { ...project, launchUrl: "http://localhost:3000/" };
   vi.mocked(setProjectLaunchUrl).mockResolvedValueOnce(configured).mockResolvedValueOnce(project);
-  vi.mocked(resumeProject).mockResolvedValue({ editorName: "VS Code", editor: { status: "success" }, browser: { status: "success" } });
+  vi.mocked(resumeProject).mockResolvedValue({ history: { status: "skipped" }, editorName: "VS Code", editor: { status: "success" }, browser: { status: "success" } });
   const user = userEvent.setup();
   render(<Harness />);
   await user.type(screen.getByLabelText("起動URL（任意）"), "http://localhost:3000");
@@ -72,7 +83,7 @@ it("shows editor-only results and blocks repeated resume clicks while pending", 
 });
 
 it("shows each target's outcome independently when only one launch succeeds", async () => {
-  vi.mocked(resumeProject).mockResolvedValue({ editorName: "VS Code", editor: { status: "error", message: "VS Codeが見つかりません" }, browser: { status: "success" } });
+  vi.mocked(resumeProject).mockResolvedValue({ history: { status: "skipped" }, editorName: "VS Code", editor: { status: "error", message: "VS Codeが見つかりません" }, browser: { status: "success" } });
   const user = userEvent.setup();
   render(<ResumeProject project={project} />);
   await user.click(screen.getByRole("button", { name: "Reentryを再開" }));

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ProjectNotes from "../components/ProjectNotes";
 import ResumeProject from "../components/ResumeProject";
+import LastResumedAt from "../components/LastResumedAt";
 import ProjectLaunchSettings from "../components/ProjectLaunchSettings";
 import ProjectGitStatus from "../components/ProjectGitStatus";
 import ProjectForm from "../components/ProjectForm";
@@ -11,10 +12,11 @@ type ProjectDetailsProps = {
   project: Project;
   onBack: () => void;
   onUpdated: (project: Project) => void;
+  onResumed: (id: string, timestamp: number) => void;
   onRemoved: (project: Project) => void;
 };
 
-function ProjectDetails({ project, onBack, onUpdated, onRemoved }: ProjectDetailsProps) {
+function ProjectDetails({ project, onBack, onUpdated, onRemoved, onResumed }: ProjectDetailsProps) {
   const [mode, setMode] = useState<"view" | "edit" | "remove" | "notes">("view");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +63,7 @@ function ProjectDetails({ project, onBack, onUpdated, onRemoved }: ProjectDetail
         {project.name}
       </h1>
       <p role="status" className="mt-4 text-sm text-teal-300">{notice}</p>
+      <LastResumedAt timestamp={project.lastResumedAt} />
 
       {mode === "edit" ? (
         <div className="mt-6">
@@ -105,7 +108,7 @@ function ProjectDetails({ project, onBack, onUpdated, onRemoved }: ProjectDetail
         </div>
       )}
 
-      {mode === "view" && <ResumeProject project={project} />}
+      {mode === "view" && <ResumeProject project={project} onResumed={onResumed} />}
       {(mode === "view" || mode === "notes") && <ProjectNotes
         project={project}
         editing={mode === "notes"}

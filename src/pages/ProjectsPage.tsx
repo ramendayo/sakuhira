@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { ProjectNotesPreview } from "../components/ProjectNotes";
 import ResumeProject from "../components/ResumeProject";
+import LastResumedAt from "../components/LastResumedAt";
 import ProjectDetails from "./ProjectDetails";
 import ProjectGitStatus from "../components/ProjectGitStatus";
 import ProjectForm from "../components/ProjectForm";
@@ -14,7 +15,7 @@ type ProjectsPageProps = {
 };
 
 function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
-  const { projects, status, error, retry, append, replace, remove } = useProjects();
+  const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects();
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
   const addButton = useRef<HTMLButtonElement>(null);
@@ -45,6 +46,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
       project={selected}
       onBack={() => onSelect(null)}
       onUpdated={replace}
+      onResumed={recordResumed}
       onRemoved={(project) => {
         remove(project.id);
         onSelect((current) => current === project.id ? null : current);
@@ -97,6 +99,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
           <>
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <h2 className="text-sm font-medium text-zinc-300">すべてのプロジェクト</h2>
+              <span className="text-xs text-zinc-500">最近再開した順</span>
               <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-xs text-zinc-400">
                 {projects.length} 件
               </span>
@@ -110,7 +113,8 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
                     <h3 className="break-words text-lg font-medium">{project.name}</h3>
                     <p className="mt-3 break-all font-mono text-xs leading-6 text-zinc-400">{project.path}</p>
                     <ProjectNotesPreview project={project} />
-                    <ResumeProject project={project} />
+                    <LastResumedAt timestamp={project.lastResumedAt} />
+                    <ResumeProject project={project} onResumed={recordResumed} />
                     <ProjectGitStatus project={project} />
                     <button type="button" aria-label={`${project.name}の詳細を開く`} onClick={() => {
                       setShowForm(false);

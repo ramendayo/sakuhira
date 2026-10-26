@@ -18,6 +18,8 @@ pub struct Project {
     pub launch_url: Option<String>,
     #[serde(default)]
     pub notes: ProjectNotes,
+    #[serde(default, rename = "lastResumedAt")]
+    pub last_resumed_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -44,6 +46,24 @@ fn validate_notes(notes: &ProjectNotes) -> Result<(), String> {
     Ok(())
 }
 
+fn current_timestamp() -> Result<u64, String> {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| format!("日時を取得できません: {error}"))?
+        .as_millis();
+    let timestamp =
+        u64::try_from(millis).map_err(|error| format!("日時を保存できません: {error}"))?;
+    validate_resumed_at(Some(timestamp))?;
+    Ok(timestamp)
+}
+
+fn validate_resumed_at(timestamp: Option<u64>) -> Result<(), String> {
+    if timestamp.is_some_and(|value| value > 8_640_000_000_000_000) {
+        return Err("最終再開日時が不正です。".into());
+    }
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProjectDocument {
@@ -51,6 +71,7 @@ struct ProjectDocument {
     projects: Vec<Project>,
 }
 
+#[derive(Clone)]
 pub struct ProjectStore {
     directory: PathBuf,
 }
@@ -84,7 +105,10 @@ fn matching_project(projects: &[Project], expected: &Project) -> Result<usize, S
         .iter()
         .position(|project| project.id == expected.id)
         .ok_or("このプロジェクトはすでに登録解除されています。一覧を再読み込みしてください。")?;
-    if projects[index] != *expected {
+    // 再開履歴だけの更新は、編集中の設定やメモの保存を妨げない。
+    let mut expected = expected.clone();
+    expected.last_resumed_at = projects[index].last_resumed_at;
+    if projects[index] != expected {
         return Err(
             "このプロジェクトは別の操作で更新されています。一覧を再読み込みしてください。".into(),
         );
@@ -124,6 +148,7 @@ impl ProjectStore {
         for project in &document.projects {
             crate::launch::normalize_url(project.launch_url.as_deref())?;
             validate_notes(&project.notes)?;
+            validate_resumed_at(project.last_resumed_at)?;
             // 登録後に削除・移動されたフォルダでも、保存済み情報は読み込む。
             if Uuid::parse_str(&project.id).is_err()
                 || project.name.trim().is_empty()
@@ -170,6 +195,7 @@ impl ProjectStore {
                 path,
                 launch_url: None,
                 notes: ProjectNotes::default(),
+                last_resumed_at: None,
             };
             projects.push(project.clone());
             Ok(project)
@@ -198,6 +224,7 @@ impl ProjectStore {
                 path,
                 launch_url: expected.launch_url.clone(),
                 notes: expected.notes.clone(),
+                last_resumed_at: projects[index].last_resumed_at,
             };
             projects[index] = project.clone();
             Ok(project)
@@ -246,18 +273,20 @@ impl ProjectStore {
                 || projects[index].notes.last_work != notes.last_work
                 || projects[index].notes.next_task != notes.next_task
             {
-                let millis = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map_err(|error| format!("更新日時を取得できません: {error}"))?
-                    .as_millis();
-                notes.updated_at = Some(
-                    u64::try_from(millis)
-                        .map_err(|error| format!("更新日時を保存できません: {error}"))?,
-                );
+                notes.updated_at = Some(current_timestamp()?);
                 validate_notes(&notes)?;
                 projects[index].notes = notes;
             }
             Ok(projects[index].clone())
+        })
+    }
+
+    pub fn record_resume(&self, expected: &Project) -> Result<u64, String> {
+        self.change(|projects| {
+            let index = matching_project(projects, expected)?;
+            let timestamp = current_timestamp()?.max(projects[index].last_resumed_at.unwrap_or(0));
+            projects[index].last_resumed_at = Some(timestamp);
+            Ok(timestamp)
         })
     }
 

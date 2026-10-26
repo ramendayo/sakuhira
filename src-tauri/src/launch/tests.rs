@@ -9,7 +9,57 @@ fn project(path: &Path, url: Option<&str>) -> Project {
         path: path.to_str().unwrap().into(),
         launch_url: url.map(str::to_owned),
         notes: Default::default(),
+        last_resumed_at: None,
     }
+}
+
+#[test]
+fn history_is_recorded_only_for_editor_success_and_keeps_partial_launch_results() {
+    let root = tempdir().unwrap();
+    let store = crate::projects::ProjectStore::new(root.path().join("data"));
+    let project = store.add("Example", root.path()).unwrap();
+    let failed = resume_with(
+        &project,
+        Editor::VsCode,
+        |_| Err("missing editor".into()),
+        |_| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(
+        record_history(&store, &project, failed).history,
+        ResumeHistory::Skipped
+    );
+    assert_eq!(store.list().unwrap()[0].last_resumed_at, None);
+
+    let mut configured = store
+        .set_launch_url(&project, Some("https://example.com/"))
+        .unwrap();
+    let partial = resume_with(
+        &configured,
+        Editor::VsCode,
+        |_| Ok(()),
+        |_| Err("browser failed".into()),
+    )
+    .unwrap();
+    let saved = record_history(&store, &configured, partial);
+    let ResumeHistory::Saved { timestamp } = saved.history else {
+        panic!("history was not saved")
+    };
+    assert_eq!(store.list().unwrap()[0].last_resumed_at, Some(timestamp));
+    assert_eq!(
+        saved.browser,
+        Some(LaunchOutcome::Error {
+            message: "browser failed".into()
+        })
+    );
+
+    // 起動中に別操作で更新された設定を、履歴保存で巻き戻さない。
+    configured = store.update(&configured, "New name", root.path()).unwrap();
+    let launched = resume_with(&project, Editor::VsCode, |_| Ok(()), |_| Ok(())).unwrap();
+    let report = record_history(&store, &project, launched);
+    assert_eq!(report.editor, LaunchOutcome::Success);
+    assert!(matches!(report.history, ResumeHistory::Error { .. }));
+    assert_eq!(store.list().unwrap()[0], configured);
 }
 
 #[test]
@@ -72,7 +122,8 @@ fn sends_canonical_folder_and_url_to_separate_launchers() {
         ResumeReport {
             editor_name: "VS Code".into(),
             editor: LaunchOutcome::Success,
-            browser: Some(LaunchOutcome::Success)
+            browser: Some(LaunchOutcome::Success),
+            history: ResumeHistory::Skipped,
         }
     );
     assert_eq!(fs::read_dir(&folder).unwrap().count(), 0);
@@ -145,7 +196,7 @@ fn no_url_skips_browser_and_report_matches_frontend_contract() {
     .unwrap();
     assert_eq!(
         serde_json::to_value(report).unwrap(),
-        serde_json::json!({ "editorName": "VS Code", "editor": { "status": "success" }, "browser": null })
+        serde_json::json!({ "editorName": "VS Code", "editor": { "status": "success" }, "browser": null, "history": { "status": "skipped" } })
     );
     assert_eq!(
         serde_json::to_value(LaunchOutcome::Error {
