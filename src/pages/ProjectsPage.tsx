@@ -14,6 +14,15 @@ type ProjectsPageProps = {
   onSelect: Dispatch<SetStateAction<string | null>>;
 };
 
+function searchPriority(project: Project, term: string): number {
+  const name = project.name.toLowerCase();
+  if (name === term) return 0;
+  if (name.startsWith(term)) return 1;
+  if (name.includes(term)) return 2;
+  if (project.path.toLowerCase().includes(term)) return 3;
+  return 4;
+}
+
 function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects();
   const [showForm, setShowForm] = useState(false);
@@ -22,9 +31,13 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   const searchInput = useRef<HTMLInputElement>(null);
   const addButton = useRef<HTMLButtonElement>(null);
   const searchTerm = query.trim().toLowerCase();
-  const visibleProjects = projects.filter((project) =>
-    project.name.toLowerCase().includes(searchTerm) || project.path.toLowerCase().includes(searchTerm),
-  );
+  // 同じ一致条件では、useProjectsが返す再開日時順を安定ソートで維持する。
+  const visibleProjects = searchTerm
+    ? projects.map((project) => ({ project, priority: searchPriority(project, searchTerm) }))
+      .filter(({ priority }) => priority < 4)
+      .sort((a, b) => a.priority - b.priority)
+      .map(({ project }) => project)
+    : projects;
 
   function clearSearch() {
     setQuery("");
@@ -118,7 +131,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
             </div>
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <h2 className="text-sm font-medium text-zinc-300">すべてのプロジェクト</h2>
-              <span className="text-xs text-zinc-500">最近再開した順</span>
+              <span className="text-xs text-zinc-500">{searchTerm ? "名前の一致度順・同順位は最近再開した順" : "最近再開した順"}</span>
               <span role="status" aria-atomic="true" className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-xs text-zinc-400">
                 {searchTerm ? `${visibleProjects.length} / ${projects.length} 件` : `${projects.length} 件`}
               </span>

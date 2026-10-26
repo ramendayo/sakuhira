@@ -73,13 +73,13 @@ describe("project search", () => {
 
   beforeEach(() => vi.mocked(api.listProjects).mockResolvedValue([project, other, recent]));
 
-  it("matches names and paths literally without case sensitivity and preserves resume order", async () => {
+  it("matches names and paths literally without case sensitivity and restores resume order for blank searches", async () => {
     const user = userEvent.setup();
     render(<App />);
     const search = await screen.findByRole("searchbox", { name: "プロジェクトを検索" });
     const names = () => within(screen.getByRole("list", { name: "登録済みプロジェクト" })).getAllByRole("heading").map((heading) => heading.textContent);
     await user.type(search, "  REENTRY  ");
-    expect(names()).toEqual(["Reentry Docs", "Reentry"]);
+    expect(names()).toEqual(["Reentry", "Reentry Docs"]);
     expect(screen.getByText("2 / 3 件")).toBeTruthy();
     await user.clear(search);
     await user.paste("/WORK/日本語/[draft]");
@@ -90,6 +90,29 @@ describe("project search", () => {
     expect(screen.getByText("3 件")).toBeTruthy();
     expect(api.listProjects).toHaveBeenCalledTimes(1);
     expect(api.updateProject).not.toHaveBeenCalled();
+  });
+
+  it("ranks exact names before prefixes, substrings, and path-only matches, using resume order for ties", async () => {
+    const fixture = (id: string, name: string, lastResumedAt: number, path = `/work/${name}`): Project => ({ ...project, id, name, path, lastResumedAt });
+    vi.mocked(api.listProjects).mockResolvedValue([
+      fixture("numa", "numa-project", 10),
+      fixture("rentry", "Rentry", 30),
+      fixture("exact", "N", 1),
+      fixture("prefix", "Next", 20),
+      fixture("path", "Website", 40, "/work/notes"),
+      fixture("excluded", "App", 0),
+    ]);
+    const user = userEvent.setup();
+    render(<App />);
+    const search = await screen.findByRole("searchbox", { name: "プロジェクトを検索" });
+    const names = () => within(screen.getByRole("list", { name: "登録済みプロジェクト" })).getAllByRole("heading").map((heading) => heading.textContent);
+    await user.type(search, " N ");
+    expect(names()).toEqual(["N", "Next", "numa-project", "Rentry", "Website"]);
+    expect(screen.getByText("5 / 6 件")).toBeTruthy();
+    expect(screen.getByText("名前の一致度順・同順位は最近再開した順")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "検索をクリア" }));
+    expect(names()).toEqual(["Website", "Rentry", "Next", "numa-project", "N", "App"]);
+    expect(screen.getByText("最近再開した順")).toBeTruthy();
   });
 
   it("distinguishes no matches from an empty registry and restores all projects on clear", async () => {
