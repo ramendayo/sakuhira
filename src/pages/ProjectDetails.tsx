@@ -87,7 +87,7 @@ function ProjectDetails({ project, onBack, onUpdated, onRemoved, onResumed }: Pr
             </div>
             <div>
               <dt className="text-sm text-zinc-400">フォルダ</dt>
-              <dd className="mt-2 break-all font-mono text-sm leading-6">{project.path}</dd>
+              <dd className="mt-2 break-all font-mono text-sm leading-6">{project.path ?? "未設定（URLのみ・ブラウザで再開）"}</dd>
             </div>
           </dl>
           {mode === "view" && (

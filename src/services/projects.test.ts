@@ -23,6 +23,8 @@ it("sends an optional registration URL and treats blank input as unset", async (
   expect(handler).toHaveBeenLastCalledWith("add_project", { name: "Example", path: "/example", launchUrl: "https://example.com" });
   await addProject("Example", "/example", "   ");
   expect(handler).toHaveBeenLastCalledWith("add_project", { name: "Example", path: "/example", launchUrl: null });
+  await addProject("Web", null, "https://example.com");
+  expect(handler).toHaveBeenLastCalledWith("add_project", { name: "Web", path: null, launchUrl: "https://example.com" });
 });
 
 it("loads projects and treats folder picker cancellation as a normal result", async () => {

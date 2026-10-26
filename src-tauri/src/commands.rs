@@ -22,10 +22,10 @@ pub fn list_projects(store: State<'_, ProjectStore>) -> Result<Vec<Project>, Str
 pub fn add_project(
     store: State<'_, ProjectStore>,
     name: String,
-    path: String,
+    path: Option<String>,
     launch_url: Option<String>,
 ) -> Result<Project, String> {
-    store.add(&name, Path::new(&path), launch_url.as_deref())
+    store.add(&name, path.as_deref().map(Path::new), launch_url.as_deref())
 }
 
 #[tauri::command(async)]
@@ -33,9 +33,9 @@ pub fn update_project(
     store: State<'_, ProjectStore>,
     project: Project,
     name: String,
-    path: String,
+    path: Option<String>,
 ) -> Result<Project, String> {
-    store.update(&project, &name, Path::new(&path))
+    store.update(&project, &name, path.as_deref().map(Path::new))
 }
 
 #[tauri::command(async)]
@@ -53,7 +53,10 @@ pub async fn get_git_status(
         .into_iter()
         .find(|project| project.id == project_id)
         .ok_or("このプロジェクトは登録されていません。一覧を再読み込みしてください。")?;
-    tauri::async_runtime::spawn_blocking(move || crate::git_status::read(Path::new(&project.path)))
+    let path = project
+        .path
+        .ok_or("URLのみのプロジェクトにはGit情報がありません。")?;
+    tauri::async_runtime::spawn_blocking(move || crate::git_status::read(Path::new(&path)))
         .await
         .map_err(|error| format!("Gitの状態取得を完了できません: {error}"))?
 }
@@ -114,7 +117,11 @@ pub async fn resume_project(
     project: Project,
 ) -> Result<crate::launch::ResumeReport, String> {
     let project = store.get_matching(&project)?;
-    let editor = settings.load()?.default_editor;
+    let editor = if project.path.is_some() {
+        settings.load()?.default_editor
+    } else {
+        Default::default()
+    };
     let store = store.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let report = crate::launch::resume(&app, &project, editor)?;

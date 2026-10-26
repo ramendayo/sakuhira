@@ -44,7 +44,7 @@ function ResumeAction({ project, onResumed }: ResumeProjectProps) {
       <div className="mt-3 space-y-2 break-words text-xs leading-6">
         {error && <p role="alert" className="text-red-300">{error}</p>}
         {report && <>
-          <Outcome name={report.editorName} result={report.editor} />
+          {report.editor ? <Outcome name={report.editorName} result={report.editor} /> : <p className="text-zinc-400">URLのみのため、エディタは開きませんでした。</p>}
           {report.browser ? <Outcome name="ブラウザ" result={report.browser} /> : <p role="status" className="text-zinc-400">URL未設定のため、ブラウザは開きませんでした。</p>}
           <p className="text-zinc-400">起動先での読み込み完了は確認していません。</p>
           {report.history.status === "error" && <p role="alert" className="text-red-300">最終再開日時を保存できませんでした：{report.history.message}</p>}

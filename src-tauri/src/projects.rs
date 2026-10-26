@@ -13,7 +13,7 @@ use uuid::Uuid;
 pub struct Project {
     pub id: String,
     pub name: String,
-    pub path: String,
+    pub path: Option<String>,
     #[serde(default, rename = "launchUrl")]
     pub launch_url: Option<String>,
     #[serde(default)]
@@ -100,6 +100,13 @@ fn project_name(name: &str) -> Result<String, String> {
     Ok(name.into())
 }
 
+fn validate_launch_target(path: Option<&str>, url: Option<&str>) -> Result<(), String> {
+    if path.is_none() && url.is_none() {
+        return Err("フォルダまたは起動URLを設定してください。".into());
+    }
+    Ok(())
+}
+
 fn matching_project(projects: &[Project], expected: &Project) -> Result<usize, String> {
     let index = projects
         .iter()
@@ -146,16 +153,19 @@ impl ProjectStore {
         let mut ids = HashSet::new();
         let mut paths = HashSet::new();
         for project in &document.projects {
-            crate::launch::normalize_url(project.launch_url.as_deref())?;
+            let launch_url = crate::launch::normalize_url(project.launch_url.as_deref())?;
+            validate_launch_target(project.path.as_deref(), launch_url.as_deref())?;
             validate_notes(&project.notes)?;
             validate_resumed_at(project.last_resumed_at)?;
             // 登録後に削除・移動されたフォルダでも、保存済み情報は読み込む。
             if Uuid::parse_str(&project.id).is_err()
                 || project.name.trim().is_empty()
                 || project.name.chars().count() > 100
-                || !Path::new(&project.path).is_absolute()
+                || project
+                    .path
+                    .as_ref()
+                    .is_some_and(|path| !Path::new(path).is_absolute() || !paths.insert(path))
                 || !ids.insert(&project.id)
-                || !paths.insert(&project.path)
             {
                 return Err(
                     "保存データに不正なプロジェクト情報があります。既存ファイルは変更しません。"
@@ -185,14 +195,15 @@ impl ProjectStore {
     pub fn add(
         &self,
         name: &str,
-        path: &Path,
+        path: Option<&Path>,
         launch_url: Option<&str>,
     ) -> Result<Project, String> {
         let name = project_name(name)?;
-        let path = directory_path(path)?;
+        let path = path.map(directory_path).transpose()?;
         let launch_url = crate::launch::normalize_url(launch_url)?;
+        validate_launch_target(path.as_deref(), launch_url.as_deref())?;
         self.change(|projects| {
-            if projects.iter().any(|project| project.path == path) {
+            if path.is_some() && projects.iter().any(|project| project.path == path) {
                 return Err("このフォルダはすでに登録されています。".into());
             }
             let project = Project {
@@ -208,19 +219,25 @@ impl ProjectStore {
         })
     }
 
-    pub fn update(&self, expected: &Project, name: &str, path: &Path) -> Result<Project, String> {
+    pub fn update(
+        &self,
+        expected: &Project,
+        name: &str,
+        path: Option<&Path>,
+    ) -> Result<Project, String> {
         let name = project_name(name)?;
         self.change(|projects| {
             let index = matching_project(projects, expected)?;
             // フォルダが移動・削除済みでも、パスを変えない名前の編集は許可する。
-            let path = if path == Path::new(&projects[index].path) {
+            let path = if path == projects[index].path.as_deref().map(Path::new) {
                 projects[index].path.clone()
             } else {
-                directory_path(path)?
+                path.map(directory_path).transpose()?
             };
+            validate_launch_target(path.as_deref(), projects[index].launch_url.as_deref())?;
             if projects
                 .iter()
-                .any(|project| project.id != expected.id && project.path == path)
+                .any(|project| path.is_some() && project.id != expected.id && project.path == path)
             {
                 return Err("このフォルダはすでに登録されています。".into());
             }
@@ -256,6 +273,7 @@ impl ProjectStore {
         let url = crate::launch::normalize_url(url)?;
         self.change(|projects| {
             let index = matching_project(projects, expected)?;
+            validate_launch_target(projects[index].path.as_deref(), url.as_deref())?;
             projects[index].launch_url = url;
             Ok(projects[index].clone())
         })

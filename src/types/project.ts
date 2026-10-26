@@ -7,7 +7,7 @@ export type ProjectNotes = {
 export type Project = {
   id: string;
   name: string;
-  path: string;
+  path: string | null;
   launchUrl: string | null;
   notes: ProjectNotes;
   lastResumedAt: number | null;

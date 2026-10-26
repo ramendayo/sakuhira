@@ -2,7 +2,12 @@ import { useGitStatus } from "../hooks/useGitStatus";
 import type { Project } from "../types/project";
 
 function ProjectGitStatus({ project }: { project: Project }) {
-  const { result, refresh } = useGitStatus(project.id, project.path);
+  if (project.path === null) return <section aria-label="Gitの状態" className="mt-5 border-t border-zinc-800 pt-4"><p className="text-sm text-zinc-400">URLのみのプロジェクトにはGit情報がありません。</p></section>;
+  return <FolderGitStatus projectId={project.id} path={project.path} />;
+}
+
+function FolderGitStatus({ projectId, path }: { projectId: string; path: string }) {
+  const { result, refresh } = useGitStatus(projectId, path);
   return (
     <section aria-label="Gitの状態" className="mt-5 border-t border-zinc-800 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-3">

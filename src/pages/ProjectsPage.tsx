@@ -19,7 +19,7 @@ function searchPriority(project: Project, term: string): number {
   if (name === term) return 0;
   if (name.startsWith(term)) return 1;
   if (name.includes(term)) return 2;
-  if (project.path.toLowerCase().includes(term)) return 3;
+  if (project.path?.toLowerCase().includes(term)) return 3;
   return 4;
 }
 
@@ -144,7 +144,8 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
                   {visibleProjects.map((project) => (
                     <li key={project.id} className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
                       <h3 className="break-words text-lg font-medium">{project.name}</h3>
-                      <p className="mt-3 break-all font-mono text-xs leading-6 text-zinc-400">{project.path}</p>
+                      <p className="mt-3 break-all font-mono text-xs leading-6 text-zinc-400">{project.path ?? project.launchUrl}</p>
+                      {!project.path && <p className="mt-2 text-xs text-zinc-400">URLのみ・ブラウザで再開</p>}
                       <ProjectNotesPreview project={project} />
                       <LastResumedAt timestamp={project.lastResumedAt} />
                       <ResumeProject project={project} onResumed={recordResumed} />

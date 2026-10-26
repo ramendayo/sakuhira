@@ -42,12 +42,16 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
       setError("プロジェクト名を入力してください。");
       return;
     }
+    if (!path && !(project ? project.launchUrl : launchUrl.trim())) {
+      setError("フォルダまたは起動URLを設定してください。");
+      return;
+    }
     setError(null);
     setPending("saving");
     try {
       const saved = project
-        ? await updateProject(project, name.trim(), path)
-        : await addProject(name.trim(), path, launchUrl);
+        ? await updateProject(project, name.trim(), path || null)
+        : await addProject(name.trim(), path || null, launchUrl);
       onSaved(saved);
     } catch (error) {
       setError(errorMessage(error));
@@ -65,7 +69,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     >
       <h2 id={`${id}-heading`} className="text-lg font-medium">{project ? "プロジェクトを編集" : "プロジェクトを登録"}</h2>
       <p className="mt-2 text-sm leading-6 text-zinc-400">
-        ローカルフォルダを選び、表示名を入力してください。
+        名前を入力し、フォルダまたは起動URLを設定してください。
       </p>
       <fieldset disabled={pending !== null} className="mt-5 space-y-5 disabled:opacity-60">
         <div>
@@ -75,7 +79,6 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
               id={`${id}-path`}
               value={path}
               onChange={(event) => setPath(event.target.value)}
-              required
               autoFocus
               placeholder="フォルダを選択、または絶対パスを入力"
               className="min-w-0 flex-[1_1_260px] rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm"
@@ -84,6 +87,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
               {pending === "picking" ? "選択中…" : "フォルダを選択"}
             </button>
           </div>
+          <p className="mt-2 text-xs leading-6 text-zinc-400">URLのみで登録する場合は空欄にできます。フォルダなしではブラウザだけを開きます。</p>
         </div>
         <div>
           <label htmlFor={`${id}-name`} className="mb-2 block text-sm text-zinc-300">プロジェクト名</label>
@@ -100,7 +104,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
         {!project && <div>
           <label htmlFor={`${id}-launch-url`} className="mb-2 block text-sm text-zinc-300">起動URL（任意）</label>
           <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => setLaunchUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm" />
-          <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-zinc-400">空欄でも登録できます。HTTP/HTTPSのURLを設定すると、再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
+          <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-zinc-400">フォルダがない場合は必須です。HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
         </div>}
         <p className="text-xs leading-6 text-zinc-400">フォルダ内のファイルは変更されません。</p>
         <div className="flex flex-wrap justify-end gap-3">

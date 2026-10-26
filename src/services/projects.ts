@@ -12,13 +12,13 @@ export async function listProjects(): Promise<Project[]> {
   return invoke<Project[]>("list_projects");
 }
 
-export async function addProject(name: string, path: string, launchUrl = ""): Promise<Project> {
+export async function addProject(name: string, path: string | null, launchUrl = ""): Promise<Project> {
   requireDesktop();
   return invoke<Project>("add_project", { name, path, launchUrl: launchUrl.trim() || null });
 }
 
 // 元の値も送り、別の操作による更新をRust側で検出する。
-export async function updateProject(project: Project, name: string, path: string): Promise<Project> {
+export async function updateProject(project: Project, name: string, path: string | null): Promise<Project> {
   requireDesktop();
   return invoke<Project>("update_project", { project, name, path });
 }

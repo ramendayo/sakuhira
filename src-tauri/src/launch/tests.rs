@@ -6,7 +6,7 @@ fn project(path: &Path, url: Option<&str>) -> Project {
     Project {
         id: "fixture".into(),
         name: "Fixture".into(),
-        path: path.to_str().unwrap().into(),
+        path: Some(path.to_str().unwrap().into()),
         launch_url: url.map(str::to_owned),
         notes: Default::default(),
         last_resumed_at: None,
@@ -14,10 +14,68 @@ fn project(path: &Path, url: Option<&str>) -> Project {
 }
 
 #[test]
+fn url_only_resume_skips_editor_and_records_only_successful_browser_launches() {
+    let root = tempdir().unwrap();
+    let store = crate::projects::ProjectStore::new(root.path().join("data"));
+    let web = store
+        .add("Docs", None, Some("https://example.com"))
+        .unwrap();
+    let failed = resume_with(
+        &web,
+        Editor::VsCode,
+        |_| panic!("editor must not run"),
+        |_| Err("browser unavailable".into()),
+    )
+    .unwrap();
+    let report = record_history(&store, &web, failed);
+    assert_eq!(report.editor, None);
+    assert_eq!(report.history, ResumeHistory::Skipped);
+    assert_eq!(store.list().unwrap()[0].last_resumed_at, None);
+    let launched = resume_with(
+        &web,
+        Editor::VsCode,
+        |_| panic!("editor must not run"),
+        |url| {
+            assert_eq!(url, "https://example.com/");
+            Ok(())
+        },
+    )
+    .unwrap();
+    let report = record_history(&store, &web, launched);
+    assert_eq!(report.editor, None);
+    assert_eq!(report.browser, Some(LaunchOutcome::Success));
+    let ResumeHistory::Saved { timestamp } = report.history else {
+        panic!("history not saved")
+    };
+    assert_eq!(store.list().unwrap()[0].last_resumed_at, Some(timestamp));
+    let mut invalid = web;
+    invalid.launch_url = None;
+    assert!(
+        resume_with(
+            &invalid,
+            Editor::VsCode,
+            |_| panic!("editor must not run"),
+            |_| panic!("browser must not run")
+        )
+        .is_err()
+    );
+    invalid.launch_url = Some("file:///tmp".into());
+    assert!(
+        resume_with(
+            &invalid,
+            Editor::VsCode,
+            |_| panic!("editor must not run"),
+            |_| panic!("browser must not run")
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn history_is_recorded_only_for_editor_success_and_keeps_partial_launch_results() {
     let root = tempdir().unwrap();
     let store = crate::projects::ProjectStore::new(root.path().join("data"));
-    let project = store.add("Example", root.path(), None).unwrap();
+    let project = store.add("Example", Some(root.path()), None).unwrap();
     let failed = resume_with(
         &project,
         Editor::VsCode,
@@ -54,10 +112,12 @@ fn history_is_recorded_only_for_editor_success_and_keeps_partial_launch_results(
     );
 
     // 起動中に別操作で更新された設定を、履歴保存で巻き戻さない。
-    configured = store.update(&configured, "New name", root.path()).unwrap();
+    configured = store
+        .update(&configured, "New name", Some(root.path()))
+        .unwrap();
     let launched = resume_with(&project, Editor::VsCode, |_| Ok(()), |_| Ok(())).unwrap();
     let report = record_history(&store, &project, launched);
-    assert_eq!(report.editor, LaunchOutcome::Success);
+    assert_eq!(report.editor, Some(LaunchOutcome::Success));
     assert!(matches!(report.history, ResumeHistory::Error { .. }));
     assert_eq!(store.list().unwrap()[0], configured);
 }
@@ -121,7 +181,7 @@ fn sends_canonical_folder_and_url_to_separate_launchers() {
         report,
         ResumeReport {
             editor_name: "VS Code".into(),
-            editor: LaunchOutcome::Success,
+            editor: Some(LaunchOutcome::Success),
             browser: Some(LaunchOutcome::Success),
             history: ResumeHistory::Skipped,
         }
@@ -171,7 +231,7 @@ fn editor_failure_does_not_skip_browser_and_partial_failures_are_preserved() {
     )
     .unwrap();
     assert!(browser_called.get());
-    assert!(matches!(report.editor, LaunchOutcome::Error { .. }));
+    assert!(matches!(report.editor, Some(LaunchOutcome::Error { .. })));
     assert_eq!(report.browser, Some(LaunchOutcome::Success));
     let report = resume_with(
         &project(root.path(), Some("http://localhost:3000")),
@@ -180,7 +240,7 @@ fn editor_failure_does_not_skip_browser_and_partial_failures_are_preserved() {
         |_| Err("Browser failed".into()),
     )
     .unwrap();
-    assert_eq!(report.editor, LaunchOutcome::Success);
+    assert_eq!(report.editor, Some(LaunchOutcome::Success));
     assert!(matches!(report.browser, Some(LaunchOutcome::Error { .. })));
 }
 
@@ -225,5 +285,5 @@ fn selected_editor_is_invoked_and_named_in_the_report() {
     )
     .unwrap();
     assert_eq!(report.editor_name, "Cursor");
-    assert_eq!(report.editor, LaunchOutcome::Success);
+    assert_eq!(report.editor, Some(LaunchOutcome::Success));
 }

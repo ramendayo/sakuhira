@@ -4,7 +4,7 @@ export type LaunchOutcome =
 
 export type ResumeReport = {
   editorName: string;
-  editor: LaunchOutcome;
+  editor: LaunchOutcome | null;
   browser: LaunchOutcome | null;
   history:
     | { status: "skipped" }

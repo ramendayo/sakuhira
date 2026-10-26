@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import ProjectLaunchSettings from "./ProjectLaunchSettings";
 import ResumeProject from "./ResumeProject";
 import { resumeProject, setProjectLaunchUrl } from "../services/launch";
+import { getSettings } from "../services/settings";
 import type { Project } from "../types/project";
 import type { ResumeReport } from "../types/launch";
 
@@ -20,6 +21,26 @@ function Harness() {
   const [current, setCurrent] = useState(project);
   return <><ProjectLaunchSettings project={current} onSaved={setCurrent} /><ResumeProject project={current} /></>;
 }
+
+it("shows browser-only results and does not load editor settings for URL-only projects", async () => {
+  const web = { ...project, path: null, launchUrl: "https://example.com/" };
+  const onResumed = vi.fn();
+  vi.mocked(getSettings).mockRejectedValue("settings unavailable");
+  vi.mocked(resumeProject).mockResolvedValue({ editorName: "VS Code", editor: null, browser: { status: "success" }, history: { status: "saved", timestamp: 3000 } });
+  const user = userEvent.setup();
+  render(<><ProjectLaunchSettings project={web} onSaved={vi.fn()} /><ResumeProject project={web} onResumed={onResumed} /></>);
+  expect(getSettings).not.toHaveBeenCalled();
+  const url = screen.getByLabelText("起動URL（必須）") as HTMLInputElement;
+  expect(url.required).toBe(true);
+  await user.clear(url);
+  await user.click(screen.getByRole("button", { name: "起動設定を保存" }));
+  expect(setProjectLaunchUrl).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
+  expect(await screen.findByText("ブラウザ：起動要求を送信しました。")).toBeTruthy();
+  expect(screen.getByText("URLのみのため、エディタは開きませんでした。")).toBeTruthy();
+  expect(onResumed).toHaveBeenCalledWith(project.id, 3000);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
 
 it("shows launch success alongside a history storage error without reporting a saved timestamp", async () => {
   vi.mocked(resumeProject).mockResolvedValue({ ...success, history: { status: "error", message: "保存先に書き込めません" } });

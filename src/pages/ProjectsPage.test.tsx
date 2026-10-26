@@ -25,7 +25,7 @@ vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchU
 
 vi.mock("../services/settings", () => ({ getSettings: vi.fn(async () => ({ defaultEditor: "vsCode" })) }));
 
-const project: Project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+const project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } } satisfies Project;
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -164,6 +164,46 @@ describe("project search", () => {
 });
 
 describe("project registration", () => {
+  it("registers a named URL-only project and supports browser-only resume and editing", async () => {
+    const web: Project = { ...project, path: null, launchUrl: "https://example.com/" };
+    vi.mocked(api.addProject).mockResolvedValue(web);
+    vi.mocked(api.updateProject).mockResolvedValue({ ...web, name: "Web Docs", lastResumedAt: 3000 });
+    vi.mocked(resumeProject).mockResolvedValue({ editorName: "VS Code", editor: null, browser: { status: "success" }, history: { status: "saved", timestamp: 3000 } });
+    const user = await openForm();
+    await user.type(screen.getByLabelText("プロジェクト名"), web.name);
+    await user.type(screen.getByLabelText("起動URL（任意）"), "https://example.com");
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+    await screen.findByRole("heading", { name: web.name });
+    expect(api.addProject).toHaveBeenCalledWith(web.name, null, "https://example.com");
+    expect(screen.getByText(web.launchUrl!)).toBeTruthy();
+    await user.type(screen.getByRole("searchbox"), "REENTRY");
+    await user.click(screen.getByRole("button", { name: "Reentryの詳細を開く" }));
+    expect(screen.getByText("未設定（URLのみ・ブラウザで再開）")).toBeTruthy();
+    expect(screen.getByText("URLのみのプロジェクトにはGit情報がありません。")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
+    await screen.findByText("ブラウザ：起動要求を送信しました。");
+    expect(resumeProject).toHaveBeenCalledWith(web);
+    await user.click(screen.getByRole("button", { name: "編集する" }));
+    expect((screen.getByLabelText("フォルダ") as HTMLInputElement).value).toBe("");
+    await user.clear(screen.getByLabelText("プロジェクト名"));
+    await user.type(screen.getByLabelText("プロジェクト名"), "Web Docs");
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    await screen.findByText("変更を保存しました。");
+    expect(api.updateProject).toHaveBeenCalledWith({ ...web, lastResumedAt: 3000 }, "Web Docs", null);
+  });
+
+  it("requires a name and at least one launch target before registration", async () => {
+    const user = await openForm();
+    await user.type(screen.getByLabelText("起動URL（任意）"), "https://example.com");
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+    expect(api.addProject).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText("プロジェクト名"), "Example");
+    await user.clear(screen.getByLabelText("起動URL（任意）"));
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("フォルダまたは起動URL");
+    expect(api.addProject).not.toHaveBeenCalled();
+  });
+
   it("registers an optional URL and uses the saved URL when resuming", async () => {
     const configured = { ...project, launchUrl: "http://localhost:3000/" };
     vi.mocked(api.addProject).mockResolvedValue(configured);

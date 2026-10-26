@@ -14,6 +14,20 @@ const clean: GitStatus = {
 beforeEach(() => vi.resetAllMocks());
 afterEach(cleanup);
 
+it("does not request Git status for URL-only projects, including after changing from a folder", async () => {
+  vi.mocked(getGitStatus).mockResolvedValue(clean);
+  const { rerender } = render(<ProjectGitStatus project={{ ...project, path: null, launchUrl: "https://example.com/" }} />);
+  expect(screen.getByText("URLのみのプロジェクトにはGit情報がありません。")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Gitを更新" })).toBeNull();
+  expect(getGitStatus).not.toHaveBeenCalled();
+  rerender(<ProjectGitStatus project={project} />);
+  await screen.findByText("ブランチ: main");
+  expect(getGitStatus).toHaveBeenCalledTimes(1);
+  rerender(<ProjectGitStatus project={{ ...project, path: null, launchUrl: "https://example.com/" }} />);
+  expect(screen.queryByText("ブランチ: main")).toBeNull();
+  expect(getGitStatus).toHaveBeenCalledTimes(1);
+});
+
 it("shows loading and then the branch, clean state, and file count", async () => {
   let finish!: (status: GitStatus) => void;
   vi.mocked(getGitStatus).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));

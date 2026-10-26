@@ -53,7 +53,7 @@ impl From<Result<(), String>> for LaunchOutcome {
 pub struct ResumeReport {
     #[serde(rename = "editorName")]
     pub editor_name: String,
-    pub editor: LaunchOutcome,
+    pub editor: Option<LaunchOutcome>,
     pub browser: Option<LaunchOutcome>,
     pub history: ResumeHistory,
 }
@@ -71,7 +71,12 @@ pub fn record_history(
     project: &Project,
     mut report: ResumeReport,
 ) -> ResumeReport {
-    if report.editor == LaunchOutcome::Success {
+    let resumed = if project.path.is_some() {
+        report.editor == Some(LaunchOutcome::Success)
+    } else {
+        report.browser == Some(LaunchOutcome::Success)
+    };
+    if resumed {
         report.history = match store.record_resume(project) {
             Ok(timestamp) => ResumeHistory::Saved { timestamp },
             Err(message) => ResumeHistory::Error { message },
@@ -104,9 +109,16 @@ fn resume_with(
     browser: impl FnOnce(&str) -> Result<(), String>,
 ) -> Result<ResumeReport, String> {
     // 起動前にすべて検証し、不正な設定で一部だけ起動することを避ける。
-    let path = directory_path(Path::new(&project.path))?;
+    let path = project
+        .path
+        .as_deref()
+        .map(|path| directory_path(Path::new(path)))
+        .transpose()?;
     let url = normalize_url(project.launch_url.as_deref())?;
-    let editor = editor(&path).into();
+    if path.is_none() && url.is_none() {
+        return Err("フォルダまたは起動URLを設定してください。".into());
+    }
+    let editor = path.as_deref().map(|path| editor(path).into());
     let browser = url.as_deref().map(|url| browser(url).into());
     Ok(ResumeReport {
         editor_name: selected.name().into(),
