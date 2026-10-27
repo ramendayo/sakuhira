@@ -65,15 +65,15 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
       onSubmit={submit}
       aria-labelledby={`${id}-heading`}
       aria-busy={pending !== null}
-      className="mb-8 rounded-2xl border border-zinc-700 bg-zinc-900/60 p-6"
+      className="mb-8 panel"
     >
-      <h2 id={`${id}-heading`} className="text-lg font-medium">{project ? "プロジェクトを編集" : "プロジェクトを登録"}</h2>
-      <p className="mt-2 text-sm leading-6 text-zinc-400">
+      <h2 id={`${id}-heading`} className="section-title">{project ? "プロジェクトを編集" : "プロジェクトを登録"}</h2>
+      <p className="mt-2 text-sm leading-6 text-muted">
         名前を入力し、フォルダまたは起動URLを設定してください。
       </p>
       <fieldset disabled={pending !== null} className="mt-5 space-y-5 disabled:opacity-60">
         <div>
-          <label htmlFor={`${id}-path`} className="mb-2 block text-sm text-zinc-300">フォルダ</label>
+          <label htmlFor={`${id}-path`} className="field-label">フォルダ</label>
           <div className="flex flex-wrap gap-3">
             <input
               id={`${id}-path`}
@@ -81,16 +81,16 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
               onChange={(event) => setPath(event.target.value)}
               autoFocus
               placeholder="フォルダを選択、または絶対パスを入力"
-              className="min-w-0 flex-[1_1_260px] rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm"
+              className="field flex-[1_1_260px]"
             />
-            <button type="button" onClick={chooseDirectory} className="rounded-lg border border-zinc-600 px-4 py-2.5 text-sm hover:bg-zinc-800 disabled:cursor-wait">
+            <button type="button" onClick={chooseDirectory} className="button-secondary">
               {pending === "picking" ? "選択中…" : "フォルダを選択"}
             </button>
           </div>
-          <p className="mt-2 text-xs leading-6 text-zinc-400">URLのみで登録する場合は空欄にできます。フォルダなしではブラウザだけを開きます。</p>
+          <p className="mt-2 text-xs leading-6 text-muted">URLのみで登録する場合は空欄にできます。フォルダなしではブラウザだけを開きます。</p>
         </div>
         <div>
-          <label htmlFor={`${id}-name`} className="mb-2 block text-sm text-zinc-300">プロジェクト名</label>
+          <label htmlFor={`${id}-name`} className="field-label">プロジェクト名</label>
           <input
             id={`${id}-name`}
             value={name}
@@ -98,23 +98,23 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
             required
             maxLength={100}
             placeholder="例：Reentry"
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm"
+            className="field"
           />
         </div>
         {!project && <div>
-          <label htmlFor={`${id}-launch-url`} className="mb-2 block text-sm text-zinc-300">起動URL（任意）</label>
-          <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => setLaunchUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm" />
-          <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-zinc-400">フォルダがない場合は必須です。HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
+          <label htmlFor={`${id}-launch-url`} className="field-label">起動URL（任意）</label>
+          <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => setLaunchUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="field" />
+          <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-muted">フォルダがない場合は必須です。HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
         </div>}
-        <p className="text-xs leading-6 text-zinc-400">フォルダ内のファイルは変更されません。</p>
+        <p className="text-xs leading-6 text-muted">フォルダ内のファイルは変更されません。</p>
         <div className="flex flex-wrap justify-end gap-3">
-          <button type="button" onClick={onCancel} className="rounded-lg border border-zinc-700 px-4 py-2.5 text-sm hover:bg-zinc-800 disabled:cursor-wait">キャンセル</button>
-          <button type="submit" className="rounded-lg bg-teal-300 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-teal-200 disabled:cursor-wait">
+          <button type="button" onClick={onCancel} className="button-secondary">キャンセル</button>
+          <button type="submit" className="button-primary">
             {pending === "saving" ? "保存中…" : project ? "変更を保存" : "登録する"}
           </button>
         </div>
       </fieldset>
-      {error && <p role="alert" className="mt-4 break-words text-sm leading-6 text-red-300">{error}</p>}
+      {error && <p role="alert" className="mt-4 break-words text-sm leading-6 text-danger">{error}</p>}
     </form>
   );
 }

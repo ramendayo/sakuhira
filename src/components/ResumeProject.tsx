@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Icon from "./Icon";
 import { resumeProject } from "../services/launch";
 import { errorMessage } from "../services/projects";
 import type { Project } from "../types/project";
@@ -6,8 +7,8 @@ import type { LaunchOutcome, ResumeReport } from "../types/launch";
 
 function Outcome({ name, result }: { name: string; result: LaunchOutcome }) {
   return result.status === "success"
-    ? <p role="status" className="text-teal-300">{name}：起動要求を送信しました。</p>
-    : <p role="alert" className="text-red-300">{name}：{result.message}</p>;
+    ? <p role="status" className="text-success">{name}：起動要求を送信しました。</p>
+    : <p role="alert" className="text-danger">{name}：{result.message}</p>;
 }
 
 type ResumeProjectProps = { project: Project; onResumed?: (id: string, timestamp: number) => void };
@@ -39,15 +40,15 @@ function ResumeAction({ project, onResumed }: ResumeProjectProps) {
   }
 
   return (
-    <div className="mt-5" aria-busy={pending}>
-      <button type="button" onClick={resume} disabled={pending} aria-label={`${project.name}を再開`} className="rounded-lg bg-teal-300 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-teal-200 disabled:cursor-wait disabled:opacity-60">{pending ? "起動中…" : "再開"}</button>
-      <div className="mt-3 space-y-2 break-words text-xs leading-6">
-        {error && <p role="alert" className="text-red-300">{error}</p>}
+    <div className="resume-action" aria-busy={pending}>
+      <button type="button" onClick={resume} disabled={pending} aria-label={`${project.name}を再開`} className="button-primary"><Icon name="play" />{pending ? "起動中…" : "再開"}</button>
+      <div className="launch-results mt-3 space-y-2 break-words text-xs leading-6">
+        {error && <p role="alert" className="text-danger">{error}</p>}
         {report && <>
-          {report.editor ? <Outcome name={report.editorName} result={report.editor} /> : <p className="text-zinc-400">URLのみのため、エディタは開きませんでした。</p>}
-          {report.browser ? <Outcome name="ブラウザ" result={report.browser} /> : <p role="status" className="text-zinc-400">URL未設定のため、ブラウザは開きませんでした。</p>}
-          <p className="text-zinc-400">起動先での読み込み完了は確認していません。</p>
-          {report.history.status === "error" && <p role="alert" className="text-red-300">最終再開日時を保存できませんでした：{report.history.message}</p>}
+          {report.editor ? <Outcome name={report.editorName} result={report.editor} /> : <p className="text-muted">URLのみのため、エディタは開きませんでした。</p>}
+          {report.browser ? <Outcome name="ブラウザ" result={report.browser} /> : <p role="status" className="text-muted">URL未設定のため、ブラウザは開きませんでした。</p>}
+          <p className="text-muted">起動先での読み込み完了は確認していません。</p>
+          {report.history.status === "error" && <p role="alert" className="text-danger">最終再開日時を保存できませんでした：{report.history.message}</p>}
         </>}
       </div>
     </div>

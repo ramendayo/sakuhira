@@ -54,89 +54,90 @@ function ProjectDetails({ project, onBack, onUpdated, onRemoved, onResumed }: Pr
   }
 
   return (
-    <section id="projects" aria-labelledby="detail-heading" className="px-6 py-8 lg:px-10">
-      <button type="button" onClick={onBack} className="mb-6 rounded text-sm text-zinc-400 hover:text-zinc-100">
+    <section id="projects" aria-labelledby="detail-heading" className="page-shell">
+      <button type="button" onClick={onBack} className="mb-6 button-quiet">
         ← プロジェクト一覧に戻る
       </button>
-      <p className="text-xs font-medium tracking-widest text-teal-300">PROJECT DETAILS</p>
-      <h1 id="detail-heading" ref={heading} tabIndex={-1} className="mt-3 break-words text-2xl font-semibold">
-        {project.name}
-      </h1>
-      <p role="status" className="mt-4 text-sm text-teal-300">{notice}</p>
-      <LastResumedAt timestamp={project.lastResumedAt} />
+      <header className="border-b border-line pb-7">
+        <h1 id="detail-heading" ref={heading} tabIndex={-1} className="page-heading">{project.name}</h1>
+        <LastResumedAt timestamp={project.lastResumedAt} />
+        {mode === "view" && <div className="mt-5"><ResumeProject project={project} onResumed={onResumed} /></div>}
+      </header>
+      <p role="status" className="notice mt-4">{notice}</p>
 
-      {mode === "edit" ? (
-        <div className="mt-6">
-          <ProjectForm
-            project={project}
-            onSaved={(updated) => {
-              onUpdated(updated);
-              setMode("view");
-              setNotice("変更を保存しました。");
-            }}
-            onCancel={() => setMode("view")}
-          />
-        </div>
-      ) : (
-        <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6">
-          <h2 className="text-lg font-medium">基本情報</h2>
-          <dl className="mt-5 space-y-5">
-            <div>
-              <dt className="text-sm text-zinc-400">プロジェクト名</dt>
-              <dd className="mt-2 break-words text-sm">{project.name}</dd>
-            </div>
-            <div>
-              <dt className="text-sm text-zinc-400">フォルダ</dt>
-              <dd className="mt-2 break-all font-mono text-sm leading-6">{project.path ?? "未設定（URLのみ・ブラウザで再開）"}</dd>
-            </div>
-          </dl>
-          {mode === "view" && (
-            <div className="mt-6 flex flex-wrap gap-3 border-t border-zinc-800 pt-5">
-              <button type="button" ref={editButton} onClick={() => {
-                returnFocus.current = "edit";
-                setMode("edit");
-                setNotice("");
-              }} className="rounded-lg border border-zinc-600 px-4 py-2.5 text-sm hover:bg-zinc-800">編集する</button>
-              <button type="button" ref={removeButton} onClick={() => {
-                returnFocus.current = "remove";
-                setMode("remove");
-                setError(null);
-                setNotice("");
-              }} className="rounded-lg border border-red-400/30 px-4 py-2.5 text-sm text-red-300 hover:bg-red-400/10">登録を解除</button>
-            </div>
-          )}
-        </div>
-      )}
+      <div className={mode === "view" ? "detail-grid" : "mt-6 space-y-6"}>
+        {mode === "edit" ? (
+          <div>
+            <ProjectForm
+              project={project}
+              onSaved={(updated) => {
+                onUpdated(updated);
+                setMode("view");
+                setNotice("変更を保存しました。");
+              }}
+              onCancel={() => setMode("view")}
+            />
+          </div>
+        ) : (
+          <div className="panel">
+            <h2 className="section-title">基本情報</h2>
+            <dl className="mt-5 space-y-5">
+              <div>
+                <dt className="text-sm text-muted">プロジェクト名</dt>
+                <dd className="mt-2 break-words text-sm">{project.name}</dd>
+              </div>
+              <div>
+                <dt className="text-sm text-muted">フォルダ</dt>
+                <dd className="mt-2 break-all font-mono text-sm leading-6">{project.path ?? "未設定（URLのみ・ブラウザで再開）"}</dd>
+              </div>
+            </dl>
+            {mode === "view" && (
+              <div className="mt-6 flex flex-wrap gap-3 border-t border-line pt-5">
+                <button type="button" ref={editButton} onClick={() => {
+                  returnFocus.current = "edit";
+                  setMode("edit");
+                  setNotice("");
+                }} className="button-secondary">編集する</button>
+                <button type="button" ref={removeButton} onClick={() => {
+                  returnFocus.current = "remove";
+                  setMode("remove");
+                  setError(null);
+                  setNotice("");
+                }} className="button-danger">登録を解除</button>
+              </div>
+            )}
+          </div>
+        )}
 
-      {mode === "view" && <ResumeProject project={project} onResumed={onResumed} />}
-      {(mode === "view" || mode === "notes") && <ProjectNotes
-        project={project}
-        editing={mode === "notes"}
-        editButtonRef={notesEditButton}
-        onEdit={() => { returnFocus.current = "notes"; setMode("notes"); setNotice(""); }}
-        onCancel={() => setMode("view")}
-        onSaved={(updated) => { onUpdated(updated); setMode("view"); setNotice("作業メモを保存しました。"); }}
-      />}
+        {(mode === "view" || mode === "notes") && <ProjectNotes
+          project={project}
+          editing={mode === "notes"}
+          editButtonRef={notesEditButton}
+          onEdit={() => { returnFocus.current = "notes"; setMode("notes"); setNotice(""); }}
+          onCancel={() => setMode("view")}
+          onSaved={(updated) => { onUpdated(updated); setMode("view"); setNotice("作業メモを保存しました。"); }}
+        />}
 
-      {mode === "view" && <ProjectLaunchSettings project={project} onSaved={onUpdated} />}
+        {mode === "view" && <ProjectLaunchSettings project={project} onSaved={onUpdated} />}
 
-      {mode === "view" && <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/50 px-6 pb-6"><ProjectGitStatus project={project} /></div>}
+        {mode === "view" && <div className="detail-git panel"><ProjectGitStatus project={project} /></div>}
 
-      {mode === "remove" && (
-        <section aria-labelledby="removal-heading" aria-busy={pending} className="mt-6 rounded-xl border border-red-400/30 bg-red-400/5 p-6">
-          <h2 id="removal-heading" className="text-lg font-medium">登録を解除しますか？</h2>
-          <p className="mt-3 break-words text-sm leading-7 text-zinc-300">
-            「{project.name}」をReentryの一覧から削除します。フォルダとその中のファイルは削除されません。
-          </p>
-          <fieldset disabled={pending} className="mt-5 flex flex-wrap gap-3 disabled:opacity-60">
-            <button type="button" ref={cancelRemove} onClick={() => setMode("view")} className="rounded-lg border border-zinc-600 px-4 py-2.5 text-sm hover:bg-zinc-800 disabled:cursor-wait">キャンセル</button>
-            <button type="button" onClick={confirmRemoval} className="rounded-lg bg-red-300 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-red-200 disabled:cursor-wait">
-              {pending ? "解除中…" : "登録解除を確定"}
-            </button>
-          </fieldset>
-          {error && <p role="alert" className="mt-4 break-words text-sm leading-6 text-red-300">{error}</p>}
-        </section>
-      )}
+        {mode === "remove" && (
+          <section aria-labelledby="removal-heading" aria-busy={pending} className="rounded-xl border border-danger-line bg-danger-soft p-6">
+            <h2 id="removal-heading" className="section-title">登録を解除しますか？</h2>
+            <p className="mt-3 break-words text-sm leading-7 text-ink">
+              「{project.name}」をReentryの一覧から削除します。フォルダとその中のファイルは削除されません。
+            </p>
+            <fieldset disabled={pending} className="mt-5 flex flex-wrap gap-3 disabled:opacity-60">
+              <button type="button" ref={cancelRemove} onClick={() => setMode("view")} className="button-secondary">キャンセル</button>
+              <button type="button" onClick={confirmRemoval} className="button-danger-solid">
+                {pending ? "解除中…" : "登録解除を確定"}
+              </button>
+            </fieldset>
+            {error && <p role="alert" className="mt-4 break-words text-sm leading-6 text-danger">{error}</p>}
+          </section>
+        )}
+      </div>
     </section>
   );
 }
