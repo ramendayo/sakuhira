@@ -10,7 +10,7 @@ import type { Project } from "../types/project";
 import type { ResumeReport } from "../types/launch";
 
 vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
-vi.mock("../services/settings", () => ({ getSettings: vi.fn(async () => ({ defaultEditor: "vsCode" })) }));
+vi.mock("../services/settings", () => ({ getSettings: vi.fn(async () => ({ theme: "light", defaultEditor: "vsCode" })) }));
 
 const project: Project = { id: "id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 const success: ResumeReport = { history: { status: "skipped" }, editorName: "VS Code", editor: { status: "success" }, browser: null };

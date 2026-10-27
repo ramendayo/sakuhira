@@ -6,7 +6,48 @@ fn missing_settings_use_vscode_without_creating_json() {
     let root = tempdir().unwrap();
     let store = SettingsStore::new(root.path().join("data"));
     assert_eq!(store.load().unwrap().default_editor, Editor::VsCode);
+    assert_eq!(store.load().unwrap().theme, ThemePreference::System);
     assert!(!store.directory.join("settings.json").exists());
+}
+
+#[test]
+fn legacy_settings_keep_light_mode_without_rewriting_the_file() {
+    let root = tempdir().unwrap();
+    let path = root.path().join("settings.json");
+    let legacy = r#"{"version":1,"settings":{"defaultEditor":"cursor"}}"#;
+    fs::write(&path, legacy).unwrap();
+    let loaded = SettingsStore::new(root.path().to_owned()).load().unwrap();
+    assert_eq!(loaded.default_editor, Editor::Cursor);
+    assert_eq!(loaded.theme, ThemePreference::Light);
+    assert_eq!(fs::read_to_string(path).unwrap(), legacy);
+}
+
+#[test]
+fn every_theme_survives_reopening_and_maps_to_a_fixed_native_preference() {
+    let root = tempdir().unwrap();
+    let store = SettingsStore::new(root.path().to_owned());
+    let mut expected = store.load().unwrap();
+    for (theme, native) in [
+        (ThemePreference::Light, Some(tauri::Theme::Light)),
+        (ThemePreference::Dark, Some(tauri::Theme::Dark)),
+        (ThemePreference::System, None),
+    ] {
+        let saved = store
+            .save(
+                &expected,
+                Settings {
+                    theme,
+                    ..expected.clone()
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            SettingsStore::new(root.path().to_owned()).load().unwrap(),
+            saved
+        );
+        assert_eq!(saved.theme.native_theme(), native);
+        expected = saved;
+    }
 }
 
 #[test]
@@ -19,6 +60,7 @@ fn saved_editor_survives_reopening_and_can_be_changed_back() {
             &original,
             Settings {
                 default_editor: Editor::Cursor,
+                ..Default::default()
             },
         )
         .unwrap();
@@ -40,6 +82,7 @@ fn corrupt_unsupported_and_unreadable_settings_do_not_fall_back_or_overwrite() {
         r#"{"version":2,"settings":{"defaultEditor":"vsCode"}}"#,
         r#"{"version":1,"settings":{"defaultEditor":"sh"}}"#,
         r#"{"version":1,"settings":{"defaultEditor":"cursor","command":"rm"}}"#,
+        r#"{"version":1,"settings":{"defaultEditor":"cursor","theme":"unknown"}}"#,
         r#"{"version":1,"settings":{}}"#,
     ] {
         fs::write(&path, text).unwrap();
@@ -73,6 +116,7 @@ fn stale_settings_do_not_overwrite_newer_preferences_or_project_data() {
             &original,
             Settings {
                 default_editor: Editor::Cursor,
+                ..Default::default()
             },
         )
         .unwrap();
@@ -93,7 +137,7 @@ fn only_known_editors_and_fixed_macos_targets_are_supported() {
     assert_eq!(Editor::Cursor.macos_target(), ("-a", "Cursor"));
     assert_eq!(
         serde_json::to_value(Settings::default()).unwrap(),
-        serde_json::json!({"defaultEditor":"vsCode"})
+        serde_json::json!({"defaultEditor":"vsCode", "theme":"system"})
     );
     for value in ["/bin/sh", "cursor --command test", "unknown"] {
         assert!(

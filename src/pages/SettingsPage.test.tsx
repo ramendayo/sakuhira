@@ -8,7 +8,7 @@ import { editorName } from "../types/settings";
 import type { Settings } from "../types/settings";
 import type { Project } from "../types/project";
 
-vi.mock("../services/settings", () => ({ getSettings: vi.fn(), saveSettings: vi.fn() }));
+vi.mock("../services/settings", () => ({ applyTheme: vi.fn(async () => {}), getSettings: vi.fn(), saveSettings: vi.fn() }));
 vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 vi.mock("../services/projects", async (importOriginal) => ({
   ...await importOriginal<typeof import("../services/projects")>(),
@@ -18,12 +18,37 @@ vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "no
 let stored: Settings;
 beforeEach(() => {
   vi.resetAllMocks();
-  stored = { defaultEditor: "vsCode" };
+  stored = { theme: "light", defaultEditor: "vsCode" };
   vi.mocked(getSettings).mockImplementation(async () => ({ ...stored }));
   vi.mocked(saveSettings).mockImplementation(async (_expected, settings) => { stored = { ...settings }; return { ...stored }; });
   vi.mocked(resumeProject).mockImplementation(async () => ({ history: { status: "skipped" }, editorName: editorName(stored.defaultEditor), editor: { status: "success" }, browser: null }));
 });
 afterEach(cleanup);
+
+it("applies themes only after a successful save and retains the saved choice across navigation", async () => {
+  vi.mocked(saveSettings).mockRejectedValueOnce("保存できません").mockImplementation(async (_expected, settings) => { stored = { ...settings }; return { ...stored }; });
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole("link", { name: "設定" }));
+  const select = await screen.findByLabelText("表示テーマ");
+  expect(document.documentElement.dataset.theme).toBe("light");
+  await user.selectOptions(select, "dark");
+  expect(document.documentElement.dataset.theme).toBe("light");
+  await user.click(screen.getByRole("button", { name: "設定を保存" }));
+  expect((await screen.findByRole("alert")).textContent).toBe("保存できません");
+  expect((select as HTMLSelectElement).value).toBe("dark");
+  expect(document.documentElement.dataset.theme).toBe("light");
+  await user.click(screen.getByRole("button", { name: "設定を保存" }));
+  await screen.findByText("設定を保存しました。");
+  expect(document.documentElement.dataset.theme).toBe("dark");
+  expect(saveSettings).toHaveBeenLastCalledWith({ defaultEditor: "vsCode", theme: "light" }, { defaultEditor: "vsCode", theme: "dark" });
+  await user.selectOptions(select, "light");
+  await user.click(screen.getByRole("link", { name: "プロジェクト" }));
+  expect(document.documentElement.dataset.theme).toBe("dark");
+  await user.click(screen.getByRole("link", { name: "設定" }));
+  expect((await screen.findByLabelText("表示テーマ") as HTMLSelectElement).value).toBe("dark");
+  expect(getSettings).toHaveBeenCalledTimes(1);
+});
 
 it("moves keyboard focus to the page heading when navigating, including a failed project load", async () => {
   const { listProjects } = await import("../services/projects");
@@ -57,8 +82,8 @@ it("saves a default editor, reloads it on return, and shows it in project detail
   expect(saveSettings).not.toHaveBeenCalled();
   expect(resumeProject).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "設定を保存" }));
-  await screen.findByText("設定を保存しました。次の再開から反映されます。");
-  expect(saveSettings).toHaveBeenCalledWith({ defaultEditor: "vsCode" }, { defaultEditor: "cursor" });
+  await screen.findByText("設定を保存しました。");
+  expect(saveSettings).toHaveBeenCalledWith({ theme: "light", defaultEditor: "vsCode" }, { theme: "light", defaultEditor: "cursor" });
   await user.click(screen.getByRole("link", { name: "プロジェクト" }));
   await user.click(await screen.findByRole("button", { name: "Exampleの詳細を開く" }));
   expect(await screen.findByText("エディタ：Cursor（アプリ設定）")).toBeTruthy();
@@ -94,11 +119,11 @@ it("retains failed selections, prevents duplicate saves, and updates the conflic
   await user.click(screen.getByRole("button", { name: "保存中…" }));
   expect(saveSettings).toHaveBeenCalledTimes(2);
   expect(screen.getByRole("button", { name: "設定を再読み込み" }).matches(":disabled")).toBe(true);
-  finish({ defaultEditor: "cursor" });
-  await screen.findByText("設定を保存しました。次の再開から反映されます。");
+  finish({ theme: "light", defaultEditor: "cursor" });
+  await screen.findByText("設定を保存しました。");
   await user.selectOptions(screen.getByLabelText("デフォルトエディタ"), "vsCode");
   await user.click(screen.getByRole("button", { name: "設定を保存" }));
-  await waitFor(() => expect(saveSettings).toHaveBeenLastCalledWith({ defaultEditor: "cursor" }, { defaultEditor: "vsCode" }));
+  await waitFor(() => expect(saveSettings).toHaveBeenLastCalledWith({ theme: "light", defaultEditor: "cursor" }, { theme: "light", defaultEditor: "vsCode" }));
 });
 
 it("discards unsaved selections when reloading and navigating away", async () => {

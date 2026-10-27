@@ -3,31 +3,32 @@ import type { FormEvent } from "react";
 import { useSettings } from "../hooks/useSettings";
 import { saveSettings } from "../services/settings";
 import { errorMessage } from "../services/projects";
-import type { Editor, Settings } from "../types/settings";
+import type { Editor, Settings, ThemePreference } from "../types/settings";
 
 function SettingsPage() {
-  const { result, reload } = useSettings();
+  const { result, reload, replace } = useSettings();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, []);
   return (
     <section id="settings" aria-labelledby="settings-heading" className="page-shell">
       <header className="border-b border-line pb-7">
         <h1 ref={heading} id="settings-heading" tabIndex={-1} className="page-heading">設定</h1>
-        <p className="page-description">すべてのプロジェクトで使う、再開時のデフォルト設定です。</p>
+        <p className="page-description">アプリの表示と、プロジェクト再開時の設定です。</p>
       </header>
       {result.status === "loading" && <p role="status" className="mt-6 text-sm text-muted">設定を読み込み中…</p>}
       {result.status === "error" && <div className="mt-6 rounded-xl border border-danger-line bg-danger-soft p-5">
         <p role="alert" className="break-words text-sm leading-6 text-danger">{result.message}</p>
         <button type="button" onClick={reload} className="mt-4 button-secondary">設定を再読み込み</button>
       </div>}
-      {result.status === "ready" && <SettingsForm initial={result.settings} reload={reload} />}
+      {result.status === "ready" && <SettingsForm initial={result.settings} reload={reload} onSaved={replace} />}
     </section>
   );
 }
 
-function SettingsForm({ initial, reload }: { initial: Settings; reload: () => void }) {
+function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload: () => void; onSaved: (settings: Settings) => void }) {
   const [baseline, setBaseline] = useState(initial);
   const [editor, setEditor] = useState(initial.defaultEditor);
+  const [theme, setTheme] = useState(initial.theme);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -39,10 +40,12 @@ function SettingsForm({ initial, reload }: { initial: Settings; reload: () => vo
     setError(null);
     setNotice("");
     try {
-      const saved = await saveSettings(baseline, { defaultEditor: editor });
+      const saved = await saveSettings(baseline, { defaultEditor: editor, theme });
       setBaseline(saved);
       setEditor(saved.defaultEditor);
-      setNotice("設定を保存しました。次の再開から反映されます。");
+      setTheme(saved.theme);
+      onSaved(saved);
+      setNotice("設定を保存しました。");
     } catch (error) {
       setError(errorMessage(error));
     } finally {
@@ -61,6 +64,17 @@ function SettingsForm({ initial, reload }: { initial: Settings; reload: () => vo
           </select>
           <p className="mt-3 text-sm leading-7 text-muted">macOSにインストール済みのアプリを開きます。選択だけでは起動しません。</p>
           <p className="mt-2 text-xs leading-6 text-muted">起動URLは各プロジェクトの詳細で設定できます。</p>
+        </div>
+        <div className="border-t border-line pt-5">
+          <h2 className="section-title mb-4">外観</h2>
+          <label htmlFor="display-theme" className="field-label">表示テーマ</label>
+          <select id="display-theme" value={theme} onChange={(event) => { setTheme(event.target.value as ThemePreference); setNotice(""); }} className="field">
+            <option value="light">ライト</option>
+            <option value="dark">ダーク</option>
+            <option value="system">OSに合わせる</option>
+          </select>
+          <p className="mt-3 text-sm leading-7 text-muted">「OSに合わせる」では、OSのライト・ダーク設定の変更にも追従します。</p>
+          <p className="mt-2 text-xs leading-6 text-muted">表示テーマは保存後に反映されます。エディタは次の再開から反映されます。</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <button type="submit" className="button-primary">{pending ? "保存中…" : "設定を保存"}</button>

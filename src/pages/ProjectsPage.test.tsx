@@ -23,7 +23,7 @@ vi.mock("../services/git", () => ({
 vi.mock("../services/notes", () => ({ setProjectNotes: vi.fn() }));
 vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 
-vi.mock("../services/settings", () => ({ getSettings: vi.fn(async () => ({ defaultEditor: "vsCode" })) }));
+vi.mock("../services/settings", () => ({ applyTheme: vi.fn(async () => {}), getSettings: vi.fn(async () => ({ theme: "light", defaultEditor: "vsCode" })) }));
 
 const project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } } satisfies Project;
 

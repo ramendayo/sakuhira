@@ -139,6 +139,17 @@ pub fn get_settings(
 }
 
 #[tauri::command(async)]
+pub fn apply_theme(
+    store: State<'_, crate::settings::SettingsStore>,
+    window: tauri::WebviewWindow,
+) -> Result<(), String> {
+    let theme = store.load()?.theme;
+    window
+        .set_theme(theme.native_theme())
+        .map_err(|error| format!("ウィンドウの表示テーマを反映できません: {error}"))
+}
+
+#[tauri::command(async)]
 pub fn save_settings(
     store: State<'_, crate::settings::SettingsStore>,
     expected: crate::settings::Settings,

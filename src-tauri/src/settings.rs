@@ -30,6 +30,31 @@ impl Editor {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Settings {
     pub default_editor: Editor,
+    #[serde(default = "legacy_theme")]
+    pub theme: ThemePreference,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ThemePreference {
+    Light,
+    Dark,
+    #[default]
+    System,
+}
+
+fn legacy_theme() -> ThemePreference {
+    ThemePreference::Light
+}
+
+impl ThemePreference {
+    pub fn native_theme(self) -> Option<tauri::Theme> {
+        match self {
+            Self::Light => Some(tauri::Theme::Light),
+            Self::Dark => Some(tauri::Theme::Dark),
+            Self::System => None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]

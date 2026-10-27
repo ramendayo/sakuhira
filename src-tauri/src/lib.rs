@@ -22,6 +22,7 @@ pub fn run() {
             commands::list_projects,
             commands::get_settings,
             commands::save_settings,
+            commands::apply_theme,
             commands::set_project_notes,
             commands::get_git_status,
             commands::set_project_launch_url,

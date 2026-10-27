@@ -14,3 +14,7 @@ export async function saveSettings(expected: Settings, settings: Settings): Prom
   requireDesktop();
   return invoke<Settings>("save_settings", { expected, settings });
 }
+
+export async function applyTheme(): Promise<void> {
+  if (isTauri()) await invoke<void>("apply_theme");
+}
