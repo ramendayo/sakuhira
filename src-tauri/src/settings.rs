@@ -34,6 +34,25 @@ pub struct Settings {
     pub theme: ThemePreference,
     #[serde(default)]
     pub project_view: ProjectView,
+    #[serde(default)]
+    pub project_order: ProjectOrder,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectOrder {
+    pub sort: ProjectSort,
+    pub manual_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ProjectSort {
+    #[default]
+    Recent,
+    Name,
+    Newest,
+    Manual,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

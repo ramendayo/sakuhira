@@ -30,7 +30,7 @@ export function useProjects() {
   }, [revision]);
 
   return {
-    projects: [...projects].sort((a, b) => (b.lastResumedAt ?? -1) - (a.lastResumedAt ?? -1)),
+    projects,
     status,
     error,
     retry: () => setRevision((current) => current + 1),

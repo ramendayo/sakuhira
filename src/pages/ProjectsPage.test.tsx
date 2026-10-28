@@ -23,7 +23,7 @@ vi.mock("../services/git", () => ({
 vi.mock("../services/notes", () => ({ setProjectNotes: vi.fn() }));
 vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 
-vi.mock("../services/settings", () => ({ applyTheme: vi.fn(async () => {}), saveSettings: vi.fn(async (_expected, settings) => settings), getSettings: vi.fn(async () => ({ projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" })) }));
+vi.mock("../services/settings", () => ({ applyTheme: vi.fn(async () => {}), saveSettings: vi.fn(async (_expected, settings) => settings), getSettings: vi.fn(async () => ({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" })) }));
 
 const project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } } satisfies Project;
 
@@ -79,7 +79,7 @@ describe("project search", () => {
     const search = await screen.findByRole("searchbox", { name: "プロジェクトを検索" });
     const names = () => within(screen.getByRole("list", { name: "登録済みプロジェクト" })).getAllByRole("heading").map((heading) => heading.textContent);
     await user.type(search, "  REENTRY  ");
-    expect(names()).toEqual(["Reentry", "Reentry Docs"]);
+    expect(names()).toEqual(["Reentry Docs", "Reentry"]);
     expect(screen.getByText("2 / 3 件")).toBeTruthy();
     await user.clear(search);
     await user.paste("/WORK/日本語/[draft]");
@@ -92,7 +92,7 @@ describe("project search", () => {
     expect(api.updateProject).not.toHaveBeenCalled();
   });
 
-  it("ranks exact names before prefixes, substrings, and path-only matches, using resume order for ties", async () => {
+  it("applies the selected resume order to name and path search matches", async () => {
     const fixture = (id: string, name: string, lastResumedAt: number, path = `/work/${name}`): Project => ({ ...project, id, name, path, lastResumedAt });
     vi.mocked(api.listProjects).mockResolvedValue([
       fixture("numa", "numa-project", 10),
@@ -107,12 +107,12 @@ describe("project search", () => {
     const search = await screen.findByRole("searchbox", { name: "プロジェクトを検索" });
     const names = () => within(screen.getByRole("list", { name: "登録済みプロジェクト" })).getAllByRole("heading").map((heading) => heading.textContent);
     await user.type(search, " N ");
-    expect(names()).toEqual(["N", "Next", "numa-project", "Rentry", "Website"]);
+    expect(names()).toEqual(["Website", "Rentry", "Next", "numa-project", "N"]);
     expect(screen.getByText("5 / 6 件")).toBeTruthy();
-    expect(screen.getByText("名前の一致度順・同順位は最近再開した順")).toBeTruthy();
+    expect(screen.getByText("最近再開した順", { selector: "span" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "検索をクリア" }));
     expect(names()).toEqual(["Website", "Rentry", "Next", "numa-project", "N", "App"]);
-    expect(screen.getByText("最近再開した順")).toBeTruthy();
+    expect(screen.getByText("最近再開した順", { selector: "span" })).toBeTruthy();
   });
 
   it("distinguishes no matches from an empty registry and restores all projects on clear", async () => {

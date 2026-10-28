@@ -12,7 +12,7 @@ vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "no
 let stored: Settings;
 beforeEach(() => {
   vi.resetAllMocks();
-  stored = { defaultEditor: "cursor", theme: "dark", projectView: { layout: "cards", cardSize: "standard" } };
+  stored = { defaultEditor: "cursor", theme: "dark", projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" } };
   vi.mocked(getSettings).mockImplementation(async () => structuredClone(stored));
   vi.mocked(saveSettings).mockImplementation(async (_expected, settings) => { stored = structuredClone(settings); return structuredClone(stored); });
 });

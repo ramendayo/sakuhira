@@ -3,10 +3,12 @@ import type { Dispatch, SetStateAction } from "react";
 import Icon from "../components/Icon";
 import ProjectCollection from "../components/ProjectCollection";
 import ProjectViewControls from "../components/ProjectViewControls";
-import { useProjectView } from "../hooks/useProjectView";
+import { useProjectPresentation } from "../hooks/useProjectPresentation";
 import ProjectDetails from "./ProjectDetails";
 import ProjectForm from "../components/ProjectForm";
 import { useProjects } from "../hooks/useProjects";
+import { moveProject, normalizeManualIds, orderedProjects } from "../utils/projectOrder";
+import { projectSortLabels } from "../types/settings";
 import type { Project } from "../types/project";
 
 type ProjectsPageProps = {
@@ -14,31 +16,21 @@ type ProjectsPageProps = {
   onSelect: Dispatch<SetStateAction<string | null>>;
 };
 
-function searchPriority(project: Project, term: string): number {
-  const name = project.name.toLowerCase();
-  if (name === term) return 0;
-  if (name.startsWith(term)) return 1;
-  if (name.includes(term)) return 2;
-  if (project.path?.toLowerCase().includes(term)) return 3;
-  return 4;
-}
-
 function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects();
-  const presentation = useProjectView();
+  const presentation = useProjectPresentation();
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
   const addButton = useRef<HTMLButtonElement>(null);
   const searchTerm = query.trim().toLowerCase();
-  // 同じ一致条件では、useProjectsが返す再開日時順を安定ソートで維持する。
-  const visibleProjects = searchTerm
-    ? projects.map((project) => ({ project, priority: searchPriority(project, searchTerm) }))
-      .filter(({ priority }) => priority < 4)
-      .sort((a, b) => a.priority - b.priority)
-      .map(({ project }) => project)
-    : projects;
+  const visibleProjects = orderedProjects(projects, presentation.order, query);
+  const manualIds = normalizeManualIds(projects, presentation.order.manualIds);
+
+  async function move(id: string, target: number) {
+    return presentation.saveOrder({ sort: "manual", manualIds: moveProject(manualIds, id, target) });
+  }
 
   function clearSearch() {
     setQuery("");
@@ -60,6 +52,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
 
   function registered(project: Project) {
     append(project);
+    void presentation.saveOrder({ ...presentation.order, manualIds: [project.id, ...manualIds] });
     setQuery("");
     setNotice(`「${project.name}」を登録しました。`);
     closeForm();
@@ -75,6 +68,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
       onResumed={recordResumed}
       onRemoved={(project) => {
         remove(project.id);
+        void presentation.saveOrder({ ...presentation.order, manualIds: manualIds.filter((id) => id !== project.id) });
         onSelect((current) => current === project.id ? null : current);
         setNotice(`「${project.name}」の登録を解除しました。`);
       }}
@@ -96,7 +90,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
           <button
             type="button"
             ref={addButton}
-            disabled={status !== "ready"}
+            disabled={status !== "ready" || presentation.disabled}
             aria-expanded={showForm}
             aria-controls="project-registration"
             onClick={() => { setShowForm(true); setNotice(""); }}
@@ -134,26 +128,31 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
                 </div>
               </div>
               <div className="project-view-options">
-                <ProjectViewControls view={presentation.view} disabled={presentation.disabled} onChange={presentation.save} />
+                <ProjectViewControls view={presentation.view} sort={presentation.order.sort} disabled={presentation.disabled || showForm} onChange={presentation.save} onSortChange={(sort) => { void presentation.saveOrder({ sort, manualIds }); }} />
                 {presentation.pending && <p role="status" className="sr-only">表示設定を保存中…</p>}
                 {presentation.failure && <div className="mt-3 rounded-lg border border-danger-line bg-danger-soft p-3">
                   <p role="alert" className="text-sm text-danger">表示設定を保存できませんでした：{presentation.failure.message}</p>
-                  <button type="button" disabled={presentation.disabled} onClick={() => presentation.failure && presentation.save(presentation.failure.view)} className="button-secondary mt-2">もう一度保存</button>
+                  <button type="button" disabled={presentation.disabled} onClick={presentation.retry} className="button-secondary mt-2">もう一度保存</button>
                 </div>}
               </div>
             </div>
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <h2 className="text-sm font-medium text-ink">すべてのプロジェクト</h2>
-              <span className="text-xs text-muted">{searchTerm ? "名前の一致度順・同順位は最近再開した順" : "最近再開した順"}</span>
+              <span className="text-xs text-muted">{projectSortLabels[presentation.order.sort]}</span>
               <span role="status" aria-atomic="true" className="badge">
                 {searchTerm ? `${visibleProjects.length} / ${projects.length} 件` : `${projects.length} 件`}
               </span>
-              <button type="button" onClick={retry} disabled={showForm} className="ml-auto button-quiet">再読み込み</button>
+              <button type="button" onClick={retry} disabled={showForm || presentation.pending} className="ml-auto button-quiet">再読み込み</button>
             </div>
 
+            {presentation.order.sort === "manual" && <p className="manual-order-help text-xs text-muted" id="manual-order-help">{searchTerm
+              ? "検索中は移動できません。保存済みの配置で表示しています。"
+              : "ハンドルをドラッグして移動できます。キーボードではハンドルに移動し、矢印キーで前後、Home・Endで先頭・末尾に移動します。"}</p>}
             <div id="project-results">
               {presentation.loading ? <p role="status" className="text-sm text-muted">表示設定を読み込み中…</p> : visibleProjects.length > 0 ? (
-                <ProjectCollection projects={visibleProjects} view={presentation.view} onSelect={(id) => {
+                <ProjectCollection projects={visibleProjects} view={presentation.view}
+                  manual={presentation.order.sort === "manual"} moveDisabled={Boolean(searchTerm) || presentation.disabled || showForm}
+                  onMove={move} onSelect={(id) => {
                   setShowForm(false);
                   onSelect(id);
                 }} onResumed={recordResumed} />

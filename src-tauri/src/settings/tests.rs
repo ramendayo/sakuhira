@@ -194,11 +194,91 @@ fn only_known_editors_and_fixed_macos_targets_are_supported() {
     assert_eq!(Editor::Cursor.macos_target(), ("-a", "Cursor"));
     assert_eq!(
         serde_json::to_value(Settings::default()).unwrap(),
-        serde_json::json!({"defaultEditor":"vsCode", "theme":"system", "projectView":{"layout":"cards","cardSize":"standard"}})
+        serde_json::json!({"defaultEditor":"vsCode", "theme":"system", "projectView":{"layout":"cards","cardSize":"standard"},"projectOrder":{"sort":"recent","manualIds":[]}})
     );
     for value in ["/bin/sh", "cursor --command test", "unknown"] {
         assert!(
             serde_json::from_value::<Settings>(serde_json::json!({"defaultEditor":value})).is_err()
         );
+    }
+}
+
+#[test]
+fn legacy_view_settings_default_to_recent_order_without_rewriting() {
+    let root = tempdir().unwrap();
+    let path = root.path().join("settings.json");
+    let legacy = r#"{"version":1,"settings":{"defaultEditor":"cursor","theme":"dark","projectView":{"layout":"list","cardSize":"large"}}}"#;
+    fs::write(&path, legacy).unwrap();
+    let loaded = SettingsStore::new(root.path().to_owned()).load().unwrap();
+    assert_eq!(loaded.project_order, ProjectOrder::default());
+    assert_eq!(loaded.project_view.layout, ProjectLayout::List);
+    assert_eq!(loaded.project_view.card_size, CardSize::Large);
+    assert_eq!(loaded.theme, ThemePreference::Dark);
+    assert_eq!(fs::read_to_string(path).unwrap(), legacy);
+}
+
+#[test]
+fn sorting_preferences_and_manual_placement_survive_all_sort_modes() {
+    let root = tempdir().unwrap();
+    let store = SettingsStore::new(root.path().to_owned());
+    let mut expected = store.load().unwrap();
+    // 古いIDと重複はUIで補正し、設定の読込自体は妨げない。
+    let manual_ids = vec![
+        "second".into(),
+        "gone".into(),
+        "second".into(),
+        "first".into(),
+    ];
+    for sort in [
+        ProjectSort::Manual,
+        ProjectSort::Recent,
+        ProjectSort::Name,
+        ProjectSort::Newest,
+    ] {
+        let next = Settings {
+            project_order: ProjectOrder {
+                sort,
+                manual_ids: manual_ids.clone(),
+            },
+            ..expected.clone()
+        };
+        let saved = store.save(&expected, next).unwrap();
+        assert_eq!(
+            SettingsStore::new(root.path().to_owned()).load().unwrap(),
+            saved
+        );
+        assert_eq!(saved.project_order.manual_ids, manual_ids);
+        assert_eq!(saved.project_view, expected.project_view);
+        assert_eq!(saved.default_editor, expected.default_editor);
+        assert_eq!(saved.theme, expected.theme);
+        assert!(store.save(&expected, expected.clone()).is_err());
+        expected = saved;
+    }
+}
+
+#[test]
+fn malformed_sorting_preferences_do_not_overwrite_settings() {
+    let root = tempdir().unwrap();
+    let path = root.path().join("settings.json");
+    let store = SettingsStore::new(root.path().to_owned());
+    for invalid in [
+        serde_json::json!({"sort":"unknown","manualIds":[]}),
+        serde_json::json!({"sort":"manual","manualIds":[3]}),
+        serde_json::json!({"sort":"manual"}),
+        serde_json::json!({"sort":"recent","manualIds":[],"extra":true}),
+        serde_json::Value::Null,
+    ] {
+        let mut settings = serde_json::to_value(Settings::default()).unwrap();
+        settings["projectOrder"] = invalid;
+        let bytes =
+            serde_json::to_vec(&serde_json::json!({"version":1,"settings":settings})).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        assert!(store.load().is_err());
+        assert!(
+            store
+                .save(&Settings::default(), Settings::default())
+                .is_err()
+        );
+        assert_eq!(fs::read(&path).unwrap(), bytes);
     }
 }
