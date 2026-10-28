@@ -7,6 +7,7 @@ fn missing_settings_use_vscode_without_creating_json() {
     let store = SettingsStore::new(root.path().join("data"));
     assert_eq!(store.load().unwrap().default_editor, Editor::VsCode);
     assert_eq!(store.load().unwrap().theme, ThemePreference::System);
+    assert_eq!(store.load().unwrap().project_view, ProjectView::default());
     assert!(!store.directory.join("settings.json").exists());
 }
 
@@ -19,7 +20,63 @@ fn legacy_settings_keep_light_mode_without_rewriting_the_file() {
     let loaded = SettingsStore::new(root.path().to_owned()).load().unwrap();
     assert_eq!(loaded.default_editor, Editor::Cursor);
     assert_eq!(loaded.theme, ThemePreference::Light);
+    assert_eq!(loaded.project_view, ProjectView::default());
     assert_eq!(fs::read_to_string(path).unwrap(), legacy);
+}
+
+#[test]
+fn project_views_round_trip_without_changing_editor_or_theme() {
+    let root = tempdir().unwrap();
+    let store = SettingsStore::new(root.path().to_owned());
+    let mut expected = store.load().unwrap();
+    for layout in [ProjectLayout::Cards, ProjectLayout::List] {
+        for card_size in [CardSize::Small, CardSize::Standard, CardSize::Large] {
+            let saved = store
+                .save(
+                    &expected,
+                    Settings {
+                        project_view: ProjectView { layout, card_size },
+                        ..expected.clone()
+                    },
+                )
+                .unwrap();
+            assert_eq!(
+                SettingsStore::new(root.path().to_owned()).load().unwrap(),
+                saved
+            );
+            assert_eq!(saved.theme, expected.theme);
+            assert_eq!(saved.default_editor, expected.default_editor);
+            expected = saved;
+        }
+    }
+}
+
+#[test]
+fn invalid_project_views_are_rejected_and_stale_views_cannot_overwrite_preferences() {
+    let root = tempdir().unwrap();
+    let store = SettingsStore::new(root.path().to_owned());
+    let original = store.load().unwrap();
+    let mut changed = original.clone();
+    changed.project_view.layout = ProjectLayout::List;
+    store.save(&original, changed).unwrap();
+    let path = root.path().join("settings.json");
+    let before = fs::read(&path).unwrap();
+    assert!(store.save(&original, original.clone()).is_err());
+    assert_eq!(fs::read(&path).unwrap(), before);
+    for view in [
+        serde_json::json!({"layout":"grid","cardSize":"small"}),
+        serde_json::json!({"layout":"cards","cardSize":"huge"}),
+        serde_json::json!({"layout":"cards"}),
+        serde_json::Value::Null,
+    ] {
+        let mut document: serde_json::Value = serde_json::from_slice(&before).unwrap();
+        document["settings"]["projectView"] = view;
+        let corrupt = serde_json::to_vec(&document).unwrap();
+        fs::write(&path, &corrupt).unwrap();
+        assert!(store.load().is_err());
+        assert!(store.save(&original, original.clone()).is_err());
+        assert_eq!(fs::read(&path).unwrap(), corrupt);
+    }
 }
 
 #[test]
@@ -137,7 +194,7 @@ fn only_known_editors_and_fixed_macos_targets_are_supported() {
     assert_eq!(Editor::Cursor.macos_target(), ("-a", "Cursor"));
     assert_eq!(
         serde_json::to_value(Settings::default()).unwrap(),
-        serde_json::json!({"defaultEditor":"vsCode", "theme":"system"})
+        serde_json::json!({"defaultEditor":"vsCode", "theme":"system", "projectView":{"layout":"cards","cardSize":"standard"}})
     );
     for value in ["/bin/sh", "cursor --command test", "unknown"] {
         assert!(

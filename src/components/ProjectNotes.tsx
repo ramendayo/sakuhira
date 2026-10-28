@@ -10,8 +10,12 @@ function NotesUpdatedAt({ notes }: { notes: Notes }) {
   return <p className="text-xs leading-6 text-muted">メモ更新：<LocalDateTime timestamp={notes.updatedAt} /></p>;
 }
 
-export function ProjectNotesPreview({ project }: { project: Project }) {
+export function ProjectNotesPreview({ project, summary = false }: { project: Project; summary?: boolean }) {
   const { lastWork, nextTask } = project.notes;
+  if (summary) {
+    const memo = nextTask.trim() ? nextTask : lastWork;
+    return <p className="item-note-summary text-sm text-muted" title={memo || undefined}>{memo.trim() ? memo : "作業メモはまだありません。"}</p>;
+  }
   return (
     <div className="notes-preview mt-5 space-y-3">
       {!lastWork.trim() && !nextTask.trim() ? <p className="text-xs text-muted">作業メモはまだありません。</p> : <>

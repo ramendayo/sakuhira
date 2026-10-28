@@ -1,13 +1,27 @@
 import { useGitStatus } from "../hooks/useGitStatus";
 import type { Project } from "../types/project";
+import type { GitHead } from "../types/git";
 
-function ProjectGitStatus({ project }: { project: Project }) {
-  if (project.path === null) return <section aria-label="Gitの状態" className="git-status"><p className="text-xs leading-6 text-muted">URLのみのプロジェクトにはGit情報がありません。</p></section>;
-  return <FolderGitStatus projectId={project.id} path={project.path} />;
+function headLabel(head: GitHead): string {
+  return head.kind === "branch" ? `ブランチ: ${head.name}${head.unborn ? "（初回コミット前）" : ""}` : `HEAD分離中: ${head.commit.slice(0, 7)}`;
 }
 
-function FolderGitStatus({ projectId, path }: { projectId: string; path: string }) {
+function ProjectGitStatus({ project, compact = false }: { project: Project; compact?: boolean }) {
+  if (project.path === null) return <section aria-label="Gitの状態" className={compact ? "git-compact" : "git-status"}><p className="text-xs leading-6 text-muted">{compact ? "Git対象外（URLのみ）" : "URLのみのプロジェクトにはGit情報がありません。"}</p></section>;
+  return <FolderGitStatus projectId={project.id} projectName={project.name} path={project.path} compact={compact} />;
+}
+
+function FolderGitStatus({ projectId, projectName, path, compact }: { projectId: string; projectName: string; path: string; compact: boolean }) {
   const { result, refresh } = useGitStatus(projectId, path);
+  if (compact) return <section aria-label="Gitの状態" className="git-compact">
+    {result.status === "loading" && <p role="status" className="text-xs text-muted">Gitを確認中…</p>}
+    {result.status === "error" && <p role="alert" className="text-xs text-danger" title={result.message}>{result.message}</p>}
+    {result.status === "ready" && (result.data.kind === "notRepository" ? <p className="text-xs text-muted">Git管理外</p> : <>
+      <p className="text-xs text-ink" title={headLabel(result.data.head)} aria-label={headLabel(result.data.head)}>{result.data.head.kind === "branch" ? `${result.data.head.name}${result.data.head.unborn ? "（初回コミット前）" : ""}` : result.data.head.commit.slice(0, 7)}</p>
+      <p className={`text-xs ${result.data.changedFiles > 0 ? "text-warning" : "text-success"}`} title={`変更ファイル: ${result.data.changedFiles} 件`}>{result.data.changedFiles > 0 ? `変更 ${result.data.changedFiles}件` : "変更なし"}</p>
+    </>)}
+    <button type="button" aria-label={`${projectName}のGitを更新`} title="Gitを更新" onClick={refresh} disabled={result.status === "loading"} className="git-refresh button-quiet">↻</button>
+  </section>;
   return (
     <section aria-label="Gitの状態" className="git-status">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -22,9 +36,7 @@ function FolderGitStatus({ projectId, path }: { projectId: string; path: string 
         ) : (
           <div className="mt-3 space-y-2 text-sm">
             <p className="break-all font-mono text-ink">
-              {result.data.head.kind === "branch"
-                ? `ブランチ: ${result.data.head.name}${result.data.head.unborn ? "（初回コミット前）" : ""}`
-                : `HEAD分離中: ${result.data.head.commit.slice(0, 7)}`}
+              {headLabel(result.data.head)}
             </p>
             <p className={result.data.changedFiles > 0 ? "text-warning" : "text-success"}>
               {result.data.changedFiles > 0 ? "未コミットの変更あり" : "未コミットの変更なし"}

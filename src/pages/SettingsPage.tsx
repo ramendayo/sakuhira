@@ -40,7 +40,7 @@ function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload:
     setError(null);
     setNotice("");
     try {
-      const saved = await saveSettings(baseline, { defaultEditor: editor, theme });
+      const saved = await saveSettings(baseline, { ...baseline, defaultEditor: editor, theme });
       setBaseline(saved);
       setEditor(saved.defaultEditor);
       setTheme(saved.theme);

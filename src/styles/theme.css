@@ -47,6 +47,9 @@
   --ui-panel-padding: 1.5rem;
   --ui-content-width: 76rem;
   --ui-sidebar-width: 13rem;
+  --ui-card-small-min: 14rem;
+  --ui-card-standard-min: 20rem;
+  --ui-card-large-min: 26rem;
 }
 
 :root[data-theme="dark"] {

@@ -14,6 +14,18 @@ const clean: GitStatus = {
 beforeEach(() => vi.resetAllMocks());
 afterEach(cleanup);
 
+it("shows a compact branch and change count and allows refreshing it", async () => {
+  vi.mocked(getGitStatus).mockResolvedValueOnce({ ...clean, changedFiles: 3 }).mockResolvedValueOnce(clean);
+  const user = userEvent.setup();
+  render(<ProjectGitStatus project={project} compact />);
+  expect(await screen.findByText("main")).toBeTruthy();
+  expect(screen.getByText("変更 3件")).toBeTruthy();
+  expect(screen.queryByText(/対象リポジトリ:/)).toBeNull();
+  await user.click(screen.getByRole("button", { name: `${project.name}のGitを更新` }));
+  expect(await screen.findByText("変更なし")).toBeTruthy();
+  expect(getGitStatus).toHaveBeenCalledTimes(2);
+});
+
 it("does not request Git status for URL-only projects, including after changing from a folder", async () => {
   vi.mocked(getGitStatus).mockResolvedValue(clean);
   const { rerender } = render(<ProjectGitStatus project={{ ...project, path: null, launchUrl: "https://example.com/" }} />);

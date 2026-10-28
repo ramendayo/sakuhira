@@ -25,7 +25,7 @@ function Probe() {
 }
 
 function Harness({ theme }: { theme: ThemePreference | null }) {
-  return <SettingsContext.Provider value={{ result: theme === null ? { status: "loading" } : { status: "ready", settings: { defaultEditor: "vsCode", theme } }, reload: () => {}, replace: () => {} }}><Probe /></SettingsContext.Provider>;
+  return <SettingsContext.Provider value={{ result: theme === null ? { status: "loading" } : { status: "ready", settings: { defaultEditor: "vsCode", theme, projectView: { layout: "cards", cardSize: "standard" } } }, reload: () => {}, replace: () => {} }}><Probe /></SettingsContext.Provider>;
 }
 
 function changeOsTheme(value: boolean) {

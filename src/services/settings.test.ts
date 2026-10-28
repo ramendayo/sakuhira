@@ -16,12 +16,12 @@ it("applies the saved native theme without exposing arbitrary window commands", 
 });
 
 it("reads settings and submits the original value for conflict detection", async () => {
-  const handler = vi.fn((_command: string) => ({ theme: "light", defaultEditor: "cursor" }));
+  const handler = vi.fn((_command: string) => ({ projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" }));
   mockIPC(handler);
-  expect(await getSettings()).toEqual({ theme: "light", defaultEditor: "cursor" });
-  await saveSettings({ theme: "light", defaultEditor: "vsCode" }, { theme: "light", defaultEditor: "cursor" });
+  expect(await getSettings()).toEqual({ projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" });
+  await saveSettings({ projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" }, { projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" });
   expect(handler.mock.calls[0][0]).toBe("get_settings");
-  expect(handler).toHaveBeenLastCalledWith("save_settings", { expected: { theme: "light", defaultEditor: "vsCode" }, settings: { theme: "light", defaultEditor: "cursor" } });
+  expect(handler).toHaveBeenLastCalledWith("save_settings", { expected: { projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" }, settings: { projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" } });
 });
 
 it("propagates settings errors and blocks browser-only writes", async () => {
@@ -30,5 +30,5 @@ it("propagates settings errors and blocks browser-only writes", async () => {
   await expect(applyTheme()).rejects.toBe("設定を読み込めません");
   vi.stubGlobal("isTauri", false);
   await expect(getSettings()).rejects.toThrow("デスクトップアプリ");
-  await expect(saveSettings({ theme: "light", defaultEditor: "vsCode" }, { theme: "light", defaultEditor: "cursor" })).rejects.toThrow("デスクトップアプリ");
+  await expect(saveSettings({ projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" }, { projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" })).rejects.toThrow("デスクトップアプリ");
 });

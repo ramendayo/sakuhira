@@ -23,7 +23,7 @@ vi.mock("../services/git", () => ({
 vi.mock("../services/notes", () => ({ setProjectNotes: vi.fn() }));
 vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 
-vi.mock("../services/settings", () => ({ applyTheme: vi.fn(async () => {}), getSettings: vi.fn(async () => ({ theme: "light", defaultEditor: "vsCode" })) }));
+vi.mock("../services/settings", () => ({ applyTheme: vi.fn(async () => {}), saveSettings: vi.fn(async (_expected, settings) => settings), getSettings: vi.fn(async () => ({ projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" })) }));
 
 const project = { id: "project-id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } } satisfies Project;
 
@@ -445,7 +445,9 @@ describe("project notes", () => {
     expect(document.querySelector("time")?.getAttribute("datetime")).toBe(new Date(notes.updatedAt).toISOString());
     await user.click(screen.getByRole("button", { name: /プロジェクト一覧に戻る/ }));
     expect(screen.getByText(notes.nextTask)).toBeTruthy();
-    expect(screen.getByText(/保存処理を実装/)).toBeTruthy();
+    expect(screen.queryByText(/保存処理を実装/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "大" }));
+    expect(await screen.findByText(/保存処理を実装/)).toBeTruthy();
   });
 
   it("prefills saved notes and discards cancelled edits without saving", async () => {

@@ -32,6 +32,32 @@ pub struct Settings {
     pub default_editor: Editor,
     #[serde(default = "legacy_theme")]
     pub theme: ThemePreference,
+    #[serde(default)]
+    pub project_view: ProjectView,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProjectView {
+    pub layout: ProjectLayout,
+    pub card_size: CardSize,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ProjectLayout {
+    #[default]
+    Cards,
+    List,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum CardSize {
+    Small,
+    #[default]
+    Standard,
+    Large,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]

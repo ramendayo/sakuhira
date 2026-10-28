@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { ProjectNotesPreview } from "../components/ProjectNotes";
-import ResumeProject from "../components/ResumeProject";
-import LastResumedAt from "../components/LastResumedAt";
 import Icon from "../components/Icon";
+import ProjectCollection from "../components/ProjectCollection";
+import ProjectViewControls from "../components/ProjectViewControls";
+import { useProjectView } from "../hooks/useProjectView";
 import ProjectDetails from "./ProjectDetails";
-import ProjectGitStatus from "../components/ProjectGitStatus";
 import ProjectForm from "../components/ProjectForm";
 import { useProjects } from "../hooks/useProjects";
 import type { Project } from "../types/project";
@@ -26,6 +25,7 @@ function searchPriority(project: Project, term: string): number {
 
 function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects();
+  const presentation = useProjectView();
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
@@ -90,7 +90,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
               プロジェクト
             </h1>
             <p className="page-description">
-              登録した作業環境を、ここから再開できます。
+              名前を選ぶと詳細を確認できます。
             </p>
           </div>
           <button
@@ -122,14 +122,24 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
         )}
         {status === "ready" && (
           <>
-            <div className="mb-6">
-              <label htmlFor="project-search" className="field-label">プロジェクトを検索</label>
-              <div className="flex flex-wrap gap-3">
-                <div className="relative min-w-0 flex-1">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"><Icon name="search" /></span>
-                  <input id="project-search" ref={searchInput} type="search" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="名前・フォルダパスで検索" aria-controls="project-results" className="field pl-10" />
+            <div className="project-toolbar mb-5">
+              <div className="project-search">
+                <label htmlFor="project-search" className="field-label">プロジェクトを検索</label>
+                <div className="flex flex-wrap gap-3">
+                  <div className="relative min-w-0 flex-1">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"><Icon name="search" /></span>
+                    <input id="project-search" ref={searchInput} type="search" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="名前・フォルダパスで検索" aria-controls="project-results" className="field pl-10" />
+                  </div>
+                  {query !== "" && <button type="button" onClick={clearSearch} className="button-secondary">検索をクリア</button>}
                 </div>
-                {query !== "" && <button type="button" onClick={clearSearch} className="button-secondary">検索をクリア</button>}
+              </div>
+              <div className="project-view-options">
+                <ProjectViewControls view={presentation.view} disabled={presentation.disabled} onChange={presentation.save} />
+                {presentation.pending && <p role="status" className="sr-only">表示設定を保存中…</p>}
+                {presentation.failure && <div className="mt-3 rounded-lg border border-danger-line bg-danger-soft p-3">
+                  <p role="alert" className="text-sm text-danger">表示設定を保存できませんでした：{presentation.failure.message}</p>
+                  <button type="button" disabled={presentation.disabled} onClick={() => presentation.failure && presentation.save(presentation.failure.view)} className="button-secondary mt-2">もう一度保存</button>
+                </div>}
               </div>
             </div>
             <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -142,28 +152,11 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
             </div>
 
             <div id="project-results">
-              {visibleProjects.length > 0 ? (
-                <ul className="grid gap-5 lg:grid-cols-2" aria-label="登録済みプロジェクト">
-                  {visibleProjects.map((project) => (
-                    <li key={project.id} className="project-card">
-                      <div className="flex items-start gap-3">
-                        <span className="project-icon"><Icon name={project.path ? "folder" : "link"} className="size-5" /></span>
-                        <div className="min-w-0 flex-1"><h3 className="project-title">{project.name}</h3><p className="mt-1 text-xs text-muted">{project.path ? "ローカルプロジェクト" : "URLのみ・ブラウザで再開"}</p></div>
-                      </div>
-                      <p className="mt-4 break-all font-mono text-xs leading-6 text-muted">{project.path ?? project.launchUrl}</p>
-                      <LastResumedAt timestamp={project.lastResumedAt} />
-                      <div className="card-actions mt-5 flex items-start gap-3">
-                        <ResumeProject project={project} onResumed={recordResumed} />
-                        <button type="button" aria-label={`${project.name}の詳細を開く`} onClick={() => {
-                          setShowForm(false);
-                          onSelect(project.id);
-                        }} className="button-secondary">詳細を開く <span aria-hidden="true">→</span></button>
-                      </div>
-                      <ProjectNotesPreview project={project} />
-                      <ProjectGitStatus project={project} />
-                    </li>
-                  ))}
-                </ul>
+              {presentation.loading ? <p role="status" className="text-sm text-muted">表示設定を読み込み中…</p> : visibleProjects.length > 0 ? (
+                <ProjectCollection projects={visibleProjects} view={presentation.view} onSelect={(id) => {
+                  setShowForm(false);
+                  onSelect(id);
+                }} onResumed={recordResumed} />
               ) : projects.length > 0 ? <div className="empty-state">
                 <h3 className="section-title">一致するプロジェクトがありません</h3>
                 <p className="mt-3 text-sm leading-7 text-muted">検索語を変えるか、検索をクリアしてください。</p>

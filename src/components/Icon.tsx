@@ -1,7 +1,8 @@
-type IconName = "projects" | "settings" | "folder" | "link" | "play" | "plus" | "search";
+type IconName = "projects" | "list" | "settings" | "folder" | "link" | "play" | "plus" | "search";
 
 const paths: Record<IconName, string> = {
   projects: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
+  list: "M8 5h13M8 12h13M8 19h13M3 5h.1M3 12h.1M3 19h.1",
   settings: "M4 6h16M4 12h16M4 18h16M9 3v6M15 9v6M9 15v6",
   folder: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10H3ZM3 11h18",
   link: "m10 14 4-4m-5-2 2-2a4 4 0 0 1 6 6l-2 2m-6-4-2 2a4 4 0 0 0 6 6l2-2",
