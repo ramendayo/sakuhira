@@ -13,6 +13,7 @@
     "windows": [
       {
         "title": "Reentry",
+        "dragDropEnabled": false,
         "width": 1100,
         "height": 760,
         "minWidth": 720,

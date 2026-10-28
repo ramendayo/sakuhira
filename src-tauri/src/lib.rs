@@ -35,3 +35,20 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("failed to run Reentry");
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn main_window_disables_native_drag_drop_handler() {
+        let config: tauri::Config =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let main_window = config
+            .app
+            .windows
+            .iter()
+            .find(|window| window.label == "main")
+            .expect("main window config should exist");
+
+        assert!(!main_window.drag_drop_enabled);
+    }
+}
