@@ -73,13 +73,25 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
       </p>
       <fieldset disabled={pending !== null} className="mt-5 space-y-5 disabled:opacity-60">
         <div>
+          <label htmlFor={`${id}-name`} className="field-label">プロジェクト名</label>
+          <input
+            id={`${id}-name`}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            autoFocus
+            required
+            maxLength={100}
+            placeholder="例：Reentry"
+            className="field"
+          />
+        </div>
+        <div>
           <label htmlFor={`${id}-path`} className="field-label">フォルダ</label>
           <div className="flex flex-wrap gap-3">
             <input
               id={`${id}-path`}
               value={path}
               onChange={(event) => setPath(event.target.value)}
-              autoFocus
               placeholder="フォルダを選択、または絶対パスを入力"
               className="field flex-[1_1_260px]"
             />
@@ -88,18 +100,6 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
             </button>
           </div>
           <p className="mt-2 text-xs leading-6 text-muted">URLのみで登録する場合は空欄にできます。フォルダなしではブラウザだけを開きます。</p>
-        </div>
-        <div>
-          <label htmlFor={`${id}-name`} className="field-label">プロジェクト名</label>
-          <input
-            id={`${id}-name`}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            required
-            maxLength={100}
-            placeholder="例：Reentry"
-            className="field"
-          />
         </div>
         {!project && <div>
           <label htmlFor={`${id}-launch-url`} className="field-label">起動URL（任意）</label>
