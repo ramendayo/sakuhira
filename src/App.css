@@ -451,11 +451,14 @@
     border-radius: var(--ui-radius-md);
     color: var(--ui-muted);
   }
-  .project-pin:hover:not([aria-disabled="true"]),
-  .project-pin[aria-pressed="true"] {
-    background: var(--ui-accent-soft);
-    color: var(--ui-accent);
+  .project-pin[aria-pressed="false"]:hover:not([aria-disabled="true"]) {
+    background: var(--ui-subtle);
+    color: var(--ui-ink);
     border-color: var(--ui-line);
+  }
+  .project-pin[aria-pressed="true"] {
+    background: var(--ui-accent);
+    color: var(--ui-on-accent);
   }
   .project-pin[aria-disabled="true"] {
     opacity: 0.6;
