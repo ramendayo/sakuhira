@@ -27,9 +27,19 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   const searchTerm = query.trim().toLowerCase();
   const visibleProjects = orderedProjects(projects, presentation.order, query);
   const manualIds = normalizeManualIds(projects, presentation.order.manualIds);
+  const pinnedIds = new Set(presentation.order.pinnedIds);
 
   async function move(id: string, target: number) {
-    return presentation.saveOrder({ sort: "manual", manualIds: moveProject(manualIds, id, target) });
+    // 表示位置にはピン留めが反映されるため、保存順での位置はIDから求める。
+    const targetIndex = manualIds.indexOf(visibleProjects[target].id);
+    return presentation.saveOrder({ ...presentation.order, manualIds: moveProject(manualIds, id, targetIndex) });
+  }
+
+  function togglePin(id: string) {
+    const next = projects.filter((project) =>
+      project.id === id ? !pinnedIds.has(id) : pinnedIds.has(project.id),
+    ).map((project) => project.id);
+    return presentation.saveOrder({ ...presentation.order, pinnedIds: next });
   }
 
   function clearSearch() {
@@ -68,7 +78,11 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
       onResumed={recordResumed}
       onRemoved={(project) => {
         remove(project.id);
-        void presentation.saveOrder({ ...presentation.order, manualIds: manualIds.filter((id) => id !== project.id) });
+        void presentation.saveOrder({
+          ...presentation.order,
+          manualIds: manualIds.filter((id) => id !== project.id),
+          pinnedIds: presentation.order.pinnedIds?.filter((id) => id !== project.id),
+        });
         onSelect((current) => current === project.id ? null : current);
         setNotice(`「${project.name}」の登録を解除しました。`);
       }}
@@ -128,7 +142,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
                 </div>
               </div>
               <div className="project-view-options">
-                <ProjectViewControls view={presentation.view} sort={presentation.order.sort} disabled={presentation.disabled || showForm} onChange={presentation.save} onSortChange={(sort) => { void presentation.saveOrder({ sort, manualIds }); }} />
+                <ProjectViewControls view={presentation.view} sort={presentation.order.sort} disabled={presentation.disabled || showForm} onChange={presentation.save} onSortChange={(sort) => { void presentation.saveOrder({ ...presentation.order, sort, manualIds }); }} />
                 {presentation.pending && <p role="status" className="sr-only">表示設定を保存中…</p>}
                 {presentation.failure && <div className="mt-3 rounded-lg border border-danger-line bg-danger-soft p-3">
                   <p role="alert" className="text-sm text-danger">表示設定を保存できませんでした：{presentation.failure.message}</p>
@@ -147,11 +161,12 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
 
             {presentation.order.sort === "manual" && <p className="manual-order-help text-xs text-muted" id="manual-order-help">{searchTerm
               ? "検索中は移動できません。保存済みの配置で表示しています。"
-              : "ハンドルをドラッグして移動できます。キーボードではハンドルに移動し、矢印キーで前後、Home・Endで先頭・末尾に移動します。"}</p>}
+              : "ハンドルをドラッグすると、ピン留めの有無が同じ項目の間で移動できます。キーボードでは矢印キーで前後、Home・Endでグループの先頭・末尾に移動します。"}</p>}
             <div id="project-results">
               {presentation.loading ? <p role="status" className="text-sm text-muted">表示設定を読み込み中…</p> : visibleProjects.length > 0 ? (
                 <ProjectCollection projects={visibleProjects} view={presentation.view}
                   manual={presentation.order.sort === "manual"} moveDisabled={Boolean(searchTerm) || presentation.disabled || showForm}
+                  pinnedIds={pinnedIds} pinDisabled={presentation.disabled || showForm} onTogglePin={togglePin}
                   onMove={move} onSelect={(id) => {
                   setShowForm(false);
                   onSelect(id);

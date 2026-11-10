@@ -1,4 +1,4 @@
-type IconName = "projects" | "list" | "settings" | "folder" | "link" | "play" | "plus" | "search";
+type IconName = "projects" | "list" | "settings" | "folder" | "link" | "play" | "plus" | "search" | "pin";
 
 const paths: Record<IconName, string> = {
   projects: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
@@ -8,6 +8,7 @@ const paths: Record<IconName, string> = {
   link: "m10 14 4-4m-5-2 2-2a4 4 0 0 1 6 6l-2 2m-6-4-2 2a4 4 0 0 0 6 6l2-2",
   play: "m9 5 11 7-11 7Z",
   plus: "M12 5v14M5 12h14",
+  pin: "M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6Zm3 11v7",
   search: "M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Zm5.5 13 5 5",
 };
 

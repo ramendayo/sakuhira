@@ -239,6 +239,7 @@ fn sorting_preferences_and_manual_placement_survive_all_sort_modes() {
             project_order: ProjectOrder {
                 sort,
                 manual_ids: manual_ids.clone(),
+                pinned_ids: vec!["second".into()],
             },
             ..expected.clone()
         };
@@ -248,6 +249,7 @@ fn sorting_preferences_and_manual_placement_survive_all_sort_modes() {
             saved
         );
         assert_eq!(saved.project_order.manual_ids, manual_ids);
+        assert_eq!(saved.project_order.pinned_ids, vec!["second".to_owned()]);
         assert_eq!(saved.project_view, expected.project_view);
         assert_eq!(saved.default_editor, expected.default_editor);
         assert_eq!(saved.theme, expected.theme);
@@ -264,6 +266,7 @@ fn malformed_sorting_preferences_do_not_overwrite_settings() {
     for invalid in [
         serde_json::json!({"sort":"unknown","manualIds":[]}),
         serde_json::json!({"sort":"manual","manualIds":[3]}),
+        serde_json::json!({"sort":"manual","manualIds":[],"pinnedIds":[3]}),
         serde_json::json!({"sort":"manual"}),
         serde_json::json!({"sort":"recent","manualIds":[],"extra":true}),
         serde_json::Value::Null,

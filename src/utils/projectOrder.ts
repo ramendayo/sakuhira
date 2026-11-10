@@ -13,10 +13,13 @@ export function normalizeManualIds(projects: Project[], saved: string[]): string
 
 export function orderedProjects(projects: Project[], order: ProjectOrder, query: string): Project[] {
   const term = query.trim().toLocaleLowerCase("ja");
+  const pinnedIds = new Set(order.pinnedIds);
   const manualRanks = new Map(normalizeManualIds(projects, order.manualIds).map((id, index) => [id, index]));
   return projects.map((project, index) => ({ project, index }))
     .filter(({ project }) => !term || project.name.toLocaleLowerCase("ja").includes(term) || project.path?.toLocaleLowerCase("ja").includes(term))
     .sort((a, b) => {
+      const pinDifference = Number(pinnedIds.has(b.project.id)) - Number(pinnedIds.has(a.project.id));
+      if (pinDifference) return pinDifference;
       let difference: number;
       switch (order.sort) {
         case "name": difference = nameCollator.compare(a.project.name, b.project.name); break;

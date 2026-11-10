@@ -441,6 +441,25 @@
     flex: 1;
     min-width: 0;
   }
+  .project-pin {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: calc(var(--ui-space-unit) * 7);
+    height: calc(var(--ui-space-unit) * 7);
+    border: 1px solid transparent;
+    border-radius: var(--ui-radius-md);
+    color: var(--ui-muted);
+  }
+  .project-pin:hover:not([aria-disabled="true"]),
+  .project-pin[aria-pressed="true"] {
+    background: var(--ui-accent-soft);
+    color: var(--ui-accent);
+    border-color: var(--ui-line);
+  }
+  .project-pin[aria-disabled="true"] {
+    opacity: 0.6;
+  }
   .project-name-button {
     display: block;
     width: 100%;

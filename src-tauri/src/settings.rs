@@ -43,6 +43,8 @@ pub struct Settings {
 pub struct ProjectOrder {
     pub sort: ProjectSort,
     pub manual_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pinned_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]

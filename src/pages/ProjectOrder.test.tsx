@@ -121,7 +121,7 @@ it("keeps the saved order on failure and retries with current unrelated preferen
 });
 
 it("prepends new registrations to manual placement in automatic mode and removes unregistered IDs", async () => {
-  stored.projectOrder = { sort: "name", manualIds: ["a", "c", "b"] };
+  stored.projectOrder = { sort: "name", manualIds: ["a", "c", "b"], pinnedIds: ["a"] };
   const added = fixture("new", "新しいアプリ");
   vi.mocked(projectsApi.addProject).mockResolvedValue(added);
   vi.mocked(projectsApi.removeProject).mockResolvedValue();
@@ -132,14 +132,65 @@ it("prepends new registrations to manual placement in automatic mode and removes
   await user.click(screen.getByRole("button", { name: "登録する" }));
   await waitFor(() => expect(stored.projectOrder.manualIds).toEqual(["new", "a", "c", "b"]));
   expect(stored.projectOrder.sort).toBe("name");
-  expect(names()).toEqual(["アプリ2", "アプリ10", "サイト", "新しいアプリ"]);
+  expect(names()).toEqual(["アプリ10", "アプリ2", "サイト", "新しいアプリ"]);
   await user.selectOptions(screen.getByRole("combobox", { name: "並び順" }), "manual");
-  expect(names()[0]).toBe(added.name);
+  expect(names().slice(0, 2)).toEqual(["アプリ10", added.name]);
   await user.click(screen.getByRole("button", { name: "アプリ10の詳細を開く" }));
   await user.click(screen.getByRole("button", { name: "登録を解除" }));
   await user.click(screen.getByRole("button", { name: "登録解除を確定" }));
   await waitFor(() => expect(stored.projectOrder.manualIds).toEqual(["new", "c", "b"]));
+  expect(stored.projectOrder.pinnedIds).toEqual([]);
   expect(names()).toEqual(["新しいアプリ", "サイト", "アプリ2"]);
+});
+
+it("pins from either layout, preserves pins across sorting and reload, and retries a failed unpin", async () => {
+  const user = userEvent.setup();
+  const { unmount } = render(<App />);
+  await ready();
+  const pin = { name: "アプリ10のピン留め" };
+  screen.getByRole("button", pin).focus();
+  await user.keyboard("{Enter}");
+  await screen.findByRole("button", { ...pin, pressed: true });
+  expect(names()).toEqual(["アプリ10", "アプリ2", "サイト"]);
+  expect(stored.projectOrder.pinnedIds).toEqual(["a"]);
+  await user.selectOptions(screen.getByRole("combobox", { name: "並び順" }), "newest");
+  await user.click(screen.getByRole("button", { name: "リスト" }));
+  expect(names()).toEqual(["アプリ10", "サイト", "アプリ2"]);
+  await user.type(screen.getByRole("searchbox"), "サイト");
+  expect(names()).toEqual(["サイト"]);
+  unmount();
+  render(<App />);
+  await ready();
+  expect(names()).toEqual(["アプリ10", "サイト", "アプリ2"]);
+  vi.mocked(saveSettings).mockRejectedValueOnce("書き込めません");
+  await user.click(screen.getByRole("button", { ...pin, pressed: true }));
+  expect((await screen.findByRole("alert")).textContent).toContain("書き込めません");
+  expect(names()[0]).toBe("アプリ10");
+  await user.click(screen.getByRole("button", { name: "もう一度保存" }));
+  await screen.findByRole("button", { ...pin, pressed: false });
+  expect(names()).toEqual(["サイト", "アプリ2", "アプリ10"]);
+  expect(stored.projectOrder.pinnedIds).toEqual([]);
+});
+
+it("reorders within a pin group without treating visible indexes as saved indexes", async () => {
+  stored.projectOrder = { sort: "manual", manualIds: ["a", "b", "c"], pinnedIds: ["a", "c"] };
+  const user = userEvent.setup();
+  render(<App />);
+  await ready();
+  expect(names()).toEqual(["アプリ10", "サイト", "アプリ2"]);
+  handle("アプリ10").focus();
+  await user.keyboard("{End}");
+  await waitFor(() => expect(names()).toEqual(["サイト", "アプリ10", "アプリ2"]));
+  expect(stored.projectOrder.manualIds).toEqual(["b", "c", "a"]);
+  await user.keyboard("{ArrowDown}");
+  const transfer = { setData: vi.fn(), effectAllowed: "", dropEffect: "" };
+  fireEvent.dragStart(handle("アプリ10"), { dataTransfer: transfer });
+  const otherGroup = handle("アプリ2").closest("li")!;
+  fireEvent.dragOver(otherGroup, { dataTransfer: transfer });
+  expect(otherGroup.classList.contains("drop-target")).toBe(false);
+  fireEvent.drop(otherGroup, { dataTransfer: transfer });
+  expect(saveSettings).toHaveBeenCalledTimes(1);
+  expect(stored.projectOrder.pinnedIds).toEqual(["a", "c"]);
 });
 
 
