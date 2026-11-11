@@ -27,6 +27,8 @@ vi.mock("../services/shortcuts", () => ({
   supportsShortcuts: vi.fn(() => false),
   onShortcutsRestored: vi.fn(),
   onShortcutResume: vi.fn(),
+  onCapturedShortcut: vi.fn(),
+  setShortcutCapture: vi.fn(),
   readShortcutIssues: vi.fn(),
 }));
 
@@ -73,7 +75,8 @@ it("reports restore failures and refreshes the last resume time from native even
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("「Reentry」"));
 
   await user.click(screen.getByRole("button", { name: "Reentryの詳細を開く" }));
-  expect(screen.getByText("⌘ + ⌃ + J")).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "プロジェクト情報" })).getByText("⌘ + ⌃ + J")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Reentryを再開" }).closest("header")?.textContent).toContain("⌘ + ⌃ + J");
   expect(screen.getByRole("alert")).toHaveProperty("textContent", "OSにショートカットを登録できません。");
   act(() => resumed({ projectId: project.id, timestamp: 3000 }));
   expect(screen.getByText("最終再開：", { exact: false }).querySelector("time")?.dateTime).toBe(new Date(3000).toISOString());
@@ -98,7 +101,8 @@ it("sorts by resume history, updates it after launch without losing the report, 
   expect(card.querySelector("time")?.dateTime).toBe(new Date(3000).toISOString());
   expect(resumeProject).toHaveBeenCalledTimes(1);
   await user.click(screen.getByRole("button", { name: "Reentryの詳細を開く" }));
-  expect(screen.getByText("ショートカット： 未設定")).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "プロジェクト情報" })).getByText("未設定")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Reentryを再開" }).closest("header")?.querySelector("kbd")).toBeNull();
   expect(screen.getByText("最終再開：", { exact: false }).querySelector("time")?.dateTime).toBe(new Date(3000).toISOString());
   await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
   await screen.findByText("VS Code：起動要求を送信しました。");
@@ -221,7 +225,7 @@ describe("project registration", () => {
     await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
     await screen.findByText("ブラウザ：起動要求を送信しました。");
     expect(resumeProject).toHaveBeenCalledWith(web);
-    await user.click(screen.getByRole("button", { name: "編集する" }));
+    await user.click(screen.getByRole("button", { name: "プロジェクト情報を編集" }));
     expect((screen.getByLabelText("フォルダ") as HTMLInputElement).value).toBe("");
     await user.clear(screen.getByLabelText("プロジェクト名"));
     await user.type(screen.getByLabelText("プロジェクト名"), "Web Docs");
@@ -370,7 +374,8 @@ async function openDetails(savedProjects: Project[] = [project]) {
 describe("project details", () => {
   it("opens details and returns to the list through the sidebar", async () => {
     const user = await openDetails();
-    expect(screen.getByRole("heading", { name: "基本情報" })).toBeTruthy();
+    const information = screen.getByRole("region", { name: "プロジェクト情報" });
+    expect(within(information).getByText("自動").querySelector("svg")).toBeTruthy();
     expect(screen.getByText(project.path)).toBeTruthy();
     await user.click(screen.getByRole("link", { name: "プロジェクト" }));
     expect(screen.getByRole("button", { name: `${project.name}の詳細を開く` })).toBeTruthy();
@@ -378,20 +383,42 @@ describe("project details", () => {
   });
 
   it("prepopulates editing, persists changes, and updates the list", async () => {
-    const updated = { ...project, name: "Renamed", path: "/new/path", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+    const updated = {
+      ...project, name: "Renamed", path: "/new/path",
+      icon: { mode: "custom", shape: "code", color: "blue" },
+      shortcut: "Control+KeyJ",
+    } satisfies Project;
+    vi.mocked(shortcuts.supportsShortcuts).mockReturnValue(true);
+    vi.mocked(shortcuts.onShortcutsRestored).mockResolvedValue(() => {});
+    vi.mocked(shortcuts.onShortcutResume).mockResolvedValue(() => {});
+    vi.mocked(shortcuts.onCapturedShortcut).mockResolvedValue(() => {});
+    vi.mocked(shortcuts.setShortcutCapture).mockResolvedValue(undefined);
+    vi.mocked(shortcuts.readShortcutIssues).mockResolvedValue([]);
     vi.mocked(api.updateProject).mockResolvedValue(updated);
     const user = await openDetails();
-    await user.click(screen.getByRole("button", { name: "編集する" }));
+    await user.click(screen.getByRole("button", { name: "プロジェクト情報を編集" }));
     expect((screen.getByLabelText("プロジェクト名") as HTMLInputElement).value).toBe(project.name);
     expect((screen.getByLabelText("フォルダ") as HTMLInputElement).value).toBe(project.path);
     await user.clear(screen.getByLabelText("プロジェクト名"));
     await user.type(screen.getByLabelText("プロジェクト名"), updated.name);
     await user.clear(screen.getByLabelText("フォルダ"));
     await user.type(screen.getByLabelText("フォルダ"), updated.path);
+    await user.click(screen.getByRole("radio", { name: "カスタム" }));
+    await user.click(within(screen.getByRole("group", { name: "形" })).getByText("コード"));
+    await user.selectOptions(screen.getByRole("combobox", { name: "背景色" }), "blue");
+    await user.click(screen.getByRole("button", { name: "キーを入力" }));
+    await screen.findByRole("button", { name: "キーを入力してください" });
+    await user.keyboard("{Control>}j{/Control}");
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
     await screen.findByText("変更を保存しました。");
-    expect(api.updateProject).toHaveBeenCalledWith(project, updated.name, updated.path, { mode: "auto" });
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "編集する" }));
+    expect(api.updateProject).toHaveBeenCalledWith(project, updated.name, updated.path, updated.icon, { shortcut: updated.shortcut });
+    const information = within(screen.getByRole("region", { name: "プロジェクト情報" }));
+    expect(information.getByText("コード・青").querySelector('[data-icon-color="blue"] svg')).toBeTruthy();
+    expect(information.getByText("⌃ + J")).toBeTruthy();
+    const header = screen.getByRole("button", { name: "Renamedを再開" }).closest("header");
+    expect(header?.querySelector('[data-icon-color="blue"] svg')).toBeTruthy();
+    expect(header?.querySelector("kbd")?.textContent).toBe("⌃ + J");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "プロジェクト情報を編集" }));
     await user.click(screen.getByRole("button", { name: /プロジェクト一覧に戻る/ }));
     expect(screen.getByRole("button", { name: "Renamedの詳細を開く" })).toBeTruthy();
     expect(screen.getByText(updated.path)).toBeTruthy();
@@ -400,7 +427,7 @@ describe("project details", () => {
   it("keeps failed edits for retry and discards cancelled edits", async () => {
     vi.mocked(api.updateProject).mockRejectedValue("このフォルダはすでに登録されています。");
     const user = await openDetails();
-    await user.click(screen.getByRole("button", { name: "編集する" }));
+    await user.click(screen.getByRole("button", { name: "プロジェクト情報を編集" }));
     await user.type(screen.getByLabelText("プロジェクト名"), " edited");
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
     expect((await screen.findByRole("alert")).textContent).toContain("すでに登録");

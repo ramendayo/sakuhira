@@ -8,6 +8,7 @@ import ProjectForm from "../components/ProjectForm";
 import ProjectIcon from "../components/ProjectIcon";
 import { shortcutLabel } from "../components/ProjectShortcutField";
 import { errorMessage, removeProject } from "../services/projects";
+import { projectIconColorLabels, projectIconShapeLabels } from "../types/project";
 import type { Project } from "../types/project";
 
 type ProjectDetailsProps = {
@@ -20,6 +21,7 @@ type ProjectDetailsProps = {
 };
 
 function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, onResumed }: ProjectDetailsProps) {
+  const { icon, shortcut } = project;
   const [mode, setMode] = useState<"view" | "edit" | "remove" | "notes">("view");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,10 +69,14 @@ function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, 
           <h1 id="detail-heading" ref={heading} tabIndex={-1} className="page-heading min-w-0 break-words">{project.name}</h1>
         </div>
         <LastResumedAt timestamp={project.lastResumedAt} />
-        {mode === "view" && <div className="mt-5"><ResumeProject project={project} onResumed={onResumed} /></div>}
-        <p className="mt-2 break-words text-sm text-muted">
-          ショートカット： {project.shortcut ? <kbd>{shortcutLabel(project.shortcut)}</kbd> : "未設定"}
-        </p>
+        {mode === "view" && (
+          <div className="mt-5">
+            <ResumeProject project={project} onResumed={onResumed} />
+            {shortcut && <p className="mt-2 break-words text-sm text-muted">
+              ショートカット： <kbd>{shortcutLabel(shortcut)}</kbd>
+            </p>}
+          </div>
+        )}
         {shortcutIssue && <p role="alert" className="mt-3 break-words text-sm text-danger">{shortcutIssue}</p>}
       </header>
       <p role="status" className="notice mt-4">{notice}</p>
@@ -89,8 +95,8 @@ function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, 
             />
           </div>
         ) : (
-          <div className="panel">
-            <h2 className="section-title">基本情報</h2>
+          <section aria-labelledby="project-information-heading" className="panel">
+            <h2 id="project-information-heading" className="section-title">プロジェクト情報</h2>
             <dl className="mt-5 space-y-5">
               <div>
                 <dt className="text-sm text-muted">プロジェクト名</dt>
@@ -100,6 +106,21 @@ function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, 
                 <dt className="text-sm text-muted">フォルダ</dt>
                 <dd className="mt-2 break-all font-mono text-sm leading-6">{project.path ?? "未設定（URLのみ・ブラウザで再開）"}</dd>
               </div>
+              <div>
+                <dt className="text-sm text-muted">アイコン</dt>
+                <dd className="mt-2 flex items-center gap-2 text-sm">
+                  <ProjectIcon path={project.path} appearance={icon} compact />
+                  {icon?.mode === "custom"
+                    ? `${projectIconShapeLabels[icon.shape]}・${projectIconColorLabels[icon.color]}`
+                    : "自動"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-sm text-muted">再開ショートカット</dt>
+                <dd className="mt-2 break-words text-sm">
+                  {shortcut ? <kbd>{shortcutLabel(shortcut)}</kbd> : "未設定"}
+                </dd>
+              </div>
             </dl>
             {mode === "view" && (
               <div className="mt-6 flex flex-wrap gap-3 border-t border-line pt-5">
@@ -107,7 +128,7 @@ function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, 
                   returnFocus.current = "edit";
                   setMode("edit");
                   setNotice("");
-                }} className="button-secondary">編集する</button>
+                }} className="button-secondary">プロジェクト情報を編集</button>
                 <button type="button" ref={removeButton} onClick={() => {
                   returnFocus.current = "remove";
                   setMode("remove");
@@ -116,7 +137,7 @@ function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, 
                 }} className="button-danger">登録を解除</button>
               </div>
             )}
-          </div>
+          </section>
         )}
 
         {(mode === "view" || mode === "notes") && <ProjectNotes
