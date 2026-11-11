@@ -71,6 +71,29 @@ fn shortcuts_are_optional_preserved_and_invalid_saved_values_do_not_break_loadin
 }
 
 #[test]
+fn shortcut_assignment_normalizes_and_rejects_duplicates_without_overwriting() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let first = store
+        .add("First", None, Some("https://first.example"))
+        .unwrap();
+    let second = store
+        .add("Second", None, Some("https://second.example"))
+        .unwrap();
+    let first = store.set_shortcut(&first, Some(" cmd + a ")).unwrap();
+    assert_eq!(first.shortcut.as_deref(), Some("Command+KeyA"));
+    let before = fs::read(store.directory.join("projects.json")).unwrap();
+    assert!(store.set_shortcut(&second, Some("Command+KeyA")).is_err());
+    assert_eq!(
+        fs::read(store.directory.join("projects.json")).unwrap(),
+        before
+    );
+    let reopened = ProjectStore::new(store.directory.clone()).list().unwrap();
+    assert_eq!(reopened[0].shortcut.as_deref(), Some("Command+KeyA"));
+    assert_eq!(reopened[1].shortcut, None);
+}
+
+#[test]
 fn every_project_requires_a_folder_or_valid_url_including_edits_and_saved_data() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));

@@ -39,9 +39,66 @@ pub fn update_project(
     store.update(&project, &name, path.as_deref().map(Path::new), icon)
 }
 
-#[tauri::command(async)]
-pub fn remove_project(store: State<'_, ProjectStore>, project: Project) -> Result<(), String> {
-    store.remove(&project)
+#[tauri::command]
+pub async fn remove_project(app: tauri::AppHandle, project: Project) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || remove_project_blocking(app, project))
+        .await
+        .map_err(|error| format!("プロジェクトを削除できません: {error}"))?
+}
+
+fn remove_project_blocking(app: tauri::AppHandle, project: Project) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::shortcuts::remove(&app, &project)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        app.state::<ProjectStore>().remove(&project)
+    }
+}
+
+#[tauri::command]
+pub async fn set_project_shortcut(
+    app: tauri::AppHandle,
+    project: Project,
+    shortcut: Option<String>,
+) -> Result<Project, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        set_project_shortcut_blocking(app, project, shortcut)
+    })
+    .await
+    .map_err(|error| format!("ショートカットを更新できません: {error}"))?
+}
+
+fn set_project_shortcut_blocking(
+    app: tauri::AppHandle,
+    project: Project,
+    shortcut: Option<String>,
+) -> Result<Project, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::shortcuts::set(&app, project, shortcut)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, project, shortcut);
+        Err("グローバルショートカットはmacOSのみ対応しています。".into())
+    }
+}
+
+#[tauri::command]
+pub async fn get_shortcut_errors(
+    app: tauri::AppHandle,
+) -> Result<Vec<crate::shortcuts::ShortcutError>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        Ok(crate::shortcuts::errors(&app))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        Ok(Vec::new())
+    }
 }
 
 #[tauri::command]

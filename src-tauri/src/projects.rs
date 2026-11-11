@@ -340,6 +340,28 @@ impl ProjectStore {
         })
     }
 
+    pub fn set_shortcut(
+        &self,
+        expected: &Project,
+        shortcut: Option<&str>,
+    ) -> Result<Project, String> {
+        let shortcut = shortcut
+            .map(crate::shortcuts::normalize_shortcut)
+            .transpose()?;
+        self.change(|projects| {
+            let index = matching_project(projects, expected)?;
+            if shortcut.is_some()
+                && projects
+                    .iter()
+                    .any(|project| project.id != expected.id && project.shortcut == shortcut)
+            {
+                return Err("このショートカットは別のプロジェクトに割り当てられています。".into());
+            }
+            projects[index].shortcut = shortcut;
+            Ok(projects[index].clone())
+        })
+    }
+
     pub fn set_notes(
         &self,
         expected: &Project,

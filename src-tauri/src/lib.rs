@@ -10,13 +10,30 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(
+        tauri_plugin_global_shortcut::Builder::new()
+            .with_handler(shortcuts::on_shortcut)
+            .build(),
+    );
+    builder
         .setup(|app| {
             let directory = app.path().app_data_dir()?;
             app.manage(projects::ProjectStore::new(directory.clone()));
             app.manage(settings::SettingsStore::new(directory));
+            #[cfg(target_os = "macos")]
+            {
+                app.manage(shortcuts::ShortcutRuntime::default());
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = shortcuts::restore(handle).await {
+                        eprintln!("ショートカットを復元できません: {error}");
+                    }
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -31,6 +48,8 @@ pub fn run() {
             commands::add_project,
             commands::update_project,
             commands::remove_project,
+            commands::set_project_shortcut,
+            commands::get_shortcut_errors,
             commands::select_project_directory
         ])
         .run(tauri::generate_context!())
