@@ -1,7 +1,8 @@
-use crate::projects::{Project, directory_path};
-use crate::settings::Editor;
+use crate::projects::{Project, ProjectStore, directory_path};
+use crate::settings::{Editor, SettingsStore};
 use serde::Serialize;
 use std::path::Path;
+use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
@@ -66,8 +67,8 @@ pub enum ResumeHistory {
     Error { message: String },
 }
 
-pub fn record_history(
-    store: &crate::projects::ProjectStore,
+fn record_history(
+    store: &ProjectStore,
     project: &Project,
     mut report: ResumeReport,
 ) -> ResumeReport {
@@ -85,7 +86,25 @@ pub fn record_history(
     report
 }
 
-pub fn resume(
+pub async fn resume_and_record(
+    app: tauri::AppHandle,
+    project: Project,
+) -> Result<ResumeReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let editor = if project.path.is_some() {
+            app.state::<SettingsStore>().load()?.default_editor
+        } else {
+            Editor::default()
+        };
+        let report = resume(&app, &project, editor)?;
+        let store = app.state::<ProjectStore>();
+        Ok(record_history(&store, &project, report))
+    })
+    .await
+    .map_err(|error| format!("起動処理を完了できません: {error}"))?
+}
+
+fn resume(
     app: &tauri::AppHandle,
     project: &Project,
     selected: Editor,

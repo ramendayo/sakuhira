@@ -114,22 +114,10 @@ pub fn set_project_launch_url(
 pub async fn resume_project(
     app: tauri::AppHandle,
     store: State<'_, ProjectStore>,
-    settings: State<'_, crate::settings::SettingsStore>,
     project: Project,
 ) -> Result<crate::launch::ResumeReport, String> {
     let project = store.get_matching(&project)?;
-    let editor = if project.path.is_some() {
-        settings.load()?.default_editor
-    } else {
-        Default::default()
-    };
-    let store = store.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let report = crate::launch::resume(&app, &project, editor)?;
-        Ok(crate::launch::record_history(&store, &project, report))
-    })
-    .await
-    .map_err(|error| format!("起動処理を完了できません: {error}"))?
+    crate::launch::resume_and_record(app, project).await
 }
 
 #[tauri::command(async)]
