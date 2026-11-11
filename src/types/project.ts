@@ -5,7 +5,7 @@ export type ProjectNotes = {
 };
 
 export type ProjectIconShape = "folder" | "link" | "code" | "browser" | "note" | "terminal" | "flask";
-export type ProjectIconColor = "blue" | "green" | "amber" | "purple" | "gray";
+export type ProjectIconColor = "default" | "blue" | "green" | "amber" | "purple" | "gray";
 export type ProjectIcon =
   | { mode: "auto" }
   | { mode: "custom"; shape: ProjectIconShape; color: ProjectIconColor };

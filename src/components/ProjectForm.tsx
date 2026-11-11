@@ -16,6 +16,7 @@ const shapeOptions = [
 ] as const satisfies ReadonlyArray<readonly [ProjectIconShape, string]>;
 
 const colorLabels: Record<ProjectIconColor, string> = {
+  default: "デフォルト",
   blue: "青",
   green: "緑",
   amber: "琥珀",

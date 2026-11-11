@@ -195,9 +195,26 @@ fn project_icons_round_trip_with_edits_and_can_return_to_auto() {
         .update(&edited, "Lab notes", Some(root.path()), None)
         .unwrap();
     assert_eq!(renamed.icon, icon);
-    let automatic = store
+    let default_color = store
         .update(
             &renamed,
+            "Lab notes",
+            Some(root.path()),
+            Some(ProjectIcon::Custom {
+                shape: IconShape::Flask,
+                color: IconColor::Default,
+            }),
+        )
+        .unwrap();
+    assert_eq!(store.list().unwrap(), vec![default_color.clone()]);
+    let json: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(
+        json["projects"][0]["icon"],
+        serde_json::json!({"mode":"custom","shape":"flask","color":"default"})
+    );
+    let automatic = store
+        .update(
+            &default_color,
             "Lab notes",
             Some(root.path()),
             Some(ProjectIcon::Auto),

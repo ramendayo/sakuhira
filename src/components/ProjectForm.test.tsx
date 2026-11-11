@@ -34,7 +34,7 @@ it("previews independent icon choices and keeps the draft after a failed save", 
     lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null },
   };
   const updated: Project = {
-    ...project, name: "Experiments", icon: { mode: "custom", shape: "flask", color: "purple" },
+    ...project, name: "Experiments", icon: { mode: "custom", shape: "flask", color: "default" },
   };
   vi.mocked(api.updateProject).mockRejectedValueOnce("保存できませんでした").mockResolvedValueOnce(updated);
   const user = userEvent.setup();
@@ -56,6 +56,9 @@ it("previews independent icon choices and keeps the draft after a failed save", 
   await user.selectOptions(screen.getByRole("combobox", { name: "背景色" }), "purple");
   expect(previewPath()).toBe(customShape);
   expect(preview.getByText("プレビュー").querySelector("[data-icon-color]")?.getAttribute("data-icon-color")).toBe("purple");
+  await user.selectOptions(screen.getByRole("combobox", { name: "背景色" }), "デフォルト");
+  expect(previewPath()).toBe(customShape);
+  expect(preview.getByText("プレビュー").querySelector("[data-icon-color]")).toBeNull();
 
   const name = screen.getByRole<HTMLInputElement>("textbox", { name: "プロジェクト名" });
   await user.clear(name);
@@ -65,7 +68,7 @@ it("previews independent icon choices and keeps the draft after a failed save", 
   expect((await screen.findByRole("alert")).textContent).toContain("保存できませんでした");
   expect(name.value).toBe(updated.name);
   expect(shapes.getByRole("radio", { name: "フラスコ", checked: true })).toBeTruthy();
-  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "背景色" }).value).toBe("purple");
+  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "背景色" }).value).toBe("default");
   expect(onSaved).not.toHaveBeenCalled();
   await user.click(save);
   expect(api.updateProject).toHaveBeenLastCalledWith(project, updated.name, null, updated.icon);
@@ -76,7 +79,7 @@ it("previews independent icon choices and keeps the draft after a failed save", 
   render(<ProjectForm project={updated} onSaved={onSaved} onCancel={vi.fn()} />);
   expect(screen.getByRole("radio", { name: "カスタム", checked: true })).toBeTruthy();
   expect(screen.getByRole("radio", { name: "フラスコ", checked: true })).toBeTruthy();
-  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "背景色" }).value).toBe("purple");
+  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "背景色" }).value).toBe("default");
   await user.click(screen.getByRole("radio", { name: "自動" }));
   expect(screen.queryByRole("group", { name: "形" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "変更を保存" }));

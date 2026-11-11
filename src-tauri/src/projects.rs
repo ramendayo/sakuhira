@@ -56,6 +56,7 @@ pub enum IconShape {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum IconColor {
+    Default,
     Blue,
     Green,
     Amber,
