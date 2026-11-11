@@ -2,17 +2,18 @@ import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { addProject, errorMessage, selectProjectDirectory, updateProject } from "../services/projects";
 import type { Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
+import Icon from "./Icon";
 import ProjectIcon from "./ProjectIcon";
 
-const shapeLabels: Record<ProjectIconShape, string> = {
-  folder: "フォルダ",
-  link: "リンク",
-  code: "コード",
-  browser: "ブラウザ",
-  note: "ノート",
-  terminal: "ターミナル",
-  flask: "フラスコ",
-};
+const shapeOptions = [
+  ["folder", "フォルダ"],
+  ["link", "リンク"],
+  ["code", "コード"],
+  ["browser", "ブラウザ"],
+  ["note", "ノート"],
+  ["terminal", "ターミナル"],
+  ["flask", "フラスコ"],
+] as const satisfies ReadonlyArray<readonly [ProjectIconShape, string]>;
 
 const colorLabels: Record<ProjectIconColor, string> = {
   blue: "青",
@@ -152,14 +153,30 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
               </div>
             </div>
             {customIcon && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor={`${id}-icon-shape`} className="field-label">形</label>
-                  <select id={`${id}-icon-shape`} className="field" value={iconShape} onChange={(event) => setIconShape(event.target.value as ProjectIconShape)}>
-                    {Object.entries(shapeLabels).map(([shape, label]) => <option key={shape} value={shape}>{label}</option>)}
-                  </select>
-                </div>
-                <div>
+              <div className="space-y-4">
+                <fieldset>
+                  <legend className="field-label">形</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {shapeOptions.map(([shape, label]) => (
+                      <label key={shape} className="icon-shape-choice">
+                        <input
+                          className="sr-only"
+                          type="radio"
+                          name={`${id}-icon-shape`}
+                          value={shape}
+                          checked={iconShape === shape}
+                          onChange={() => setIconShape(shape)}
+                        />
+                        <span className="icon-shape-tile">
+                          <Icon name={shape} />
+                          {label}
+                          <span className="icon-shape-check" aria-hidden="true">✓</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <div className="max-w-60">
                   <label htmlFor={`${id}-icon-color`} className="field-label">背景色</label>
                   <select id={`${id}-icon-color`} className="field" value={iconColor} onChange={(event) => setIconColor(event.target.value as ProjectIconColor)}>
                     {Object.entries(colorLabels).map(([color, label]) => <option key={color} value={color}>{label}</option>)}

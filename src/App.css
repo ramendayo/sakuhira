@@ -210,6 +210,41 @@
     background: var(--ui-icon-gray-bg);
     color: var(--ui-icon-gray-ink);
   }
+  .icon-shape-choice {
+    cursor: pointer;
+  }
+  fieldset:disabled .icon-shape-choice {
+    cursor: not-allowed;
+  }
+  .icon-shape-tile {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--ui-space-unit) * 2);
+    padding: calc(var(--ui-space-unit) * 2) calc(var(--ui-space-unit) * 3);
+    border: 1px solid var(--ui-line);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-surface);
+    font-size: var(--ui-text-sm);
+  }
+  .icon-shape-check {
+    visibility: hidden;
+  }
+  .icon-shape-choice input:enabled:not(:checked) + .icon-shape-tile:hover {
+    background: var(--ui-subtle);
+    border-color: var(--ui-line-strong);
+  }
+  .icon-shape-choice input:checked + .icon-shape-tile {
+    background: var(--ui-accent-soft);
+    border-color: var(--ui-accent);
+    color: var(--ui-accent);
+  }
+  .icon-shape-choice input:checked + .icon-shape-tile .icon-shape-check {
+    visibility: visible;
+  }
+  .icon-shape-choice input:focus-visible + .icon-shape-tile {
+    outline: 2px solid var(--ui-accent);
+    outline-offset: 2px;
+  }
   .badge {
     display: inline-flex;
     align-items: center;

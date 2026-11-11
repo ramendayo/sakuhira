@@ -47,7 +47,10 @@ it("previews independent icon choices and keeps the draft after a failed save", 
   expect(automaticShape).toBeTruthy();
   await user.click(screen.getByRole("radio", { name: "カスタム" }));
   expect(screen.getByRole("radio", { name: "カスタム", checked: true })).toBeTruthy();
-  await user.selectOptions(screen.getByRole("combobox", { name: "形" }), "flask");
+  const shapes = within(screen.getByRole("group", { name: "形" }));
+  expect(shapes.getAllByRole("radio")).toHaveLength(7);
+  await user.click(shapes.getByText("フラスコ"));
+  expect(shapes.getByRole("radio", { name: "フラスコ", checked: true })).toBeTruthy();
   const customShape = previewPath();
   expect(customShape).not.toBe(automaticShape);
   await user.selectOptions(screen.getByRole("combobox", { name: "背景色" }), "purple");
@@ -61,7 +64,7 @@ it("previews independent icon choices and keeps the draft after a failed save", 
   await user.click(save);
   expect((await screen.findByRole("alert")).textContent).toContain("保存できませんでした");
   expect(name.value).toBe(updated.name);
-  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "形" }).value).toBe("flask");
+  expect(shapes.getByRole("radio", { name: "フラスコ", checked: true })).toBeTruthy();
   expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "背景色" }).value).toBe("purple");
   expect(onSaved).not.toHaveBeenCalled();
   await user.click(save);
@@ -72,10 +75,10 @@ it("previews independent icon choices and keeps the draft after a failed save", 
   vi.mocked(api.updateProject).mockResolvedValueOnce({ ...updated, icon: undefined });
   render(<ProjectForm project={updated} onSaved={onSaved} onCancel={vi.fn()} />);
   expect(screen.getByRole("radio", { name: "カスタム", checked: true })).toBeTruthy();
-  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "形" }).value).toBe("flask");
+  expect(screen.getByRole("radio", { name: "フラスコ", checked: true })).toBeTruthy();
   expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "背景色" }).value).toBe("purple");
   await user.click(screen.getByRole("radio", { name: "自動" }));
-  expect(screen.queryByRole("combobox", { name: "形" })).toBeNull();
+  expect(screen.queryByRole("group", { name: "形" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "変更を保存" }));
   expect(api.updateProject).toHaveBeenLastCalledWith(updated, updated.name, null, { mode: "auto" });
 });
