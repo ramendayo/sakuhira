@@ -21,13 +21,13 @@ fn url_only_projects_persist_and_can_gain_or_remove_a_folder() {
     let notes = store
         .set_notes(&first, "Read docs".into(), "Continue".into())
         .unwrap();
-    let renamed = store.update(&notes, "Documentation", None).unwrap();
+    let renamed = store.update(&notes, "Documentation", None, None).unwrap();
     assert_eq!(renamed.notes, notes.notes);
     let local = store
-        .update(&renamed, "Documentation", Some(root.path()))
+        .update(&renamed, "Documentation", Some(root.path()), None)
         .unwrap();
     assert_eq!(local.path, Some(directory_path(root.path()).unwrap()));
-    let web = store.update(&local, "Documentation", None).unwrap();
+    let web = store.update(&local, "Documentation", None, None).unwrap();
     assert_eq!(web.path, None);
     assert_eq!(web.launch_url, first.launch_url);
     store.remove(&web).unwrap();
@@ -47,7 +47,7 @@ fn every_project_requires_a_folder_or_valid_url_including_edits_and_saved_data()
     let file = store.directory.join("projects.json");
     let before = fs::read(&file).unwrap();
     assert!(store.set_launch_url(&web, None).is_err());
-    assert!(store.update(&local, "Local", None).is_err());
+    assert!(store.update(&local, "Local", None, None).is_err());
     assert_eq!(fs::read(&file).unwrap(), before);
     let mut json: serde_json::Value = serde_json::from_slice(&before).unwrap();
     for url in [serde_json::Value::Null, serde_json::json!("   ")] {
@@ -125,7 +125,7 @@ fn resume_history_survives_reopening_and_does_not_conflict_with_note_edits() {
     assert_eq!(reopened.last_resumed_at, Some(timestamp));
     assert_eq!(reopened.notes, project.notes);
     let renamed = store
-        .update(&project, "Example", Some(root.path()))
+        .update(&project, "Example", Some(root.path()), None)
         .unwrap();
     assert_eq!(renamed.last_resumed_at, Some(timestamp));
     let edited = store
@@ -141,6 +141,71 @@ fn resume_history_survives_reopening_and_does_not_conflict_with_note_edits() {
     store.remove(&edited).unwrap();
     assert!(store.record_resume(&edited).is_err());
     assert!(store.list().unwrap().is_empty());
+}
+
+#[test]
+fn project_icons_round_trip_with_edits_and_can_return_to_auto() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let path = store.directory.join("projects.json");
+    let project = store.add("Example", Some(root.path()), None).unwrap();
+    let initial = fs::read(&path).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&initial).unwrap();
+    assert!(json["projects"][0].get("icon").is_none());
+    assert_eq!(store.list().unwrap()[0].icon, ProjectIcon::Auto);
+    assert_eq!(fs::read(&path).unwrap(), initial);
+
+    let icon = ProjectIcon::Custom {
+        shape: IconShape::Flask,
+        color: IconColor::Purple,
+    };
+    assert!(
+        store
+            .update(&project, " ", Some(root.path()), Some(icon))
+            .is_err()
+    );
+    assert_eq!(fs::read(&path).unwrap(), initial);
+
+    let edited = store
+        .update(&project, "Lab", Some(root.path()), Some(icon))
+        .unwrap();
+    assert_eq!(edited.name, "Lab");
+    assert_eq!(edited.icon, icon);
+    assert_eq!(
+        ProjectStore::new(store.directory.clone()).list().unwrap(),
+        vec![edited.clone()]
+    );
+    let json: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(
+        json["projects"][0]["icon"],
+        serde_json::json!({"mode":"custom","shape":"flask","color":"purple"})
+    );
+
+    assert!(
+        store
+            .update(
+                &project,
+                "Stale",
+                Some(root.path()),
+                Some(ProjectIcon::Auto)
+            )
+            .is_err()
+    );
+    let renamed = store
+        .update(&edited, "Lab notes", Some(root.path()), None)
+        .unwrap();
+    assert_eq!(renamed.icon, icon);
+    let automatic = store
+        .update(
+            &renamed,
+            "Lab notes",
+            Some(root.path()),
+            Some(ProjectIcon::Auto),
+        )
+        .unwrap();
+    assert_eq!(store.list().unwrap(), vec![automatic]);
+    let json: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert!(json["projects"][0].get("icon").is_none());
 }
 
 #[test]
@@ -339,7 +404,7 @@ fn editing_preserves_id_and_other_projects_and_survives_reopening() {
     let new_folder = root.path().join("new");
     fs::create_dir(&new_folder).unwrap();
     let edited = store
-        .update(&first, "  Renamed  ", Some(&new_folder))
+        .update(&first, "  Renamed  ", Some(&new_folder), None)
         .unwrap();
     assert_eq!(edited.id, first.id);
     assert_eq!(edited.name, "Renamed");
@@ -357,20 +422,34 @@ fn failed_edit_keeps_saved_data_unchanged() {
     let project = store.add("First", Some(root.path()), None).unwrap();
     let second = store.add("Second", Some(&store.directory), None).unwrap();
     let before = fs::read(store.directory.join("projects.json")).unwrap();
-    assert!(store.update(&project, " ", Some(root.path())).is_err());
     assert!(
         store
-            .update(&project, &"a".repeat(101), Some(root.path()))
+            .update(&project, " ", Some(root.path()), None)
             .is_err()
     );
     assert!(
         store
-            .update(&project, "Duplicate", second.path.as_deref().map(Path::new))
+            .update(&project, &"a".repeat(101), Some(root.path()), None)
             .is_err()
     );
     assert!(
         store
-            .update(&project, "Invalid", Some(&root.path().join("missing")))
+            .update(
+                &project,
+                "Duplicate",
+                second.path.as_deref().map(Path::new),
+                None
+            )
+            .is_err()
+    );
+    assert!(
+        store
+            .update(
+                &project,
+                "Invalid",
+                Some(&root.path().join("missing")),
+                None
+            )
             .is_err()
     );
     assert_eq!(
@@ -388,7 +467,12 @@ fn missing_folder_can_be_renamed_and_unregistered() {
     let project = store.add("Missing", Some(&folder), None).unwrap();
     fs::remove_dir(&folder).unwrap();
     let edited = store
-        .update(&project, "Renamed", project.path.as_deref().map(Path::new))
+        .update(
+            &project,
+            "Renamed",
+            project.path.as_deref().map(Path::new),
+            None,
+        )
         .unwrap();
     store.remove(&edited).unwrap();
     assert!(store.list().unwrap().is_empty());
@@ -419,14 +503,20 @@ fn stale_edits_and_removals_do_not_overwrite_newer_data() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
     let project = store.add("Original", Some(root.path()), None).unwrap();
-    let updated = store.update(&project, "Newer", Some(root.path())).unwrap();
-    assert!(store.update(&project, "Stale", Some(root.path())).is_err());
+    let updated = store
+        .update(&project, "Newer", Some(root.path()), None)
+        .unwrap();
+    assert!(
+        store
+            .update(&project, "Stale", Some(root.path()), None)
+            .is_err()
+    );
     assert!(store.remove(&project).is_err());
     assert_eq!(store.list().unwrap(), vec![updated.clone()]);
     store.remove(&updated).unwrap();
     assert!(
         store
-            .update(&updated, "Resurrected", Some(root.path()))
+            .update(&updated, "Resurrected", Some(root.path()), None)
             .is_err()
     );
     assert!(store.remove(&updated).is_err());
@@ -440,7 +530,11 @@ fn corrupted_document_is_preserved_during_edit_and_removal() {
     let project = store.add("Original", Some(root.path()), None).unwrap();
     let file = store.directory.join("projects.json");
     fs::write(&file, "{corrupt").unwrap();
-    assert!(store.update(&project, "Edit", Some(root.path())).is_err());
+    assert!(
+        store
+            .update(&project, "Edit", Some(root.path()), None)
+            .is_err()
+    );
     assert!(store.remove(&project).is_err());
     assert_eq!(fs::read_to_string(file).unwrap(), "{corrupt");
 }
@@ -476,7 +570,7 @@ fn launch_url_persists_survives_name_edits_and_can_be_cleared() {
     );
     assert!(store.get_matching(&project).is_err());
     let edited = store
-        .update(&configured, "Edited", Some(root.path()))
+        .update(&configured, "Edited", Some(root.path()), None)
         .unwrap();
     assert_eq!(edited.launch_url, configured.launch_url);
     assert_eq!(
@@ -547,7 +641,9 @@ fn notes_preserve_whitespace_and_survive_reopening_and_other_edits() {
         ProjectStore::new(store.directory.clone()).list().unwrap(),
         vec![saved.clone()]
     );
-    let renamed = store.update(&saved, "Renamed", Some(root.path())).unwrap();
+    let renamed = store
+        .update(&saved, "Renamed", Some(root.path()), None)
+        .unwrap();
     let configured = store
         .set_launch_url(&renamed, Some("https://example.com"))
         .unwrap();

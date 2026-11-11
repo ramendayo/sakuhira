@@ -4,6 +4,12 @@ export type ProjectNotes = {
   updatedAt: number | null;
 };
 
+export type ProjectIconShape = "folder" | "link" | "code" | "browser" | "note" | "terminal" | "flask";
+export type ProjectIconColor = "blue" | "green" | "amber" | "purple" | "gray";
+export type ProjectIcon =
+  | { mode: "auto" }
+  | { mode: "custom"; shape: ProjectIconShape; color: ProjectIconColor };
+
 export type Project = {
   id: string;
   name: string;
@@ -11,6 +17,7 @@ export type Project = {
   launchUrl: string | null;
   notes: ProjectNotes;
   lastResumedAt: number | null;
+  icon?: ProjectIcon;
 };
 
 export type SelectedDirectory = {

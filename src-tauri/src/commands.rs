@@ -1,4 +1,4 @@
-use crate::projects::{Project, ProjectStore, directory_path};
+use crate::projects::{Project, ProjectIcon, ProjectStore, directory_path};
 use std::path::Path;
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
@@ -34,8 +34,9 @@ pub fn update_project(
     project: Project,
     name: String,
     path: Option<String>,
+    icon: Option<ProjectIcon>,
 ) -> Result<Project, String> {
-    store.update(&project, &name, path.as_deref().map(Path::new))
+    store.update(&project, &name, path.as_deref().map(Path::new), icon)
 }
 
 #[tauri::command(async)]

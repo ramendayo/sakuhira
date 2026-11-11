@@ -10,6 +10,7 @@ fn project(path: &Path, url: Option<&str>) -> Project {
         launch_url: url.map(str::to_owned),
         notes: Default::default(),
         last_resumed_at: None,
+        icon: Default::default(),
     }
 }
 
@@ -113,7 +114,7 @@ fn history_is_recorded_only_for_editor_success_and_keeps_partial_launch_results(
 
     // 起動中に別操作で更新された設定を、履歴保存で巻き戻さない。
     configured = store
-        .update(&configured, "New name", Some(root.path()))
+        .update(&configured, "New name", Some(root.path()), None)
         .unwrap();
     let launched = resume_with(&project, Editor::VsCode, |_| Ok(()), |_| Ok(())).unwrap();
     let report = record_history(&store, &project, launched);

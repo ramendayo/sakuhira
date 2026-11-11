@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { Project, SelectedDirectory } from "../types/project";
+import type { Project, ProjectIcon, SelectedDirectory } from "../types/project";
 
 function requireDesktop() {
   if (!isTauri()) {
@@ -18,9 +18,9 @@ export async function addProject(name: string, path: string | null, launchUrl = 
 }
 
 // 元の値も送り、別の操作による更新をRust側で検出する。
-export async function updateProject(project: Project, name: string, path: string | null): Promise<Project> {
+export async function updateProject(project: Project, name: string, path: string | null, icon?: ProjectIcon): Promise<Project> {
   requireDesktop();
-  return invoke<Project>("update_project", { project, name, path });
+  return invoke<Project>("update_project", { project, name, path, ...(icon && { icon }) });
 }
 
 export async function removeProject(project: Project): Promise<void> {

@@ -20,6 +20,47 @@ pub struct Project {
     pub notes: ProjectNotes,
     #[serde(default, rename = "lastResumedAt")]
     pub last_resumed_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "ProjectIcon::is_auto")]
+    pub icon: ProjectIcon,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "mode", rename_all = "camelCase", deny_unknown_fields)]
+pub enum ProjectIcon {
+    #[default]
+    Auto,
+    Custom {
+        shape: IconShape,
+        color: IconColor,
+    },
+}
+
+impl ProjectIcon {
+    fn is_auto(&self) -> bool {
+        matches!(self, Self::Auto)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum IconShape {
+    Folder,
+    Link,
+    Code,
+    Browser,
+    Note,
+    Terminal,
+    Flask,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum IconColor {
+    Blue,
+    Green,
+    Amber,
+    Purple,
+    Gray,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -213,6 +254,7 @@ impl ProjectStore {
                 launch_url,
                 notes: ProjectNotes::default(),
                 last_resumed_at: None,
+                icon: ProjectIcon::Auto,
             };
             projects.push(project.clone());
             Ok(project)
@@ -224,6 +266,7 @@ impl ProjectStore {
         expected: &Project,
         name: &str,
         path: Option<&Path>,
+        icon: Option<ProjectIcon>,
     ) -> Result<Project, String> {
         let name = project_name(name)?;
         self.change(|projects| {
@@ -248,6 +291,7 @@ impl ProjectStore {
                 launch_url: expected.launch_url.clone(),
                 notes: expected.notes.clone(),
                 last_resumed_at: projects[index].last_resumed_at,
+                icon: icon.unwrap_or(expected.icon),
             };
             projects[index] = project.clone();
             Ok(project)
