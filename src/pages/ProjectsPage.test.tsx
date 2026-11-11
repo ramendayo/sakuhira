@@ -189,7 +189,7 @@ describe("project registration", () => {
     await user.type(screen.getByLabelText("プロジェクト名"), "Web Docs");
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
     await screen.findByText("変更を保存しました。");
-    expect(api.updateProject).toHaveBeenCalledWith({ ...web, lastResumedAt: 3000 }, "Web Docs", null);
+    expect(api.updateProject).toHaveBeenCalledWith({ ...web, lastResumedAt: 3000 }, "Web Docs", null, { mode: "auto" });
   });
 
   it("requires a name and at least one launch target before registration", async () => {
@@ -352,7 +352,7 @@ describe("project details", () => {
     await user.type(screen.getByLabelText("フォルダ"), updated.path);
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
     await screen.findByText("変更を保存しました。");
-    expect(api.updateProject).toHaveBeenCalledWith(project, updated.name, updated.path);
+    expect(api.updateProject).toHaveBeenCalledWith(project, updated.name, updated.path, { mode: "auto" });
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "編集する" }));
     await user.click(screen.getByRole("button", { name: /プロジェクト一覧に戻る/ }));
     expect(screen.getByRole("button", { name: "Renamedの詳細を開く" })).toBeTruthy();

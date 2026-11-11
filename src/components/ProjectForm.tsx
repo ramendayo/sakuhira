@@ -1,7 +1,26 @@
 import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { addProject, errorMessage, selectProjectDirectory, updateProject } from "../services/projects";
-import type { Project } from "../types/project";
+import type { Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
+import ProjectIcon from "./ProjectIcon";
+
+const shapeLabels: Record<ProjectIconShape, string> = {
+  folder: "フォルダ",
+  link: "リンク",
+  code: "コード",
+  browser: "ブラウザ",
+  note: "ノート",
+  terminal: "ターミナル",
+  flask: "フラスコ",
+};
+
+const colorLabels: Record<ProjectIconColor, string> = {
+  blue: "青",
+  green: "緑",
+  amber: "琥珀",
+  purple: "紫",
+  gray: "グレー",
+};
 
 type ProjectFormProps = {
   project?: Project;
@@ -16,6 +35,13 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
   const [name, setName] = useState(project?.name ?? "");
   const [path, setPath] = useState(project?.path ?? "");
   const [launchUrl, setLaunchUrl] = useState("");
+  const savedCustomIcon = project?.icon?.mode === "custom" ? project.icon : undefined;
+  const [customIcon, setCustomIcon] = useState(Boolean(savedCustomIcon));
+  const [iconShape, setIconShape] = useState<ProjectIconShape>(savedCustomIcon?.shape ?? (project?.path ? "folder" : "link"));
+  const [iconColor, setIconColor] = useState<ProjectIconColor>(savedCustomIcon?.color ?? "gray");
+  const appearance: IconAppearance = customIcon
+    ? { mode: "custom", shape: iconShape, color: iconColor }
+    : { mode: "auto" };
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<"picking" | "saving" | null>(null);
 
@@ -50,7 +76,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     setPending("saving");
     try {
       const saved = project
-        ? await updateProject(project, name.trim(), path || null)
+        ? await updateProject(project, name.trim(), path || null, appearance)
         : await addProject(name.trim(), path || null, launchUrl);
       onSaved(saved);
     } catch (error) {
@@ -106,6 +132,43 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
           <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => setLaunchUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="field" />
           <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-muted">フォルダがない場合は必須です。HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
         </div>}
+        {project && (
+          <fieldset className="space-y-4 rounded-xl border border-line p-4">
+            <legend className="px-1 text-sm font-medium">アイコン</legend>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="inline-flex items-center gap-2">
+                  <input type="radio" name={`${id}-icon-mode`} checked={!customIcon} onChange={() => setCustomIcon(false)} />
+                  自動
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input type="radio" name={`${id}-icon-mode`} checked={customIcon} onChange={() => setCustomIcon(true)} />
+                  カスタム
+                </label>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted" role="group" aria-label="アイコンのプレビュー">
+                プレビュー
+                <ProjectIcon path={path.trim() || null} appearance={appearance} compact />
+              </div>
+            </div>
+            {customIcon && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor={`${id}-icon-shape`} className="field-label">形</label>
+                  <select id={`${id}-icon-shape`} className="field" value={iconShape} onChange={(event) => setIconShape(event.target.value as ProjectIconShape)}>
+                    {Object.entries(shapeLabels).map(([shape, label]) => <option key={shape} value={shape}>{label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor={`${id}-icon-color`} className="field-label">背景色</label>
+                  <select id={`${id}-icon-color`} className="field" value={iconColor} onChange={(event) => setIconColor(event.target.value as ProjectIconColor)}>
+                    {Object.entries(colorLabels).map(([color, label]) => <option key={color} value={color}>{label}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+          </fieldset>
+        )}
         <p className="text-xs leading-6 text-muted">フォルダ内のファイルは変更されません。</p>
         <div className="flex flex-wrap justify-end gap-3">
           <button type="button" onClick={onCancel} className="button-secondary">キャンセル</button>
