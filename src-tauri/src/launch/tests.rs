@@ -11,6 +11,7 @@ fn project(path: &Path, url: Option<&str>) -> Project {
         notes: Default::default(),
         last_resumed_at: None,
         icon: Default::default(),
+        shortcut: None,
     }
 }
 

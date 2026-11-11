@@ -3,6 +3,7 @@ mod git_status;
 mod launch;
 mod projects;
 mod settings;
+mod shortcuts;
 mod storage;
 
 use tauri::Manager;

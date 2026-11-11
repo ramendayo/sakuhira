@@ -18,6 +18,7 @@ export type Project = {
   notes: ProjectNotes;
   lastResumedAt: number | null;
   icon?: ProjectIcon;
+  shortcut?: string;
 };
 
 export type SelectedDirectory = {

@@ -22,6 +22,20 @@ pub struct Project {
     pub last_resumed_at: Option<u64>,
     #[serde(default, skip_serializing_if = "ProjectIcon::is_auto")]
     pub icon: ProjectIcon,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_shortcut",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub shortcut: Option<String>,
+}
+
+fn deserialize_shortcut<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let shortcut = Option::<String>::deserialize(deserializer)?;
+    Ok(shortcut.map(|value| crate::shortcuts::normalize_shortcut(&value).unwrap_or(value)))
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -256,6 +270,7 @@ impl ProjectStore {
                 notes: ProjectNotes::default(),
                 last_resumed_at: None,
                 icon: ProjectIcon::Auto,
+                shortcut: None,
             };
             projects.push(project.clone());
             Ok(project)
@@ -293,6 +308,7 @@ impl ProjectStore {
                 notes: expected.notes.clone(),
                 last_resumed_at: projects[index].last_resumed_at,
                 icon: icon.unwrap_or(expected.icon),
+                shortcut: projects[index].shortcut.clone(),
             };
             projects[index] = project.clone();
             Ok(project)

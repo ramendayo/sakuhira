@@ -35,6 +35,42 @@ fn url_only_projects_persist_and_can_gain_or_remove_a_folder() {
 }
 
 #[test]
+fn shortcuts_are_optional_preserved_and_invalid_saved_values_do_not_break_loading() {
+    let root = tempdir().unwrap();
+    let data = root.path().join("data");
+    let store = ProjectStore::new(data.clone());
+    store
+        .add("Docs", None, Some("https://example.com"))
+        .unwrap();
+    let file = data.join("projects.json");
+    let saved: serde_json::Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    assert!(saved["projects"][0].get("shortcut").is_none());
+
+    let mut legacy: serde_json::Value = saved.clone();
+    legacy["projects"][0]["shortcut"] = serde_json::json!(" cmd + a ");
+    fs::write(&file, serde_json::to_vec(&legacy).unwrap()).unwrap();
+    let loaded = store.list().unwrap().remove(0);
+    assert_eq!(loaded.shortcut.as_deref(), Some("Command+KeyA"));
+    let renamed = store.update(&loaded, "Renamed", None, None).unwrap();
+    assert_eq!(renamed.shortcut, loaded.shortcut);
+    let noted = store
+        .set_notes(&renamed, "work".into(), "next".into())
+        .unwrap();
+    assert_eq!(noted.shortcut, renamed.shortcut);
+    let updated_url = store
+        .set_launch_url(&noted, Some("https://updated.example"))
+        .unwrap();
+    assert_eq!(updated_url.shortcut, noted.shortcut);
+
+    let mut invalid: serde_json::Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    invalid["projects"][0]["shortcut"] = serde_json::json!("Ctrl+F13");
+    fs::write(&file, serde_json::to_vec(&invalid).unwrap()).unwrap();
+    let loaded = store.list().unwrap();
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].shortcut.as_deref(), Some("Ctrl+F13"));
+}
+
+#[test]
 fn every_project_requires_a_folder_or_valid_url_including_edits_and_saved_data() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
