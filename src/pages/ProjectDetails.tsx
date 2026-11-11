@@ -68,9 +68,9 @@ function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, 
         </div>
         <LastResumedAt timestamp={project.lastResumedAt} />
         {mode === "view" && <div className="mt-5"><ResumeProject project={project} onResumed={onResumed} /></div>}
-        {project.shortcut && <p className="mt-2 break-words text-sm text-muted">
-          ショートカット： <kbd>{shortcutLabel(project.shortcut)}</kbd>
-        </p>}
+        <p className="mt-2 break-words text-sm text-muted">
+          ショートカット： {project.shortcut ? <kbd>{shortcutLabel(project.shortcut)}</kbd> : "未設定"}
+        </p>
         {shortcutIssue && <p role="alert" className="mt-3 break-words text-sm text-danger">{shortcutIssue}</p>}
       </header>
       <p role="status" className="notice mt-4">{notice}</p>

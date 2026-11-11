@@ -98,6 +98,7 @@ it("sorts by resume history, updates it after launch without losing the report, 
   expect(card.querySelector("time")?.dateTime).toBe(new Date(3000).toISOString());
   expect(resumeProject).toHaveBeenCalledTimes(1);
   await user.click(screen.getByRole("button", { name: "Reentryの詳細を開く" }));
+  expect(screen.getByText("ショートカット： 未設定")).toBeTruthy();
   expect(screen.getByText("最終再開：", { exact: false }).querySelector("time")?.dateTime).toBe(new Date(3000).toISOString());
   await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
   await screen.findByText("VS Code：起動要求を送信しました。");
