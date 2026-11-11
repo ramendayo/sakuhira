@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import Icon from "./Icon";
+import ProjectIcon from "./ProjectIcon";
 import LastResumedAt from "./LastResumedAt";
 import ProjectGitStatus from "./ProjectGitStatus";
 import { ProjectNotesPreview } from "./ProjectNotes";
@@ -114,7 +115,7 @@ export default function ProjectCollection({
         <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="currentColor">{[5, 10, 15].flatMap((y) => [7, 13].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.2" />))}</svg>
       </button>}
       <div className="item-identity">
-        <span className="project-icon"><Icon name={project.path ? "folder" : "link"} className="size-5" /></span>
+        <ProjectIcon path={project.path} appearance={project.icon} compact={small || !cards} />
         <div className="item-name-path">
           <h3 className="project-title" aria-label={project.name}><button type="button" aria-label={`${project.name}の詳細を開く`} title={project.name} onClick={() => onSelect(project.id)} className="project-name-button">{project.name}</button></h3>
           {!small && <p className="item-path font-mono text-xs text-muted" title={project.path ?? project.launchUrl ?? undefined}>{project.path ?? project.launchUrl}</p>}

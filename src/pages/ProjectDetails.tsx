@@ -5,6 +5,7 @@ import LastResumedAt from "../components/LastResumedAt";
 import ProjectLaunchSettings from "../components/ProjectLaunchSettings";
 import ProjectGitStatus from "../components/ProjectGitStatus";
 import ProjectForm from "../components/ProjectForm";
+import ProjectIcon from "../components/ProjectIcon";
 import { errorMessage, removeProject } from "../services/projects";
 import type { Project } from "../types/project";
 
@@ -59,7 +60,10 @@ function ProjectDetails({ project, onBack, onUpdated, onRemoved, onResumed }: Pr
         ← プロジェクト一覧に戻る
       </button>
       <header className="border-b border-line pb-7">
-        <h1 id="detail-heading" ref={heading} tabIndex={-1} className="page-heading">{project.name}</h1>
+        <div className="flex items-center gap-3">
+          <ProjectIcon path={project.path} appearance={project.icon} />
+          <h1 id="detail-heading" ref={heading} tabIndex={-1} className="page-heading min-w-0 break-words">{project.name}</h1>
+        </div>
         <LastResumedAt timestamp={project.lastResumedAt} />
         {mode === "view" && <div className="mt-5"><ResumeProject project={project} onResumed={onResumed} /></div>}
       </header>
