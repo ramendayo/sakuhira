@@ -19,7 +19,7 @@ pub fn run() {
             .with_handler(shortcuts::on_shortcut)
             .build(),
     );
-    builder
+    let app = builder
         .setup(|app| {
             let directory = app.path().app_data_dir()?;
             app.manage(projects::ProjectStore::new(directory.clone()));
@@ -52,8 +52,46 @@ pub fn run() {
             commands::get_shortcut_errors,
             commands::select_project_directory
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run Reentry");
+        .build(tauri::generate_context!())
+        .expect("failed to build Reentry");
+
+    #[cfg(target_os = "macos")]
+    app.run(handle_macos_event);
+    #[cfg(not(target_os = "macos"))]
+    app.run(|_, _| {});
+}
+
+#[cfg(target_os = "macos")]
+fn handle_macos_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
+    use tauri::{RunEvent, WindowEvent};
+
+    match event {
+        RunEvent::WindowEvent {
+            label,
+            event: WindowEvent::CloseRequested { api, .. },
+            ..
+        } if label == "main" => {
+            if let Some(window) = app.get_webview_window(&label) {
+                // Keep the webview and the shortcut listener alive after closing the window.
+                api.prevent_close();
+                if let Err(error) = window.hide() {
+                    eprintln!("ウィンドウを非表示にできません: {error}");
+                }
+            }
+        }
+        RunEvent::Reopen {
+            has_visible_windows: false,
+            ..
+        } => {
+            if let Some(window) = app.get_webview_window("main")
+                && let Err(error) = window.show().and_then(|()| window.set_focus())
+            {
+                eprintln!("ウィンドウを再表示できません: {error}");
+            }
+        }
+        RunEvent::Exit => shortcuts::unregister_all(app),
+        _ => {}
+    }
 }
 
 #[cfg(test)]

@@ -201,6 +201,12 @@ mod runtime {
             .map_err(|e| format!("ショートカットの復元を完了できません: {e}"))?
     }
 
+    pub fn unregister_all(app: &AppHandle) {
+        if let Err(error) = app.global_shortcut().unregister_all() {
+            eprintln!("終了時にショートカットを解除できません: {error}");
+        }
+    }
+
     fn restore_blocking(app: AppHandle) -> Result<(), String> {
         let runtime = app.state::<ShortcutRuntime>();
         let _operation = runtime
@@ -397,7 +403,7 @@ mod runtime {
 }
 
 #[cfg(target_os = "macos")]
-pub use runtime::{ShortcutRuntime, errors, on_shortcut, remove, restore, set};
+pub use runtime::{ShortcutRuntime, errors, on_shortcut, remove, restore, set, unregister_all};
 
 #[cfg(test)]
 mod tests {
