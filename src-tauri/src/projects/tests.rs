@@ -94,6 +94,36 @@ fn shortcut_assignment_normalizes_and_rejects_duplicates_without_overwriting() {
 }
 
 #[test]
+fn editing_project_and_shortcut_commits_both_or_neither() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let first = store
+        .add("First", None, Some("https://first.example"))
+        .unwrap();
+    store.set_shortcut(&first, Some("Ctrl+A")).unwrap();
+    let second = store
+        .add("Second", None, Some("https://second.example"))
+        .unwrap();
+
+    let error = store
+        .update_with_shortcut(&second, "Renamed", None, None, Some(Some("Ctrl+A")))
+        .unwrap_err();
+    assert!(error.contains("First"));
+    assert_eq!(store.list().unwrap()[1], second);
+
+    let renamed = store
+        .update_with_shortcut(&second, "Renamed", None, None, Some(Some("Ctrl+B")))
+        .unwrap();
+    assert_eq!(renamed.name, "Renamed");
+    assert_eq!(renamed.shortcut.as_deref(), Some("Control+KeyB"));
+    let cleared = store
+        .update_with_shortcut(&renamed, "Renamed", None, None, Some(None))
+        .unwrap();
+    assert_eq!(cleared.shortcut, None);
+    assert_eq!(store.list().unwrap()[1], cleared);
+}
+
+#[test]
 fn every_project_requires_a_folder_or_valid_url_including_edits_and_saved_data() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));

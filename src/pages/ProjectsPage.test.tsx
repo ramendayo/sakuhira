@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import * as api from "../services/projects";
+import * as shortcuts from "../services/shortcuts";
 import { setProjectNotes } from "../services/notes";
 import { resumeProject } from "../services/launch";
 import type { Project } from "../types/project";
@@ -22,6 +23,12 @@ vi.mock("../services/git", () => ({
 
 vi.mock("../services/notes", () => ({ setProjectNotes: vi.fn() }));
 vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
+vi.mock("../services/shortcuts", () => ({
+  supportsShortcuts: vi.fn(() => false),
+  onShortcutsRestored: vi.fn(),
+  onShortcutResume: vi.fn(),
+  readShortcutIssues: vi.fn(),
+}));
 
 vi.mock("../services/settings", () => ({ applyTheme: vi.fn(async () => {}), saveSettings: vi.fn(async (_expected, settings) => settings), getSettings: vi.fn(async () => ({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" })) }));
 
@@ -41,6 +48,36 @@ async function openForm() {
   await user.click(add);
   return user;
 }
+
+it("reports restore failures and refreshes the last resume time from native events", async () => {
+  vi.mocked(api.listProjects).mockResolvedValue([{ ...project, shortcut: "Command+Control+KeyJ" }]);
+  vi.mocked(shortcuts.supportsShortcuts).mockReturnValue(true);
+  let restored = () => {};
+  let resumed: Parameters<typeof shortcuts.onShortcutResume>[0] = () => {};
+  vi.mocked(shortcuts.onShortcutsRestored).mockImplementation(async (handler) => {
+    restored = handler;
+    return () => {};
+  });
+  vi.mocked(shortcuts.onShortcutResume).mockImplementation(async (handler) => {
+    resumed = handler;
+    return () => {};
+  });
+  vi.mocked(shortcuts.readShortcutIssues).mockResolvedValueOnce([]).mockResolvedValue([
+    { projectId: project.id, reason: "OSにショートカットを登録できません。" },
+  ]);
+  const user = userEvent.setup();
+  render(<App />);
+  await screen.findByRole("button", { name: "Reentryの詳細を開く" });
+  await waitFor(() => expect(shortcuts.readShortcutIssues).toHaveBeenCalledTimes(1));
+  act(() => restored());
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("「Reentry」"));
+
+  await user.click(screen.getByRole("button", { name: "Reentryの詳細を開く" }));
+  expect(screen.getByText("⌘ + ⌃ + J")).toBeTruthy();
+  expect(screen.getByRole("alert")).toHaveProperty("textContent", "OSにショートカットを登録できません。");
+  act(() => resumed({ projectId: project.id, timestamp: 3000 }));
+  expect(screen.getByText("最終再開：", { exact: false }).querySelector("time")?.dateTime).toBe(new Date(3000).toISOString());
+});
 
 it("sorts by resume history, updates it after launch without losing the report, and shows it in details", async () => {
   const recent = { ...project, id: "recent", name: "Recent", path: "/recent", lastResumedAt: 2000 };

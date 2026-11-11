@@ -29,8 +29,13 @@ pub fn run() {
                 app.manage(shortcuts::ShortcutRuntime::default());
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(error) = shortcuts::restore(handle).await {
+                    if let Err(error) = shortcuts::restore(handle.clone()).await {
                         eprintln!("ショートカットを復元できません: {error}");
+                    }
+                    if let Err(error) =
+                        tauri::Emitter::emit(&handle, "project-shortcuts-restored", ())
+                    {
+                        eprintln!("ショートカットの復元結果を通知できません: {error}");
                     }
                 });
             }
@@ -49,6 +54,7 @@ pub fn run() {
             commands::update_project,
             commands::remove_project,
             commands::set_project_shortcut,
+            commands::set_shortcut_capture,
             commands::get_shortcut_errors,
             commands::select_project_directory
         ])
@@ -77,6 +83,15 @@ fn handle_macos_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
                 if let Err(error) = window.hide() {
                     eprintln!("ウィンドウを非表示にできません: {error}");
                 }
+            }
+        }
+        RunEvent::WindowEvent {
+            label,
+            event: WindowEvent::Focused(false),
+            ..
+        } if label == "main" => {
+            if let Err(error) = shortcuts::set_capture(app, false) {
+                eprintln!("{error}");
             }
         }
         RunEvent::Reopen {

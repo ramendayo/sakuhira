@@ -6,18 +6,20 @@ import ProjectLaunchSettings from "../components/ProjectLaunchSettings";
 import ProjectGitStatus from "../components/ProjectGitStatus";
 import ProjectForm from "../components/ProjectForm";
 import ProjectIcon from "../components/ProjectIcon";
+import { shortcutLabel } from "../components/ProjectShortcutField";
 import { errorMessage, removeProject } from "../services/projects";
 import type { Project } from "../types/project";
 
 type ProjectDetailsProps = {
   project: Project;
+  shortcutIssue?: string;
   onBack: () => void;
   onUpdated: (project: Project) => void;
   onResumed: (id: string, timestamp: number) => void;
   onRemoved: (project: Project) => void;
 };
 
-function ProjectDetails({ project, onBack, onUpdated, onRemoved, onResumed }: ProjectDetailsProps) {
+function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, onResumed }: ProjectDetailsProps) {
   const [mode, setMode] = useState<"view" | "edit" | "remove" | "notes">("view");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +68,10 @@ function ProjectDetails({ project, onBack, onUpdated, onRemoved, onResumed }: Pr
         </div>
         <LastResumedAt timestamp={project.lastResumedAt} />
         {mode === "view" && <div className="mt-5"><ResumeProject project={project} onResumed={onResumed} /></div>}
+        {project.shortcut && <p className="mt-2 break-words text-sm text-muted">
+          ショートカット： <kbd>{shortcutLabel(project.shortcut)}</kbd>
+        </p>}
+        {shortcutIssue && <p role="alert" className="mt-3 break-words text-sm text-danger">{shortcutIssue}</p>}
       </header>
       <p role="status" className="notice mt-4">{notice}</p>
 

@@ -18,9 +18,11 @@ export async function addProject(name: string, path: string | null, launchUrl = 
 }
 
 // 元の値も送り、別の操作による更新をRust側で検出する。
-export async function updateProject(project: Project, name: string, path: string | null, icon?: ProjectIcon): Promise<Project> {
+export type ShortcutChange = { shortcut: string | null };
+
+export async function updateProject(project: Project, name: string, path: string | null, icon?: ProjectIcon, shortcutChange?: ShortcutChange): Promise<Project> {
   requireDesktop();
-  return invoke<Project>("update_project", { project, name, path, ...(icon && { icon }) });
+  return invoke<Project>("update_project", { project, name, path, ...(icon && { icon }), ...(shortcutChange && { shortcutChange }) });
 }
 
 export async function removeProject(project: Project): Promise<void> {

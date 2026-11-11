@@ -1,6 +1,6 @@
 use crate::projects::{Project, ProjectIcon, ProjectStore, directory_path};
 use std::path::Path;
-use tauri::State;
+use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 #[tauri::command(async)]
@@ -28,15 +28,61 @@ pub fn add_project(
     store.add(&name, path.as_deref().map(Path::new), launch_url.as_deref())
 }
 
-#[tauri::command(async)]
-pub fn update_project(
-    store: State<'_, ProjectStore>,
+#[derive(serde::Deserialize)]
+pub struct ShortcutChange {
+    shortcut: Option<String>,
+}
+
+#[tauri::command]
+pub async fn update_project(
+    app: tauri::AppHandle,
     project: Project,
     name: String,
     path: Option<String>,
     icon: Option<ProjectIcon>,
+    shortcut_change: Option<ShortcutChange>,
 ) -> Result<Project, String> {
-    store.update(&project, &name, path.as_deref().map(Path::new), icon)
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = path.as_deref().map(Path::new);
+        if let Some(change) = shortcut_change {
+            #[cfg(target_os = "macos")]
+            return crate::shortcuts::set_with_save(
+                &app,
+                project,
+                change.shortcut,
+                |store, current, key| {
+                    store.update_with_shortcut(current, &name, path, icon, Some(key))
+                },
+            );
+            #[cfg(not(target_os = "macos"))]
+            {
+                let _ = change.shortcut;
+                return Err("グローバルショートカットはmacOSのみ対応しています。".into());
+            }
+        }
+        app.state::<ProjectStore>()
+            .update(&project, &name, path, icon)
+    })
+    .await
+    .map_err(|error| format!("プロジェクトを更新できません: {error}"))?
+}
+
+#[tauri::command]
+pub fn set_shortcut_capture(window: tauri::WebviewWindow, capturing: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        if window.label() != "main"
+            || (capturing && !window.is_focused().map_err(|error| error.to_string())?)
+        {
+            return Err("Reentryのウィンドウでショートカットを入力してください。".into());
+        }
+        crate::shortcuts::set_capture(window.app_handle(), capturing)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (window, capturing);
+        Err("グローバルショートカットはmacOSのみ対応しています。".into())
+    }
 }
 
 #[tauri::command]

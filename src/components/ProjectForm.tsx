@@ -1,9 +1,11 @@
 import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { addProject, errorMessage, selectProjectDirectory, updateProject } from "../services/projects";
+import { supportsShortcuts } from "../services/shortcuts";
 import type { Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
 import Icon from "./Icon";
 import ProjectIcon from "./ProjectIcon";
+import ProjectShortcutField from "./ProjectShortcutField";
 
 const shapeOptions = [
   ["folder", "フォルダ"],
@@ -37,6 +39,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
   const [name, setName] = useState(project?.name ?? "");
   const [path, setPath] = useState(project?.path ?? "");
   const [launchUrl, setLaunchUrl] = useState("");
+  const [shortcut, setShortcut] = useState<string | null | undefined>(undefined);
   const savedCustomIcon = project?.icon?.mode === "custom" ? project.icon : undefined;
   const [customIcon, setCustomIcon] = useState(Boolean(savedCustomIcon));
   const [iconShape, setIconShape] = useState<ProjectIconShape>(savedCustomIcon?.shape ?? (project?.path ? "folder" : "link"));
@@ -78,7 +81,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     setPending("saving");
     try {
       const saved = project
-        ? await updateProject(project, name.trim(), path || null, appearance)
+        ? await updateProject(project, name.trim(), path || null, appearance, ...(shortcut === undefined ? [] : [{ shortcut }]))
         : await addProject(name.trim(), path || null, launchUrl);
       onSaved(saved);
     } catch (error) {
@@ -187,6 +190,10 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
             )}
           </fieldset>
         )}
+        {project && supportsShortcuts() && <ProjectShortcutField
+          shortcut={shortcut === undefined ? project.shortcut ?? null : shortcut}
+          onChange={setShortcut}
+        />}
         <p className="text-xs leading-6 text-muted">フォルダ内のファイルは変更されません。</p>
         <div className="flex flex-wrap justify-end gap-3">
           <button type="button" onClick={onCancel} className="button-secondary">キャンセル</button>

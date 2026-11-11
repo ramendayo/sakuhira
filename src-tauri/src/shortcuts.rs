@@ -126,6 +126,7 @@ mod runtime {
         routes: HashMap<String, String>,
         errors: HashMap<String, String>,
         pressed: HashSet<String>,
+        capturing: bool,
     }
 
     #[derive(Default)]
@@ -146,21 +147,28 @@ mod runtime {
             return;
         };
         let runtime = app.state::<ShortcutRuntime>();
-        let project_id = {
+        let (capturing, project_id) = {
             let Ok(mut state) = runtime.state.lock() else {
                 return;
             };
             match event.state {
                 ShortcutState::Pressed if transition_pressed(&mut state.pressed, &key, true) => {
-                    state.routes.get(&key).cloned()
+                    (state.capturing, state.routes.get(&key).cloned())
                 }
                 ShortcutState::Released => {
                     transition_pressed(&mut state.pressed, &key, false);
-                    None
+                    return;
                 }
-                _ => None,
+                _ => return,
             }
         };
+        // A registered combination can be consumed by macOS before the webview sees it.
+        if capturing {
+            if let Err(error) = app.emit_to("main", "project-shortcut-captured", &key) {
+                eprintln!("入力中のショートカットを表示できません: {error}");
+            }
+            return;
+        }
         if let Some(project_id) = project_id {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
@@ -193,6 +201,16 @@ mod runtime {
                 }
             });
         }
+    }
+
+    pub fn set_capture(app: &AppHandle, capturing: bool) -> Result<(), String> {
+        let runtime = app.state::<ShortcutRuntime>();
+        let mut state = runtime
+            .state
+            .lock()
+            .map_err(|_| "ショートカットの入力状態を変更できません。")?;
+        state.capturing = capturing;
+        Ok(())
     }
 
     pub async fn restore(app: AppHandle) -> Result<(), String> {
@@ -290,6 +308,17 @@ mod runtime {
         expected: Project,
         shortcut: Option<String>,
     ) -> Result<Project, String> {
+        set_with_save(app, expected, shortcut, |store, current, key| {
+            store.set_shortcut(current, key)
+        })
+    }
+
+    pub fn set_with_save(
+        app: &AppHandle,
+        expected: Project,
+        shortcut: Option<String>,
+        save: impl FnOnce(&ProjectStore, &Project, Option<&str>) -> Result<Project, String>,
+    ) -> Result<Project, String> {
         let runtime = app.state::<ShortcutRuntime>();
         let _operation = runtime
             .operation
@@ -326,7 +355,7 @@ mod runtime {
                         .map_err(|e| format!("OSにショートカットを登録できません: {e}"))
                 })
             },
-            || store.set_shortcut(&current, normalized.as_deref()),
+            || save(&store, &current, normalized.as_deref()),
             || {
                 if let Some(key) = key
                     && let Err(error) = app.global_shortcut().unregister(key)
@@ -403,7 +432,10 @@ mod runtime {
 }
 
 #[cfg(target_os = "macos")]
-pub use runtime::{ShortcutRuntime, errors, on_shortcut, remove, restore, set, unregister_all};
+pub use runtime::{
+    ShortcutRuntime, errors, on_shortcut, remove, restore, set, set_capture, set_with_save,
+    unregister_all,
+};
 
 #[cfg(test)]
 mod tests {

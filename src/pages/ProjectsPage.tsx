@@ -7,6 +7,7 @@ import { useProjectPresentation } from "../hooks/useProjectPresentation";
 import ProjectDetails from "./ProjectDetails";
 import ProjectForm from "../components/ProjectForm";
 import { useProjects } from "../hooks/useProjects";
+import { useShortcutIssues } from "../hooks/useShortcutIssues";
 import { moveProject, normalizeManualIds, orderedProjects } from "../utils/projectOrder";
 import { projectSortLabels } from "../types/settings";
 import type { Project } from "../types/project";
@@ -18,6 +19,7 @@ type ProjectsPageProps = {
 
 function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects();
+  const shortcuts = useShortcutIssues();
   const presentation = useProjectPresentation();
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
@@ -73,11 +75,16 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
     return <ProjectDetails
       key={selected.id}
       project={selected}
+      shortcutIssue={shortcuts.issues.find((issue) => issue.projectId === selected.id)?.reason}
       onBack={() => onSelect(null)}
-      onUpdated={replace}
+      onUpdated={(project) => {
+        replace(project);
+        shortcuts.refresh();
+      }}
       onResumed={recordResumed}
       onRemoved={(project) => {
         remove(project.id);
+        shortcuts.refresh();
         void presentation.saveOrder({
           ...presentation.order,
           manualIds: manualIds.filter((id) => id !== project.id),
@@ -118,6 +125,14 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
 
       <div>
         <p role="status" className="notice mb-6">{notice}</p>
+        {status === "ready" && (shortcuts.error || shortcuts.issues.some((issue) => projects.some((project) => project.id === issue.projectId))) &&
+          <div role="alert" className="mb-6 space-y-2 rounded-xl border border-danger-line bg-danger-soft p-4 text-sm text-danger">
+            {shortcuts.error && <p>ショートカットの状態を読み込めません：{shortcuts.error}</p>}
+            {projects.map((project) => {
+              const issue = shortcuts.issues.find((issue) => issue.projectId === project.id);
+              return issue && <p key={project.id} className="break-words">「{project.name}」のショートカット：{issue.reason}</p>;
+            })}
+          </div>}
         <div id="project-registration">
           {showForm && <ProjectForm onSaved={registered} onCancel={closeForm} />}
         </div>
@@ -156,7 +171,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
               <span role="status" aria-atomic="true" className="badge">
                 {searchTerm ? `${visibleProjects.length} / ${projects.length} 件` : `${projects.length} 件`}
               </span>
-              <button type="button" onClick={retry} disabled={showForm || presentation.pending} className="ml-auto button-quiet">再読み込み</button>
+              <button type="button" onClick={() => { retry(); shortcuts.refresh(); }} disabled={showForm || presentation.pending} className="ml-auto button-quiet">再読み込み</button>
             </div>
 
             {presentation.order.sort === "manual" && <p className="manual-order-help text-xs text-muted" id="manual-order-help">{searchTerm

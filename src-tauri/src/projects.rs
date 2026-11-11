@@ -284,9 +284,24 @@ impl ProjectStore {
         path: Option<&Path>,
         icon: Option<ProjectIcon>,
     ) -> Result<Project, String> {
+        self.update_with_shortcut(expected, name, path, icon, None)
+    }
+
+    pub fn update_with_shortcut(
+        &self,
+        expected: &Project,
+        name: &str,
+        path: Option<&Path>,
+        icon: Option<ProjectIcon>,
+        shortcut_change: Option<Option<&str>>,
+    ) -> Result<Project, String> {
         let name = project_name(name)?;
         self.change(|projects| {
             let index = matching_project(projects, expected)?;
+            let shortcut = match shortcut_change {
+                Some(shortcut) => checked_shortcut(projects, &expected.id, shortcut)?,
+                None => projects[index].shortcut.clone(),
+            };
             // フォルダが移動・削除済みでも、パスを変えない名前の編集は許可する。
             let path = if path == projects[index].path.as_deref().map(Path::new) {
                 projects[index].path.clone()
@@ -308,7 +323,7 @@ impl ProjectStore {
                 notes: expected.notes.clone(),
                 last_resumed_at: projects[index].last_resumed_at,
                 icon: icon.unwrap_or(expected.icon),
-                shortcut: projects[index].shortcut.clone(),
+                shortcut,
             };
             projects[index] = project.clone();
             Ok(project)
@@ -345,19 +360,9 @@ impl ProjectStore {
         expected: &Project,
         shortcut: Option<&str>,
     ) -> Result<Project, String> {
-        let shortcut = shortcut
-            .map(crate::shortcuts::normalize_shortcut)
-            .transpose()?;
         self.change(|projects| {
             let index = matching_project(projects, expected)?;
-            if shortcut.is_some()
-                && projects
-                    .iter()
-                    .any(|project| project.id != expected.id && project.shortcut == shortcut)
-            {
-                return Err("このショートカットは別のプロジェクトに割り当てられています。".into());
-            }
-            projects[index].shortcut = shortcut;
+            projects[index].shortcut = checked_shortcut(projects, &expected.id, shortcut)?;
             Ok(projects[index].clone())
         })
     }
@@ -400,6 +405,27 @@ impl ProjectStore {
     fn write(&self, document: &ProjectDocument) -> Result<(), String> {
         crate::storage::write_json(&self.directory, "projects.json", document)
     }
+}
+
+fn checked_shortcut(
+    projects: &[Project],
+    project_id: &str,
+    shortcut: Option<&str>,
+) -> Result<Option<String>, String> {
+    let shortcut = shortcut
+        .map(crate::shortcuts::normalize_shortcut)
+        .transpose()?;
+    if shortcut.is_some()
+        && let Some(owner) = projects
+            .iter()
+            .find(|project| project.id != project_id && project.shortcut == shortcut)
+    {
+        return Err(format!(
+            "このショートカットは「{}」に割り当てられています。",
+            owner.name
+        ));
+    }
+    Ok(shortcut)
 }
 
 #[cfg(test)]
