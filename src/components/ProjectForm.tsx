@@ -2,29 +2,13 @@ import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { addProject, errorMessage, selectProjectDirectory, updateProject } from "../services/projects";
 import { supportsShortcuts } from "../services/shortcuts";
+import { projectIconColorLabels, projectIconShapeLabels } from "../types/project";
 import type { Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
 import Icon from "./Icon";
 import ProjectIcon from "./ProjectIcon";
 import ProjectShortcutField from "./ProjectShortcutField";
 
-const shapeOptions = [
-  ["folder", "フォルダ"],
-  ["link", "リンク"],
-  ["code", "コード"],
-  ["browser", "ブラウザ"],
-  ["note", "ノート"],
-  ["terminal", "ターミナル"],
-  ["flask", "フラスコ"],
-] as const satisfies ReadonlyArray<readonly [ProjectIconShape, string]>;
-
-const colorLabels: Record<ProjectIconColor, string> = {
-  default: "デフォルト",
-  blue: "青",
-  green: "緑",
-  amber: "琥珀",
-  purple: "紫",
-  gray: "グレー",
-};
+const iconShapes = Object.keys(projectIconShapeLabels) as ProjectIconShape[];
 
 type ProjectFormProps = {
   project?: Project;
@@ -161,7 +145,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
                 <fieldset>
                   <legend className="field-label">形</legend>
                   <div className="flex flex-wrap gap-2">
-                    {shapeOptions.map(([shape, label]) => (
+                    {iconShapes.map((shape) => (
                       <label key={shape} className="icon-shape-choice">
                         <input
                           className="sr-only"
@@ -173,7 +157,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
                         />
                         <span className="icon-shape-tile">
                           <Icon name={shape} />
-                          {label}
+                          {projectIconShapeLabels[shape]}
                           <span className="icon-shape-check" aria-hidden="true">✓</span>
                         </span>
                       </label>
@@ -183,7 +167,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
                 <div className="max-w-60">
                   <label htmlFor={`${id}-icon-color`} className="field-label">背景色</label>
                   <select id={`${id}-icon-color`} className="field" value={iconColor} onChange={(event) => setIconColor(event.target.value as ProjectIconColor)}>
-                    {Object.entries(colorLabels).map(([color, label]) => <option key={color} value={color}>{label}</option>)}
+                    {Object.entries(projectIconColorLabels).map(([color, label]) => <option key={color} value={color}>{label}</option>)}
                   </select>
                 </div>
               </div>
