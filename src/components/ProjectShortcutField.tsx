@@ -20,8 +20,13 @@ export default function ProjectShortcutField({ shortcut, onChange, saveError }: 
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const active = useRef(false);
+  const captureButton = useRef<HTMLButtonElement>(null);
   const feedback = error ?? saveError;
   const feedbackId = feedback ? `${id}-error` : undefined;
+
+  useEffect(() => {
+    if (saveError) captureButton.current?.focus();
+  }, [saveError]);
 
   function stop() {
     active.current = false;
@@ -101,7 +106,8 @@ export default function ProjectShortcutField({ shortcut, onChange, saveError }: 
       <legend className="px-1 text-sm font-medium">グローバルショートカット</legend>
       <div className="flex flex-wrap items-center gap-3">
         <span aria-live="polite" className="text-sm">{shortcut ? <kbd>{shortcutLabel(shortcut)}</kbd> : "未設定"}</span>
-        <button type="button" className="button-secondary" aria-pressed={capturing} aria-describedby={id}
+        <button ref={captureButton} type="button" className="button-secondary" aria-pressed={capturing}
+          aria-describedby={feedbackId ? `${id} ${feedbackId}` : id}
           onBlur={stop} onKeyDown={captureKey} onClick={(event) => {
             if (capturing) { stop(); return; }
             event.currentTarget.focus();

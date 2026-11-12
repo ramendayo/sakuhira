@@ -1,10 +1,11 @@
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import type { FormEvent } from "react";
-import { addProject, errorMessage, selectProjectDirectory, updateProject } from "../services/projects";
+import { addProject, errorMessage, selectProjectDirectory, shortcutRegistrationError, updateProject } from "../services/projects";
 import { supportsShortcuts } from "../services/shortcuts";
 import type { Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
+import ProjectIcon from "./ProjectIcon";
 import ProjectIconField from "./ProjectIconField";
-import ProjectShortcutField from "./ProjectShortcutField";
+import ProjectShortcutField, { shortcutLabel } from "./ProjectShortcutField";
 
 type ProjectFormProps = {
   project?: Project;
@@ -20,15 +21,33 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
   const [path, setPath] = useState(project?.path ?? "");
   const [launchUrl, setLaunchUrl] = useState("");
   const [shortcut, setShortcut] = useState<string | null | undefined>(undefined);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [shortcutError, setShortcutError] = useState<string | null>(null);
+  const selectedShortcut = shortcut === undefined ? project?.shortcut ?? null : shortcut;
+  const canSetShortcut = supportsShortcuts();
+  const previewPath = path.trim() || null;
   const savedCustomIcon = project?.icon?.mode === "custom" ? project.icon : undefined;
   const [customIcon, setCustomIcon] = useState(Boolean(savedCustomIcon));
-  const [iconShape, setIconShape] = useState<ProjectIconShape>(savedCustomIcon?.shape ?? (project?.path ? "folder" : "link"));
+  const [iconShape, setIconShape] = useState<ProjectIconShape | undefined>(
+    savedCustomIcon?.shape ?? (project && (project.path ? "folder" : "link")),
+  );
+  const defaultIconShape = previewPath ? "folder" : "link";
   const [iconColor, setIconColor] = useState<ProjectIconColor>(savedCustomIcon?.color ?? "gray");
   const appearance: IconAppearance = customIcon
-    ? { mode: "custom", shape: iconShape, color: iconColor }
+    ? { mode: "custom", shape: iconShape ?? defaultIconShape, color: iconColor }
     : { mode: "auto" };
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<"picking" | "saving" | null>(null);
+
+  const changeShortcut = useCallback((key: string | null) => {
+    setShortcut(key);
+    setShortcutError(null);
+  }, []);
+
+  function changeIconMode(custom: boolean) {
+    if (custom) setIconShape((shape) => shape ?? defaultIconShape);
+    setCustomIcon(custom);
+  }
 
   async function chooseDirectory() {
     setError(null);
@@ -58,18 +77,44 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
       return;
     }
     setError(null);
+    setShortcutError(null);
     setPending("saving");
     try {
+      const registrationOptions = customIcon || selectedShortcut
+        ? [{ icon: appearance, shortcut: selectedShortcut }] as const
+        : [] as const;
       const saved = project
         ? await updateProject(project, name.trim(), path || null, appearance, ...(shortcut === undefined ? [] : [{ shortcut }]))
-        : await addProject(name.trim(), path || null, launchUrl);
+        : await addProject(name.trim(), path || null, launchUrl, ...registrationOptions);
       onSaved(saved);
     } catch (error) {
-      setError(errorMessage(error));
+      const shortcutFailure = !project && canSetShortcut ? shortcutRegistrationError(error) : null;
+      if (shortcutFailure) {
+        setOptionsOpen(true);
+        setShortcutError(shortcutFailure);
+      } else {
+        setError(errorMessage(error));
+      }
     } finally {
       setPending(null);
     }
   }
+
+  const appearanceFields = <>
+    <ProjectIconField
+      path={previewPath}
+      appearance={appearance}
+      onCustomChange={changeIconMode}
+      onShapeChange={setIconShape}
+      onColorChange={setIconColor}
+    />
+    {canSetShortcut && <ProjectShortcutField
+      shortcut={selectedShortcut}
+      onChange={changeShortcut}
+      saveError={shortcutError}
+    />}
+  </>;
+  const showOptionsSummary = !optionsOpen && (customIcon || selectedShortcut !== null);
 
   return (
     <form
@@ -117,18 +162,36 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
           <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => setLaunchUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="field" />
           <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-muted">フォルダがない場合は必須です。HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
         </div>}
-        {project && <ProjectIconField
-          path={path.trim() || null}
-          appearance={appearance}
-          onCustomChange={setCustomIcon}
-          onShapeChange={setIconShape}
-          onColorChange={setIconColor}
-        />}
-        {project && supportsShortcuts() && <ProjectShortcutField
-          shortcut={shortcut === undefined ? project.shortcut ?? null : shortcut}
-          onChange={setShortcut}
-        />}
+        {project && appearanceFields}
         <p className="text-xs leading-6 text-muted">フォルダ内のファイルは変更されません。</p>
+        {!project && (
+          <div className="space-y-3">
+            <button
+              type="button"
+              aria-expanded={optionsOpen}
+              aria-controls={`${id}-optional-settings`}
+              aria-labelledby={`${id}-optional-label`}
+              aria-describedby={showOptionsSummary ? `${id}-optional-summary` : undefined}
+              onClick={() => setOptionsOpen((open) => !open)}
+              className="button-secondary w-full justify-start text-left"
+            >
+              <span id={`${id}-optional-label`}>アイコン・再開ショートカット（任意）</span>
+              {showOptionsSummary && (
+                <span id={`${id}-optional-summary`} className="ml-auto flex shrink-0 items-center gap-2">
+                  {customIcon && <>
+                    <span className="sr-only">カスタムアイコン設定済み</span>
+                    <ProjectIcon path={previewPath} appearance={appearance} compact />
+                  </>}
+                  {selectedShortcut && <kbd className="text-xs text-muted">{shortcutLabel(selectedShortcut)}</kbd>}
+                </span>
+              )}
+              <span aria-hidden="true" className={`size-2 shrink-0 border-b border-r border-current ${showOptionsSummary ? "" : "ml-auto"} ${optionsOpen ? "rotate-[225deg]" : "rotate-45"}`} />
+            </button>
+            <div id={`${id}-optional-settings`} hidden={!optionsOpen} className="space-y-3">
+              {optionsOpen && appearanceFields}
+            </div>
+          </div>
+        )}
         <div className="flex flex-wrap justify-end gap-3">
           <button type="button" onClick={onCancel} className="button-secondary">キャンセル</button>
           <button type="submit" className="button-primary">

@@ -297,6 +297,8 @@ describe("project registration", () => {
     let finishSave!: (value: Project) => void;
     vi.mocked(api.addProject).mockImplementation(() => new Promise((resolve) => { finishSave = resolve; }));
     const user = await openForm();
+    expect(screen.getByRole("button", { name: "アイコン・再開ショートカット（任意）", expanded: false })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "アイコン" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "フォルダを選択" }));
     expect((screen.getByLabelText("フォルダ") as HTMLInputElement).value).toBe(project.path);
     expect((screen.getByLabelText("プロジェクト名") as HTMLInputElement).value).toBe(project.name);
@@ -312,6 +314,79 @@ describe("project registration", () => {
     expect(await screen.findByRole("heading", { name: project.name })).toBeTruthy();
     expect(screen.queryByRole("form", { name: /プロジェクトを/ })).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "プロジェクトを追加" }));
+  });
+
+  it("preserves optional registration settings across collapse and shortcut conflicts", async () => {
+    const url = "https://example.com/docs";
+    const icon = { mode: "custom", shape: "code", color: "blue" } as const;
+    const saved = { ...project, launchUrl: url, icon, shortcut: "Control+KeyK" };
+    const conflict = "このショートカットは「Other」に割り当てられています。";
+    const osError = "OSにショートカットを登録できません。";
+    vi.mocked(api.addProject)
+      .mockRejectedValueOnce({ field: "shortcut", message: conflict })
+      .mockRejectedValueOnce({ field: "shortcut", message: osError })
+      .mockResolvedValueOnce(saved);
+    vi.mocked(shortcuts.supportsShortcuts).mockReturnValue(true);
+    vi.mocked(shortcuts.onShortcutsRestored).mockResolvedValue(() => {});
+    vi.mocked(shortcuts.onShortcutResume).mockResolvedValue(() => {});
+    vi.mocked(shortcuts.onCapturedShortcut).mockResolvedValue(() => {});
+    vi.mocked(shortcuts.setShortcutCapture).mockResolvedValue(undefined);
+    vi.mocked(shortcuts.readShortcutIssues).mockResolvedValue([]);
+    const user = await openForm();
+    const name = screen.getByRole<HTMLInputElement>("textbox", { name: "プロジェクト名" });
+    const folder = screen.getByRole<HTMLInputElement>("textbox", { name: "フォルダ" });
+    const urlField = screen.getByRole<HTMLInputElement>("textbox", { name: "起動URL（任意）" });
+    await user.type(name, project.name);
+    await user.type(folder, project.path);
+    await user.type(urlField, url);
+
+    const disclosure = screen.getByRole("button", { name: "アイコン・再開ショートカット（任意）", expanded: false });
+    disclosure.focus();
+    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("radio", { name: "カスタム" }));
+    expect(screen.getByRole("radio", { name: "フォルダ", checked: true })).toBeTruthy();
+    await user.click(within(screen.getByRole("group", { name: "形" })).getByText("コード"));
+    await user.selectOptions(screen.getByRole("combobox", { name: "背景色" }), "blue");
+
+    async function capture(key: string) {
+      await user.click(screen.getByRole("button", { name: "キーを入力" }));
+      await screen.findByRole("button", { name: "キーを入力してください" });
+      await user.keyboard(`{Control>}${key}{/Control}`);
+    }
+    await capture("j");
+    disclosure.focus();
+    await user.keyboard(" ");
+    expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+    expect(disclosure.querySelector('[data-icon-color="blue"] svg')).toBeTruthy();
+    expect(within(disclosure).getByText("⌃ + J")).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "アイコン" })).toBeNull();
+
+    const submit = screen.getByRole("button", { name: "登録する" });
+    await user.click(submit);
+    expect(api.addProject).toHaveBeenNthCalledWith(1, project.name, project.path, url, { icon, shortcut: "Control+KeyJ" });
+    const shortcutField = within(screen.getByRole("group", { name: "グローバルショートカット" }));
+    expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+    expect(shortcutField.getByRole("alert").textContent).toBe(conflict);
+    expect(document.activeElement).toBe(shortcutField.getByRole("button", { name: "キーを入力" }));
+    expect(name.value).toBe(project.name);
+    expect(folder.value).toBe(project.path);
+    expect(urlField.value).toBe(url);
+    expect(screen.getByRole("radio", { name: "コード", checked: true })).toBeTruthy();
+    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "背景色" }).value).toBe("blue");
+    expect(screen.getByText("0 件")).toBeTruthy();
+
+    await user.click(shortcutField.getByRole("button", { name: "ショートカットを解除" }));
+    expect(shortcutField.queryByRole("alert")).toBeNull();
+    await capture("k");
+    await user.click(submit);
+    expect(shortcutField.getByRole("alert").textContent).toBe(osError);
+    expect(screen.getByText("0 件")).toBeTruthy();
+    await user.click(submit);
+    expect(api.addProject).toHaveBeenLastCalledWith(project.name, project.path, url, { icon, shortcut: saved.shortcut });
+    await user.click(await screen.findByRole("button", { name: "Reentryの詳細を開く" }));
+    const information = within(screen.getByRole("region", { name: "プロジェクト情報" }));
+    expect(information.getByText("コード・青")).toBeTruthy();
+    expect(information.getByText("⌃ + K")).toBeTruthy();
   });
 
   it("keeps typed input when folder selection is cancelled and preserves custom names", async () => {
