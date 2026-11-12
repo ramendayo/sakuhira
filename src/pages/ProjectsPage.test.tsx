@@ -494,8 +494,8 @@ it("does not close another project's details when an earlier removal finishes", 
 });
 
 describe("project notes", () => {
-  it("saves work and next steps, restores focus, and shows a list preview", async () => {
-    const notes = { lastWork: "  保存処理を実装\nテストを追加", nextTask: "次は設定画面", updatedAt: 1792904400000 };
+  it("previews and saves Markdown drafts, restores focus, and shows a list preview", async () => {
+    const notes = { lastWork: "# 保存処理を実装\n\nテストを追加", nextTask: "**次は設定画面**", updatedAt: 1792904400000 };
     vi.mocked(setProjectNotes).mockResolvedValue({ ...project, notes });
     const user = await openDetails();
     expect(screen.getByText("メモはまだ保存されていません。")).toBeTruthy();
@@ -503,9 +503,22 @@ describe("project notes", () => {
     expect(document.activeElement).toBe(screen.getByLabelText("前回の作業内容"));
     await user.type(screen.getByLabelText("前回の作業内容"), notes.lastWork);
     await user.type(screen.getByLabelText("次にやること"), notes.nextTask);
+    const toggle = within(screen.getByRole("group", { name: "作業メモの表示" }));
+    await user.click(toggle.getByRole("button", { name: "プレビュー" }));
+    expect(toggle.getByRole("button", { name: "プレビュー", pressed: true })).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "前回の作業内容" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "保存処理を実装" })).toBeTruthy();
+    expect(screen.getByText("次は設定画面").tagName).toBe("STRONG");
+    expect(setProjectNotes).not.toHaveBeenCalled();
+    await user.click(toggle.getByRole("button", { name: "編集" }));
+    expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "前回の作業内容" }).value).toBe(notes.lastWork);
+    expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "次にやること" }).value).toBe(notes.nextTask);
+    await user.click(toggle.getByRole("button", { name: "プレビュー" }));
     await user.click(screen.getByRole("button", { name: "メモを保存" }));
     expect(await screen.findByText("作業メモを保存しました。")).toBeTruthy();
     expect(setProjectNotes).toHaveBeenCalledWith(project, notes.lastWork, notes.nextTask);
+    expect(screen.getByRole("heading", { name: "保存処理を実装" })).toBeTruthy();
+    expect(screen.getByText("次は設定画面").tagName).toBe("STRONG");
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "メモを編集" }));
     expect(document.querySelector("time")?.getAttribute("datetime")).toBe(new Date(notes.updatedAt).toISOString());
     await user.click(screen.getByRole("button", { name: /プロジェクト一覧に戻る/ }));
