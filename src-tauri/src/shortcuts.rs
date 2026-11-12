@@ -92,19 +92,13 @@ fn transition_pressed(
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn register_then_save<T>(
-    register: impl FnOnce() -> Result<(), String>,
-    save: impl FnOnce() -> Result<T, String>,
-    rollback: impl FnOnce(),
-) -> Result<T, String> {
+fn register_then_save<T, E>(
+    register: impl FnOnce() -> Result<(), E>,
+    save: impl FnOnce() -> Result<T, E>,
+    rollback: impl FnOnce(E) -> E,
+) -> Result<T, E> {
     register()?;
-    match save() {
-        Ok(value) => Ok(value),
-        Err(error) => {
-            rollback();
-            Err(error)
-        }
-    }
+    save().map_err(rollback)
 }
 
 #[cfg(target_os = "macos")]
@@ -112,7 +106,7 @@ mod runtime {
     use super::{normalize_shortcut, register_then_save, transition_pressed};
     use crate::{
         launch,
-        projects::{Project, ProjectStore},
+        projects::{Project, ProjectRegistrationError, ProjectStore, checked_shortcut},
     };
     use std::{
         collections::{HashMap, HashSet},
@@ -313,6 +307,53 @@ mod runtime {
         })
     }
 
+    pub fn register_new_project(
+        app: &AppHandle,
+        shortcut: &str,
+        save: impl FnOnce(&ProjectStore, &str) -> Result<Project, ProjectRegistrationError>,
+    ) -> Result<Project, ProjectRegistrationError> {
+        let runtime = app.state::<ShortcutRuntime>();
+        let _operation = runtime.operation.lock().map_err(|_| {
+            ProjectRegistrationError::shortcut("ショートカット処理を開始できません。".into())
+        })?;
+        let store = app.state::<ProjectStore>();
+        let key = checked_shortcut(&store.list()?, None, shortcut)
+            .map_err(ProjectRegistrationError::shortcut)?;
+
+        let project = register_then_save(
+            || register_key(app, &key).map_err(ProjectRegistrationError::shortcut),
+            || save(&store, &key),
+            |error| match rollback_key(app, &key) {
+                Ok(()) => error,
+                Err(reason) => ProjectRegistrationError::shortcut(format!(
+                    "プロジェクトを保存できず、ショートカットの解除にも失敗しました。Reentryを終了してから再試行してください。{reason}"
+                )),
+            },
+        )?;
+
+        runtime
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .routes
+            .insert(key, project.id.clone());
+        Ok(project)
+    }
+
+    fn register_key(app: &AppHandle, key: &str) -> Result<(), String> {
+        app.global_shortcut()
+            .register(key)
+            .map_err(|error| format!("OSにショートカットを登録できません: {error}"))
+    }
+
+    fn rollback_key(app: &AppHandle, key: &str) -> Result<(), String> {
+        let result = app.global_shortcut().unregister(key);
+        if let Ok(mut state) = app.state::<ShortcutRuntime>().state.lock() {
+            state.pressed.remove(key);
+        }
+        result.map_err(|error| error.to_string())
+    }
+
     pub fn set_with_save(
         app: &AppHandle,
         expected: Project,
@@ -326,18 +367,10 @@ mod runtime {
             .map_err(|_| "ショートカット処理を開始できません。")?;
         let store = app.state::<ProjectStore>();
         let current = store.get_matching(&expected)?;
-        let normalized = shortcut.as_deref().map(normalize_shortcut).transpose()?;
-        if let Some(key) = normalized.as_ref()
-            && let Some(owner) = store
-                .list()?
-                .iter()
-                .find(|p| p.id != expected.id && p.shortcut.as_ref() == Some(key))
-        {
-            return Err(format!(
-                "このショートカットは「{}」に割り当てられています。",
-                owner.name
-            ));
-        }
+        let normalized = match shortcut.as_deref() {
+            Some(key) => Some(checked_shortcut(&store.list()?, Some(&expected.id), key)?),
+            None => None,
+        };
         let old = current.shortcut.clone();
         let already = normalized.as_ref().is_some_and(|key| {
             runtime
@@ -348,20 +381,15 @@ mod runtime {
         });
         let key = normalized.as_deref().filter(|_| !already);
         let updated = register_then_save(
-            || {
-                key.map_or(Ok(()), |key| {
-                    app.global_shortcut()
-                        .register(key)
-                        .map_err(|e| format!("OSにショートカットを登録できません: {e}"))
-                })
-            },
+            || key.map_or(Ok(()), |key| register_key(app, key)),
             || save(&store, &current, normalized.as_deref()),
-            || {
+            |save_error| {
                 if let Some(key) = key
-                    && let Err(error) = app.global_shortcut().unregister(key)
+                    && let Err(error) = rollback_key(app, key)
                 {
                     eprintln!("新規ショートカットのロールバックに失敗しました ({key}): {error}");
                 }
+                save_error
             },
         )?;
         let old_key_owned = {
@@ -433,8 +461,8 @@ mod runtime {
 
 #[cfg(target_os = "macos")]
 pub use runtime::{
-    ShortcutRuntime, errors, on_shortcut, remove, restore, set, set_capture, set_with_save,
-    unregister_all,
+    ShortcutRuntime, errors, on_shortcut, register_new_project, remove, restore, set, set_capture,
+    set_with_save, unregister_all,
 };
 
 #[cfg(test)]
@@ -527,7 +555,10 @@ mod tests {
                 operations.borrow_mut().push("save");
                 Err("disk full".into())
             },
-            || operations.borrow_mut().push("unregister new"),
+            |error| {
+                operations.borrow_mut().push("unregister new");
+                error
+            },
         );
         assert!(result.is_err());
         assert_eq!(
@@ -548,7 +579,10 @@ mod tests {
                 operations.borrow_mut().push("save");
                 Ok(())
             },
-            || operations.borrow_mut().push("unregister new"),
+            |error| {
+                operations.borrow_mut().push("unregister new");
+                error
+            },
         );
         assert!(result.is_err());
         assert_eq!(*operations.borrow(), ["register new"]);

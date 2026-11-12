@@ -30,6 +30,31 @@ pub struct Project {
     pub shortcut: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum ProjectRegistrationError {
+    Project(String),
+    Shortcut {
+        field: &'static str,
+        message: String,
+    },
+}
+
+impl ProjectRegistrationError {
+    pub fn shortcut(message: String) -> Self {
+        Self::Shortcut {
+            field: "shortcut",
+            message,
+        }
+    }
+}
+
+impl From<String> for ProjectRegistrationError {
+    fn from(message: String) -> Self {
+        Self::Project(message)
+    }
+}
+
 fn deserialize_shortcut<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -237,10 +262,10 @@ impl ProjectStore {
         Ok(self.read()?.projects)
     }
 
-    fn change<T>(
+    fn change<T, E: From<String>>(
         &self,
-        operation: impl FnOnce(&mut Vec<Project>) -> Result<T, String>,
-    ) -> Result<T, String> {
+        operation: impl FnOnce(&mut Vec<Project>) -> Result<T, E>,
+    ) -> Result<T, E> {
         let _lock = self.lock()?;
         let mut document = self.read()?;
         let result = operation(&mut document.projects)?;
@@ -248,20 +273,36 @@ impl ProjectStore {
         Ok(result)
     }
 
+    #[cfg(test)]
     pub fn add(
         &self,
         name: &str,
         path: Option<&Path>,
         launch_url: Option<&str>,
-    ) -> Result<Project, String> {
+    ) -> Result<Project, ProjectRegistrationError> {
+        self.add_with_options(name, path, launch_url, ProjectIcon::Auto, None)
+    }
+
+    pub fn add_with_options(
+        &self,
+        name: &str,
+        path: Option<&Path>,
+        launch_url: Option<&str>,
+        icon: ProjectIcon,
+        shortcut: Option<&str>,
+    ) -> Result<Project, ProjectRegistrationError> {
         let name = project_name(name)?;
         let path = path.map(directory_path).transpose()?;
         let launch_url = crate::launch::normalize_url(launch_url)?;
         validate_launch_target(path.as_deref(), launch_url.as_deref())?;
         self.change(|projects| {
             if path.is_some() && projects.iter().any(|project| project.path == path) {
-                return Err("このフォルダはすでに登録されています。".into());
+                return Err("このフォルダはすでに登録されています。".to_owned().into());
             }
+            let shortcut = shortcut
+                .map(|key| checked_shortcut(projects, None, key))
+                .transpose()
+                .map_err(ProjectRegistrationError::shortcut)?;
             let project = Project {
                 id: Uuid::new_v4().to_string(),
                 name,
@@ -269,8 +310,8 @@ impl ProjectStore {
                 launch_url,
                 notes: ProjectNotes::default(),
                 last_resumed_at: None,
-                icon: ProjectIcon::Auto,
-                shortcut: None,
+                icon,
+                shortcut,
             };
             projects.push(project.clone());
             Ok(project)
@@ -299,7 +340,9 @@ impl ProjectStore {
         self.change(|projects| {
             let index = matching_project(projects, expected)?;
             let shortcut = match shortcut_change {
-                Some(shortcut) => checked_shortcut(projects, &expected.id, shortcut)?,
+                Some(shortcut) => shortcut
+                    .map(|key| checked_shortcut(projects, Some(&expected.id), key))
+                    .transpose()?,
                 None => projects[index].shortcut.clone(),
             };
             // フォルダが移動・削除済みでも、パスを変えない名前の編集は許可する。
@@ -362,7 +405,9 @@ impl ProjectStore {
     ) -> Result<Project, String> {
         self.change(|projects| {
             let index = matching_project(projects, expected)?;
-            projects[index].shortcut = checked_shortcut(projects, &expected.id, shortcut)?;
+            projects[index].shortcut = shortcut
+                .map(|key| checked_shortcut(projects, Some(&expected.id), key))
+                .transpose()?;
             Ok(projects[index].clone())
         })
     }
@@ -407,19 +452,16 @@ impl ProjectStore {
     }
 }
 
-fn checked_shortcut(
+pub(crate) fn checked_shortcut(
     projects: &[Project],
-    project_id: &str,
-    shortcut: Option<&str>,
-) -> Result<Option<String>, String> {
-    let shortcut = shortcut
-        .map(crate::shortcuts::normalize_shortcut)
-        .transpose()?;
-    if shortcut.is_some()
-        && let Some(owner) = projects
-            .iter()
-            .find(|project| project.id != project_id && project.shortcut == shortcut)
-    {
+    project_id: Option<&str>,
+    shortcut: &str,
+) -> Result<String, String> {
+    let shortcut = crate::shortcuts::normalize_shortcut(shortcut)?;
+    if let Some(owner) = projects.iter().find(|project| {
+        Some(project.id.as_str()) != project_id
+            && project.shortcut.as_deref() == Some(shortcut.as_str())
+    }) {
         return Err(format!(
             "このショートカットは「{}」に割り当てられています。",
             owner.name

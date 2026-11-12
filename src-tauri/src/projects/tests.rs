@@ -14,6 +14,8 @@ fn url_only_projects_persist_and_can_gain_or_remove_a_folder() {
         .unwrap();
     assert_eq!(first.path, None);
     assert_eq!(first.launch_url.as_deref(), Some("https://example.com/"));
+    assert_eq!(first.icon, ProjectIcon::Auto);
+    assert_eq!(first.shortcut, None);
     assert_eq!(
         ProjectStore::new(data).list().unwrap(),
         vec![first.clone(), second.clone()]
@@ -32,6 +34,60 @@ fn url_only_projects_persist_and_can_gain_or_remove_a_folder() {
     assert_eq!(web.launch_url, first.launch_url);
     store.remove(&web).unwrap();
     assert_eq!(store.list().unwrap(), vec![second]);
+}
+
+#[test]
+fn registering_with_optional_settings_persists_them_and_can_retry_after_a_conflict() {
+    let root = tempdir().unwrap();
+    let data = root.path().join("data");
+    let store = ProjectStore::new(data.clone());
+    let icon = ProjectIcon::Custom {
+        shape: IconShape::Code,
+        color: IconColor::Blue,
+    };
+    let first = store
+        .add_with_options(
+            "First",
+            None,
+            Some("https://first.example"),
+            icon,
+            Some("Ctrl+A"),
+        )
+        .unwrap();
+    assert_eq!(first.shortcut.as_deref(), Some("Control+KeyA"));
+    let file = data.join("projects.json");
+    let before = fs::read(&file).unwrap();
+
+    let error = store
+        .add_with_options(
+            "Second",
+            None,
+            Some("https://second.example"),
+            icon,
+            Some("control+keya"),
+        )
+        .unwrap_err();
+    assert_eq!(
+        serde_json::to_value(error).unwrap(),
+        serde_json::json!({
+            "field": "shortcut",
+            "message": "このショートカットは「First」に割り当てられています。"
+        })
+    );
+    assert_eq!(fs::read(file).unwrap(), before);
+
+    let second = store
+        .add_with_options(
+            "Second",
+            None,
+            Some("https://second.example"),
+            icon,
+            Some("Ctrl+B"),
+        )
+        .unwrap();
+    assert_eq!(second.shortcut.as_deref(), Some("Control+KeyB"));
+    assert_eq!(second.icon, icon);
+    assert_eq!(ProjectStore::new(data).list().unwrap(), vec![first, second]);
 }
 
 #[test]

@@ -1,4 +1,6 @@
-use crate::projects::{Project, ProjectIcon, ProjectStore, directory_path};
+use crate::projects::{
+    Project, ProjectIcon, ProjectRegistrationError, ProjectStore, directory_path,
+};
 use std::path::Path;
 use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -24,14 +26,42 @@ pub fn list_projects(store: State<'_, ProjectStore>) -> Result<Vec<Project>, Str
     store.list()
 }
 
-#[tauri::command(async)]
-pub fn add_project(
-    store: State<'_, ProjectStore>,
+#[tauri::command]
+pub async fn add_project(
+    app: tauri::AppHandle,
     name: String,
     path: Option<String>,
     launch_url: Option<String>,
-) -> Result<Project, String> {
-    store.add(&name, path.as_deref().map(Path::new), launch_url.as_deref())
+    icon: Option<ProjectIcon>,
+    shortcut: Option<String>,
+) -> Result<Project, ProjectRegistrationError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let save = |store: &ProjectStore, key: Option<&str>| {
+            store.add_with_options(
+                &name,
+                path.as_deref().map(Path::new),
+                launch_url.as_deref(),
+                icon.unwrap_or_default(),
+                key,
+            )
+        };
+        if let Some(key) = shortcut {
+            #[cfg(target_os = "macos")]
+            return crate::shortcuts::register_new_project(&app, &key, |store, key| {
+                save(store, Some(key))
+            });
+            #[cfg(not(target_os = "macos"))]
+            {
+                let _ = key;
+                return Err(ProjectRegistrationError::shortcut(
+                    "グローバルショートカットはmacOSのみ対応しています。".into(),
+                ));
+            }
+        }
+        save(&app.state::<ProjectStore>(), None)
+    })
+    .await
+    .map_err(|error| format!("プロジェクトを登録できません: {error}"))?
 }
 
 #[derive(serde::Deserialize)]

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { addProject, listProjects, selectProjectDirectory } from "./projects";
+import { addProject, errorMessage, listProjects, selectProjectDirectory, shortcutRegistrationError } from "./projects";
 
 beforeEach(() => vi.stubGlobal("isTauri", true));
 afterEach(() => {
@@ -25,6 +25,21 @@ it("sends an optional registration URL and treats blank input as unset", async (
   expect(handler).toHaveBeenLastCalledWith("add_project", { name: "Example", path: "/example", launchUrl: null });
   await addProject("Web", null, "https://example.com");
   expect(handler).toHaveBeenLastCalledWith("add_project", { name: "Web", path: null, launchUrl: "https://example.com" });
+});
+
+it("sends icon and shortcut together and exposes shortcut errors to the form", async () => {
+  const failure = { field: "shortcut", message: "このショートカットは「Other」に割り当てられています。" };
+  const handler = vi.fn(() => { throw failure; });
+  mockIPC(handler);
+  const icon = { mode: "custom", shape: "code", color: "blue" } as const;
+  await expect(addProject("Example", "/example", "https://example.com", { icon, shortcut: "Control+KeyA" }))
+    .rejects.toBe(failure);
+  expect(handler).toHaveBeenCalledWith("add_project", {
+    name: "Example", path: "/example", launchUrl: "https://example.com", icon, shortcut: "Control+KeyA",
+  });
+  expect(shortcutRegistrationError(failure)).toBe(failure.message);
+  expect(errorMessage(failure)).toBe(failure.message);
+  expect(shortcutRegistrationError("保存できません")).toBeNull();
 });
 
 it("loads projects and treats folder picker cancellation as a normal result", async () => {
