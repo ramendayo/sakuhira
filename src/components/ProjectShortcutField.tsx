@@ -11,14 +11,17 @@ export function shortcutLabel(shortcut: string) {
 type Props = {
   shortcut: string | null;
   onChange: (shortcut: string | null) => void;
+  saveError?: string | null;
 };
 
-export default function ProjectShortcutField({ shortcut, onChange }: Props) {
+export default function ProjectShortcutField({ shortcut, onChange, saveError }: Props) {
   const id = useId();
   const [capturing, setCapturing] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const active = useRef(false);
+  const feedback = error ?? saveError;
+  const feedbackId = feedback ? `${id}-error` : undefined;
 
   function stop() {
     active.current = false;
@@ -94,7 +97,7 @@ export default function ProjectShortcutField({ shortcut, onChange }: Props) {
   }
 
   return (
-    <fieldset className="space-y-3 rounded-xl border border-line p-4">
+    <fieldset aria-describedby={feedbackId} className="space-y-3 rounded-xl border border-line p-4">
       <legend className="px-1 text-sm font-medium">グローバルショートカット</legend>
       <div className="flex flex-wrap items-center gap-3">
         <span aria-live="polite" className="text-sm">{shortcut ? <kbd>{shortcutLabel(shortcut)}</kbd> : "未設定"}</span>
@@ -111,7 +114,7 @@ export default function ProjectShortcutField({ shortcut, onChange }: Props) {
         {shortcut && <button type="button" className="button-quiet" onClick={() => { setError(null); onChange(null); }}>ショートカットを解除</button>}
       </div>
       <p id={id} className="text-xs leading-6 text-muted">⌘・⌃・⌥のいずれかと英字・数字・F1〜F12を押します。Escで入力を終了できます。</p>
-      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+      {feedback && <p id={feedbackId} role="alert" className="text-sm text-danger">{feedback}</p>}
     </fieldset>
   );
 }

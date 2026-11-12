@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ProjectForm from "./ProjectForm";
+import ProjectShortcutField from "./ProjectShortcutField";
 import * as api from "../services/projects";
 import * as shortcuts from "../services/shortcuts";
 import type { Project } from "../types/project";
@@ -16,6 +17,19 @@ vi.mock("../services/shortcuts", () => ({
   setShortcutCapture: vi.fn(),
 }));
 afterEach(cleanup);
+
+it("shows a save error in the shortcut field without replacing the entered key", () => {
+  const shortcut = "Control+KeyA";
+  const onChange = vi.fn();
+  const message = "このショートカットはすでに割り当てられています。";
+  const { rerender } = render(<ProjectShortcutField shortcut={shortcut} onChange={onChange} saveError={message} />);
+  const field = screen.getByRole("group", { name: "グローバルショートカット", description: message });
+  expect(within(field).getByRole("alert").textContent).toBe(message);
+  expect(within(field).getByText("⌃ + A")).toBeTruthy();
+
+  rerender(<ProjectShortcutField shortcut={shortcut} onChange={onChange} />);
+  expect(within(field).queryByRole("alert")).toBeNull();
+});
 
 it("captures a registered key without resuming, preserves drafts after a conflict, and clears on retry", async () => {
   const project: Project = {

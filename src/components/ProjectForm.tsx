@@ -2,13 +2,9 @@ import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { addProject, errorMessage, selectProjectDirectory, updateProject } from "../services/projects";
 import { supportsShortcuts } from "../services/shortcuts";
-import { projectIconColorLabels, projectIconShapeLabels } from "../types/project";
 import type { Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
-import Icon from "./Icon";
-import ProjectIcon from "./ProjectIcon";
+import ProjectIconField from "./ProjectIconField";
 import ProjectShortcutField from "./ProjectShortcutField";
-
-const iconShapes = Object.keys(projectIconShapeLabels) as ProjectIconShape[];
 
 type ProjectFormProps = {
   project?: Project;
@@ -121,59 +117,13 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
           <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => setLaunchUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="field" />
           <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-muted">フォルダがない場合は必須です。HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
         </div>}
-        {project && (
-          <fieldset className="space-y-4 rounded-xl border border-line p-4">
-            <legend className="px-1 text-sm font-medium">アイコン</legend>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap gap-4 text-sm">
-                <label className="inline-flex items-center gap-2">
-                  <input type="radio" name={`${id}-icon-mode`} checked={!customIcon} onChange={() => setCustomIcon(false)} />
-                  自動
-                </label>
-                <label className="inline-flex items-center gap-2">
-                  <input type="radio" name={`${id}-icon-mode`} checked={customIcon} onChange={() => setCustomIcon(true)} />
-                  カスタム
-                </label>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted" role="group" aria-label="アイコンのプレビュー">
-                プレビュー
-                <ProjectIcon path={path.trim() || null} appearance={appearance} compact />
-              </div>
-            </div>
-            {customIcon && (
-              <div className="space-y-4">
-                <fieldset>
-                  <legend className="field-label">形</legend>
-                  <div className="flex flex-wrap gap-2">
-                    {iconShapes.map((shape) => (
-                      <label key={shape} className="icon-shape-choice">
-                        <input
-                          className="sr-only"
-                          type="radio"
-                          name={`${id}-icon-shape`}
-                          value={shape}
-                          checked={iconShape === shape}
-                          onChange={() => setIconShape(shape)}
-                        />
-                        <span className="icon-shape-tile">
-                          <Icon name={shape} />
-                          {projectIconShapeLabels[shape]}
-                          <span className="icon-shape-check" aria-hidden="true">✓</span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-                <div className="max-w-60">
-                  <label htmlFor={`${id}-icon-color`} className="field-label">背景色</label>
-                  <select id={`${id}-icon-color`} className="field" value={iconColor} onChange={(event) => setIconColor(event.target.value as ProjectIconColor)}>
-                    {Object.entries(projectIconColorLabels).map(([color, label]) => <option key={color} value={color}>{label}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-          </fieldset>
-        )}
+        {project && <ProjectIconField
+          path={path.trim() || null}
+          appearance={appearance}
+          onCustomChange={setCustomIcon}
+          onShapeChange={setIconShape}
+          onColorChange={setIconColor}
+        />}
         {project && supportsShortcuts() && <ProjectShortcutField
           shortcut={shortcut === undefined ? project.shortcut ?? null : shortcut}
           onChange={setShortcut}
