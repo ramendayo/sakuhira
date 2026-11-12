@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import LocalDateTime from "./LocalDateTime";
+import NoteMarkdown from "./NoteMarkdown";
 import type { FormEvent, Ref } from "react";
 import { setProjectNotes } from "../services/notes";
 import { errorMessage } from "../services/projects";
@@ -45,8 +46,14 @@ function ProjectNotes({ project, editing, onEdit, onCancel, onSaved, editButtonR
         <button type="button" ref={editButtonRef} onClick={onEdit} className="button-secondary">メモを編集</button>
       </div>
       <dl className="mt-5 space-y-5">
-        <div><dt className="text-sm text-muted">前回の作業内容</dt><dd className="mt-2 whitespace-pre-wrap break-words text-sm leading-7">{project.notes.lastWork.trim() ? project.notes.lastWork : "未記入"}</dd></div>
-        <div><dt className="text-sm text-muted">次にやること</dt><dd className="mt-2 whitespace-pre-wrap break-words text-sm leading-7">{project.notes.nextTask.trim() ? project.notes.nextTask : "未記入"}</dd></div>
+        <div>
+          <dt className="text-sm text-muted">前回の作業内容</dt>
+          <dd className="mt-2 text-sm leading-7"><NoteMarkdown source={project.notes.lastWork} /></dd>
+        </div>
+        <div>
+          <dt className="text-sm text-muted">次にやること</dt>
+          <dd className="mt-2 text-sm leading-7"><NoteMarkdown source={project.notes.nextTask} /></dd>
+        </div>
       </dl>
       <div className="mt-5"><NotesUpdatedAt notes={project.notes} /></div>
     </section>

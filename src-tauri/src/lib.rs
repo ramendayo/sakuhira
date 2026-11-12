@@ -47,6 +47,7 @@ pub fn run() {
             commands::save_settings,
             commands::apply_theme,
             commands::set_project_notes,
+            commands::open_note_link,
             commands::get_git_status,
             commands::set_project_launch_url,
             commands::resume_project,

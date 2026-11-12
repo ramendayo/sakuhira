@@ -113,12 +113,14 @@ fn resume(
         project,
         selected,
         |path| open_editor(selected, path),
-        |url| {
-            app.opener()
-                .open_url(url, None::<&str>)
-                .map_err(|error| format!("既定ブラウザにURLを渡せません: {error}"))
-        },
+        |url| open_in_browser(app, url),
     )
+}
+
+pub fn open_in_browser(app: &tauri::AppHandle, url: &str) -> Result<(), String> {
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|error| format!("既定ブラウザにURLを渡せません: {error}"))
 }
 
 fn resume_with(

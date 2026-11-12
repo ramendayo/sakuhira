@@ -14,6 +14,12 @@ pub fn set_project_notes(
 }
 
 #[tauri::command(async)]
+pub fn open_note_link(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    let url = crate::launch::normalize_url(Some(&url))?.ok_or("リンク先のURLがありません。")?;
+    crate::launch::open_in_browser(&app, &url)
+}
+
+#[tauri::command(async)]
 pub fn list_projects(store: State<'_, ProjectStore>) -> Result<Vec<Project>, String> {
     store.list()
 }

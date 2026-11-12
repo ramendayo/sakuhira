@@ -391,6 +391,66 @@
     gap: calc(var(--ui-space-unit) * 6);
     margin-top: calc(var(--ui-space-unit) * 6);
   }
+
+  .note-markdown {
+    @apply min-w-0 space-y-3 [overflow-wrap:anywhere];
+  }
+
+  .note-markdown :is(p, li) {
+    @apply whitespace-pre-line;
+  }
+
+  .note-markdown :is(h3, h4, h5, h6) {
+    @apply font-semibold;
+  }
+
+  .note-markdown h3 {
+    @apply text-base;
+  }
+
+  .note-markdown ul {
+    @apply list-disc pl-5;
+  }
+
+  .note-markdown ol {
+    @apply list-decimal pl-5;
+  }
+
+  .note-markdown li.task-list-item {
+    @apply list-none;
+  }
+
+  .note-markdown input[type="checkbox"] {
+    @apply mr-1 align-middle;
+  }
+
+  .note-markdown blockquote {
+    @apply border-l-2 border-line-strong pl-3 text-muted;
+  }
+
+  .note-markdown code {
+    @apply rounded bg-subtle px-1 font-mono;
+  }
+
+  .note-markdown pre {
+    @apply overflow-x-auto rounded-lg bg-subtle p-3 leading-6;
+  }
+
+  .note-markdown pre code {
+    @apply whitespace-pre px-0;
+  }
+
+  .note-markdown table {
+    @apply border-collapse text-left;
+  }
+
+  .note-markdown :is(th, td) {
+    @apply border border-line px-3 py-1;
+  }
+
+  .note-markdown a {
+    @apply text-accent underline underline-offset-2;
+  }
 }
 
 @media (min-width: 1024px) {

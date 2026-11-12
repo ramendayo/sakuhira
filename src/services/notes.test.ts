@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { setProjectNotes } from "./notes";
+import { openNoteLink, setProjectNotes } from "./notes";
 
 const project = { id: "id", name: "Project", path: "/project", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 beforeEach(() => vi.stubGlobal("isTauri", true));
@@ -18,4 +18,11 @@ it("propagates backend errors and rejects browser-only saves", async () => {
   await expect(setProjectNotes(project, "work", "next")).rejects.toBe("保存できません");
   vi.stubGlobal("isTauri", false);
   await expect(setProjectNotes(project, "", "")).rejects.toThrow("デスクトップアプリ");
+});
+
+it("sends note links to the desktop opener command", async () => {
+  const handler = vi.fn(() => undefined);
+  mockIPC(handler);
+  await openNoteLink("https://example.com/spec");
+  expect(handler).toHaveBeenCalledWith("open_note_link", { url: "https://example.com/spec" });
 });
