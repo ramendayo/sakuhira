@@ -101,12 +101,27 @@ fn register_then_save<T, E>(
     save().map_err(rollback)
 }
 
+#[cfg(any(target_os = "macos", test))]
+fn check_quick_resume_conflict(assigned: Option<&str>, key: &str) -> Result<(), String> {
+    if assigned
+        .and_then(|shortcut| normalize_shortcut(shortcut).ok())
+        .as_deref()
+        == Some(key)
+    {
+        return Err("このショートカットはクイック再開に割り当てられています。".into());
+    }
+    Ok(())
+}
+
 #[cfg(target_os = "macos")]
 mod runtime {
-    use super::{normalize_shortcut, register_then_save, transition_pressed};
+    use super::{
+        check_quick_resume_conflict, normalize_shortcut, register_then_save, transition_pressed,
+    };
     use crate::{
         launch,
         projects::{Project, ProjectRegistrationError, ProjectStore, checked_shortcut},
+        settings::{Settings, SettingsStore},
     };
     use std::{
         collections::{HashMap, HashSet},
@@ -119,6 +134,8 @@ mod runtime {
     struct State {
         routes: HashMap<String, String>,
         errors: HashMap<String, String>,
+        quick_resume_key: Option<String>,
+        quick_resume_error: Option<String>,
         pressed: HashSet<String>,
         capturing: bool,
     }
@@ -141,14 +158,16 @@ mod runtime {
             return;
         };
         let runtime = app.state::<ShortcutRuntime>();
-        let (capturing, project_id) = {
+        let (capturing, quick_resume, project_id) = {
             let Ok(mut state) = runtime.state.lock() else {
                 return;
             };
             match event.state {
-                ShortcutState::Pressed if transition_pressed(&mut state.pressed, &key, true) => {
-                    (state.capturing, state.routes.get(&key).cloned())
-                }
+                ShortcutState::Pressed if transition_pressed(&mut state.pressed, &key, true) => (
+                    state.capturing,
+                    state.quick_resume_key.as_deref() == Some(&key),
+                    state.routes.get(&key).cloned(),
+                ),
                 ShortcutState::Released => {
                     transition_pressed(&mut state.pressed, &key, false);
                     return;
@@ -160,6 +179,12 @@ mod runtime {
         if capturing {
             if let Err(error) = app.emit_to("main", "project-shortcut-captured", &key) {
                 eprintln!("入力中のショートカットを表示できません: {error}");
+            }
+            return;
+        }
+        if quick_resume {
+            if let Err(error) = app.emit("quick-resume-requested", ()) {
+                eprintln!("クイック再開を通知できません: {error}");
             }
             return;
         }
@@ -225,7 +250,18 @@ mod runtime {
             .operation
             .lock()
             .map_err(|_| "ショートカット処理を開始できません。")?;
-        let projects = app.state::<ProjectStore>().list()?;
+        let projects = app.state::<ProjectStore>().list().inspect_err(|reason| {
+            record_quick_resume_error(
+                &runtime,
+                format!("プロジェクトのショートカットを確認できません: {reason}"),
+            );
+        })?;
+        if let Err(reason) = restore_quick_resume(&app, &runtime, &projects) {
+            record_quick_resume_error(
+                &runtime,
+                format!("クイック再開のショートカットを復元できません: {reason}"),
+            );
+        }
         let mut seen = HashMap::new();
         for project in projects {
             let Some(saved) = project.shortcut else {
@@ -280,6 +316,99 @@ mod runtime {
         Ok(())
     }
 
+    fn restore_quick_resume(
+        app: &AppHandle,
+        runtime: &ShortcutRuntime,
+        projects: &[Project],
+    ) -> Result<(), String> {
+        let Some(saved) = app.state::<SettingsStore>().load()?.quick_resume_shortcut else {
+            return Ok(());
+        };
+        let key = checked_shortcut(projects, None, &saved)?;
+        if active_quick_resume_key(runtime).as_deref() != Some(&key) {
+            register_key(app, &key)?;
+            replace_quick_resume_key(runtime, Some(key));
+        }
+        Ok(())
+    }
+
+    pub fn set_quick_resume(
+        app: &AppHandle,
+        expected: &Settings,
+        shortcut: Option<&str>,
+    ) -> Result<Settings, String> {
+        let runtime = app.state::<ShortcutRuntime>();
+        let _operation = runtime
+            .operation
+            .lock()
+            .map_err(|_| "ショートカット処理を開始できません。")?;
+        let store = app.state::<SettingsStore>();
+        let normalized = shortcut
+            .map(|key| checked_shortcut(&app.state::<ProjectStore>().list()?, None, key))
+            .transpose()?;
+        let old_key = active_quick_resume_key(&runtime);
+        let new_registration = normalized
+            .as_deref()
+            .filter(|key| Some(*key) != old_key.as_deref());
+        let saved = register_then_save(
+            || new_registration.map_or(Ok(()), |key| register_key(app, key)),
+            || store.save_quick_resume_shortcut(expected, normalized.as_deref()),
+            |save_error| {
+                if let Some(key) = new_registration
+                    && let Err(reason) = rollback_key(app, key)
+                {
+                    return format!(
+                        "{save_error} 新しいショートカットの解除にも失敗しました。Reentryを終了してから再試行してください。{reason}"
+                    );
+                }
+                save_error
+            },
+        )?;
+
+        replace_quick_resume_key(&runtime, normalized.clone());
+        if let Some(key) = old_key.filter(|key| Some(key) != normalized.as_ref())
+            && let Err(reason) = rollback_key(app, &key)
+        {
+            record_quick_resume_error(
+                &runtime,
+                format!("保存後に旧ショートカットを解除できませんでした: {reason}"),
+            );
+        }
+        Ok(saved)
+    }
+
+    fn active_quick_resume_key(runtime: &ShortcutRuntime) -> Option<String> {
+        runtime
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .quick_resume_key
+            .clone()
+    }
+
+    fn replace_quick_resume_key(runtime: &ShortcutRuntime, key: Option<String>) {
+        let mut state = runtime
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        state.quick_resume_key = key;
+        state.quick_resume_error = None;
+    }
+
+    fn record_quick_resume_error(runtime: &ShortcutRuntime, reason: String) {
+        if let Ok(mut state) = runtime.state.lock() {
+            state.quick_resume_error = Some(reason);
+        }
+    }
+
+    pub fn quick_resume_error(app: &AppHandle) -> Option<String> {
+        app.state::<ShortcutRuntime>()
+            .state
+            .lock()
+            .ok()
+            .and_then(|state| state.quick_resume_error.clone())
+    }
+
     pub fn errors(app: &AppHandle) -> Vec<super::ShortcutError> {
         let runtime = app.state::<ShortcutRuntime>();
         runtime
@@ -317,7 +446,7 @@ mod runtime {
             ProjectRegistrationError::shortcut("ショートカット処理を開始できません。".into())
         })?;
         let store = app.state::<ProjectStore>();
-        let key = checked_shortcut(&store.list()?, None, shortcut)
+        let key = checked_project_shortcut(app, &store.list()?, None, shortcut)
             .map_err(ProjectRegistrationError::shortcut)?;
 
         let project = register_then_save(
@@ -346,6 +475,18 @@ mod runtime {
             .map_err(|error| format!("OSにショートカットを登録できません: {error}"))
     }
 
+    fn checked_project_shortcut(
+        app: &AppHandle,
+        projects: &[Project],
+        project_id: Option<&str>,
+        shortcut: &str,
+    ) -> Result<String, String> {
+        let key = checked_shortcut(projects, project_id, shortcut)?;
+        let settings = app.state::<SettingsStore>().load()?;
+        check_quick_resume_conflict(settings.quick_resume_shortcut.as_deref(), &key)?;
+        Ok(key)
+    }
+
     fn rollback_key(app: &AppHandle, key: &str) -> Result<(), String> {
         let result = app.global_shortcut().unregister(key);
         if let Ok(mut state) = app.state::<ShortcutRuntime>().state.lock() {
@@ -368,7 +509,12 @@ mod runtime {
         let store = app.state::<ProjectStore>();
         let current = store.get_matching(&expected)?;
         let normalized = match shortcut.as_deref() {
-            Some(key) => Some(checked_shortcut(&store.list()?, Some(&expected.id), key)?),
+            Some(key) => Some(checked_project_shortcut(
+                app,
+                &store.list()?,
+                Some(&expected.id),
+                key,
+            )?),
             None => None,
         };
         let old = current.shortcut.clone();
@@ -461,13 +607,68 @@ mod runtime {
 
 #[cfg(target_os = "macos")]
 pub use runtime::{
-    ShortcutRuntime, errors, on_shortcut, register_new_project, remove, restore, set, set_capture,
-    set_with_save, unregister_all,
+    ShortcutRuntime, errors, on_shortcut, quick_resume_error, register_new_project, remove,
+    restore, set, set_capture, set_quick_resume, set_with_save, unregister_all,
 };
 
 #[cfg(test)]
 mod tests {
     use super::normalize_shortcut;
+
+    #[test]
+    fn quick_resume_and_project_assignments_cannot_share_a_normalized_key() {
+        use crate::projects::{ProjectIcon, ProjectStore, checked_shortcut};
+        let directory = tempfile::tempdir().unwrap();
+        let store = ProjectStore::new(directory.path().to_owned());
+        let project = store
+            .add_with_options(
+                "Docs",
+                None,
+                Some("https://example.com"),
+                ProjectIcon::Auto,
+                Some("Ctrl+J"),
+            )
+            .unwrap();
+        let projects = store.list().unwrap();
+        let error = checked_shortcut(&projects, None, "control+keyj").unwrap_err();
+        assert!(error.contains("Docs"));
+        let key = checked_shortcut(&projects, Some(&project.id), "control+k").unwrap();
+        assert!(super::check_quick_resume_conflict(Some(" CTRL + K "), &key).is_err());
+        assert!(super::check_quick_resume_conflict(Some("Ctrl+L"), &key).is_ok());
+        assert!(super::check_quick_resume_conflict(None, &key).is_ok());
+    }
+
+    #[test]
+    fn a_stale_quick_resume_save_removes_the_new_registration_and_keeps_the_old_key() {
+        use crate::settings::{SettingsStore, ThemePreference};
+        use std::{cell::RefCell, collections::HashSet};
+        let directory = tempfile::tempdir().unwrap();
+        let store = SettingsStore::new(directory.path().to_owned());
+        let old_key = "Control+KeyJ";
+        let new_key = "Control+KeyK";
+        let expected = store
+            .save_quick_resume_shortcut(&store.load().unwrap(), Some(old_key))
+            .unwrap();
+        let mut changed = expected.clone();
+        changed.theme = ThemePreference::Dark;
+        let current = store.save(&expected, changed).unwrap();
+        let registered = RefCell::new(HashSet::from([old_key]));
+
+        let result = super::register_then_save(
+            || {
+                registered.borrow_mut().insert(new_key);
+                Ok(())
+            },
+            || store.save_quick_resume_shortcut(&expected, Some(new_key)),
+            |error| {
+                registered.borrow_mut().remove(new_key);
+                error
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(*registered.borrow(), HashSet::from([old_key]));
+        assert_eq!(store.load().unwrap(), current);
+    }
 
     #[test]
     fn normalizes_aliases_case_and_modifier_order() {

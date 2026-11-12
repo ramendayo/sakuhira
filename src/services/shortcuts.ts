@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { Settings } from "../types/settings";
 
 export type ShortcutIssue = { projectId: string; reason: string };
 type ShortcutResume = { projectId: string; timestamp: number };
@@ -26,4 +27,12 @@ export function onCapturedShortcut(handler: (shortcut: string) => void) {
 
 export function setShortcutCapture(capturing: boolean) {
   return invoke<void>("set_shortcut_capture", { capturing });
+}
+
+export function setQuickResumeShortcut(expected: Settings, shortcut: string | null) {
+  return invoke<Settings>("set_quick_resume_shortcut", { expected, shortcut });
+}
+
+export function readQuickResumeShortcutIssue() {
+  return invoke<string | null>("get_quick_resume_shortcut_error");
 }

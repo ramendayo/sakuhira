@@ -36,6 +36,8 @@ pub struct Settings {
     pub project_view: ProjectView,
     #[serde(default)]
     pub project_order: ProjectOrder,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quick_resume_shortcut: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -141,6 +143,26 @@ impl SettingsStore {
     }
 
     pub fn save(&self, expected: &Settings, settings: Settings) -> Result<Settings, String> {
+        if settings.quick_resume_shortcut != expected.quick_resume_shortcut {
+            return Err("クイック再開のキーは専用のショートカット設定で変更してください。".into());
+        }
+        self.save_if_current(expected, settings)
+    }
+
+    #[cfg(any(target_os = "macos", test))]
+    pub fn save_quick_resume_shortcut(
+        &self,
+        expected: &Settings,
+        shortcut: Option<&str>,
+    ) -> Result<Settings, String> {
+        let mut settings = expected.clone();
+        settings.quick_resume_shortcut = shortcut
+            .map(crate::shortcuts::normalize_shortcut)
+            .transpose()?;
+        self.save_if_current(expected, settings)
+    }
+
+    fn save_if_current(&self, expected: &Settings, settings: Settings) -> Result<Settings, String> {
         let _lock = crate::storage::lock(&self.directory, "settings.lock")?;
         if self.read()? != *expected {
             return Err(

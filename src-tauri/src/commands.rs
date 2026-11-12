@@ -285,3 +285,37 @@ pub fn save_settings(
 ) -> Result<crate::settings::Settings, String> {
     store.save(&expected, settings)
 }
+
+#[tauri::command]
+pub async fn set_quick_resume_shortcut(
+    app: tauri::AppHandle,
+    expected: crate::settings::Settings,
+    shortcut: Option<String>,
+) -> Result<crate::settings::Settings, String> {
+    #[cfg(target_os = "macos")]
+    {
+        tauri::async_runtime::spawn_blocking(move || {
+            crate::shortcuts::set_quick_resume(&app, &expected, shortcut.as_deref())
+        })
+        .await
+        .map_err(|error| format!("クイック再開のショートカットを更新できません: {error}"))?
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, expected, shortcut);
+        Err("グローバルショートカットはmacOSのみ対応しています。".into())
+    }
+}
+
+#[tauri::command]
+pub fn get_quick_resume_shortcut_error(app: tauri::AppHandle) -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::shortcuts::quick_resume_error(&app)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        None
+    }
+}

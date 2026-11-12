@@ -57,6 +57,8 @@ pub fn run() {
             commands::set_project_shortcut,
             commands::set_shortcut_capture,
             commands::get_shortcut_errors,
+            commands::set_quick_resume_shortcut,
+            commands::get_quick_resume_shortcut_error,
             commands::select_project_directory
         ])
         .build(tauri::generate_context!())
