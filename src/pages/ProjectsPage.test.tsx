@@ -522,7 +522,7 @@ describe("project notes", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "メモを編集" }));
     expect(document.querySelector("time")?.getAttribute("datetime")).toBe(new Date(notes.updatedAt).toISOString());
     await user.click(screen.getByRole("button", { name: /プロジェクト一覧に戻る/ }));
-    expect(screen.getByText(notes.nextTask)).toBeTruthy();
+    expect(screen.getByText("次は設定画面")).toBeTruthy();
     expect(screen.queryByText(/保存処理を実装/)).toBeNull();
     await user.click(screen.getByRole("button", { name: "大" }));
     expect(await screen.findByText(/保存処理を実装/)).toBeTruthy();

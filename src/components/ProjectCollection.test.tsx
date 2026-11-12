@@ -60,3 +60,28 @@ it("handles missing notes and URL-only projects without requesting Git", () => {
   expect(screen.getByText("Git対象外（URLのみ）")).toBeTruthy();
   expect(getGitStatus).not.toHaveBeenCalled();
 });
+
+it("shows plain Markdown excerpts with the appropriate fields for each card size", async () => {
+  const longText = "進".repeat(194) + "😀" + "進".repeat(12);
+  const notes = {
+    lastWork: `# 作業記録\n\n${longText}\n\n` + "`省略されるコード`",
+    nextTask: "- [x] **仕様**を[確認](https://example.com/spec)\n- `npm test`\n\n| 状態 |\n| --- |\n| 完了 |",
+    updatedAt: null,
+  };
+  const props = { projects: [{ ...project, notes }], onSelect: vi.fn(), onResumed: vi.fn() };
+  const { rerender } = render(<ProjectCollection {...props} view={views[1]} />);
+  const nextExcerpt = "仕様を確認 npm test 状態 完了";
+  expect(screen.getByText(nextExcerpt).getAttribute("title")).toBe(nextExcerpt);
+  expect(screen.queryByText(/^作業記録/)).toBeNull();
+  expect(screen.queryByRole("link", { name: "確認" })).toBeNull();
+
+  rerender(<ProjectCollection {...props} view={views[2]} />);
+  expect(screen.getByText(nextExcerpt)).toBeTruthy();
+  expect(screen.getByText(`作業記録 ${"進".repeat(194)}😀…`)).toBeTruthy();
+  expect(screen.queryByText(/省略されるコード/)).toBeNull();
+
+  const fallbackNotes = { ...notes, lastWork: "**前回の作業**", nextTask: "---" };
+  rerender(<ProjectCollection {...props} projects={[{ ...project, notes: fallbackNotes }]} view={views[1]} />);
+  expect(screen.getByText("前回の作業")).toBeTruthy();
+  await screen.findByText("Git管理外");
+});

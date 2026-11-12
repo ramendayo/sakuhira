@@ -1,10 +1,11 @@
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import LocalDateTime from "./LocalDateTime";
 import NoteMarkdown from "./NoteMarkdown";
 import type { FormEvent, Ref } from "react";
 import { setProjectNotes } from "../services/notes";
 import { errorMessage } from "../services/projects";
 import type { Project, ProjectNotes as Notes } from "../types/project";
+import { noteExcerpt } from "../utils/noteExcerpt";
 
 function NotesUpdatedAt({ notes }: { notes: Notes }) {
   if (notes.updatedAt === null) return <p className="text-xs text-muted">メモはまだ保存されていません。</p>;
@@ -12,18 +13,23 @@ function NotesUpdatedAt({ notes }: { notes: Notes }) {
 }
 
 export function ProjectNotesPreview({ project, summary = false }: { project: Project; summary?: boolean }) {
-  const { lastWork, nextTask } = project.notes;
+  const { lastWork, nextTask, updatedAt } = project.notes;
+  const nextExcerpt = useMemo(() => noteExcerpt(nextTask), [nextTask]);
+  const lastExcerpt = useMemo(
+    () => summary && nextExcerpt ? "" : noteExcerpt(lastWork),
+    [summary, nextExcerpt, lastWork],
+  );
   if (summary) {
-    const memo = nextTask.trim() ? nextTask : lastWork;
-    return <p className="item-note-summary text-sm text-muted" title={memo || undefined}>{memo.trim() ? memo : "作業メモはまだありません。"}</p>;
+    const excerpt = nextExcerpt || lastExcerpt;
+    return <p className="item-note-summary text-sm text-muted" title={excerpt || undefined}>{excerpt || "作業メモはまだありません。"}</p>;
   }
   return (
     <div className="notes-preview mt-5 space-y-3">
-      {!lastWork.trim() && !nextTask.trim() ? <p className="text-xs text-muted">作業メモはまだありません。</p> : <>
-        {nextTask.trim() && <div><p className="text-xs text-muted">次にやること</p><p className="mt-1 line-clamp-2 whitespace-pre-line break-words text-sm font-medium leading-6 text-ink">{nextTask}</p></div>}
-        {lastWork.trim() && <div><p className="text-xs text-muted">前回の作業内容</p><p className="mt-1 line-clamp-2 whitespace-pre-line break-words text-sm leading-6 text-muted">{lastWork}</p></div>}
+      {!lastExcerpt && !nextExcerpt ? <p className="text-xs text-muted">作業メモはまだありません。</p> : <>
+        {nextExcerpt && <div><p className="text-xs text-muted">次にやること</p><p className="mt-1 line-clamp-2 break-words text-sm font-medium leading-6 text-ink">{nextExcerpt}</p></div>}
+        {lastExcerpt && <div><p className="text-xs text-muted">前回の作業内容</p><p className="mt-1 line-clamp-2 break-words text-sm leading-6 text-muted">{lastExcerpt}</p></div>}
       </>}
-      {project.notes.updatedAt !== null && <NotesUpdatedAt notes={project.notes} />}
+      {updatedAt !== null && <NotesUpdatedAt notes={project.notes} />}
     </div>
   );
 }
