@@ -32,21 +32,23 @@ export default function ProjectViewControls({ view, disabled, onChange, sort, on
 
   return <fieldset ref={fieldset} disabled={disabled} className="view-controls">
     <legend className="sr-only">プロジェクトの表示設定</legend>
-    <div role="group" aria-label="表示形式" className="segmented-control">
-      <button type="button" aria-pressed={view.layout === "cards"} onClick={(event) => choose(event.currentTarget, { ...view, layout: "cards" })}><Icon name="projects" />カード</button>
-      <button type="button" aria-pressed={view.layout === "list"} onClick={(event) => choose(event.currentTarget, { ...view, layout: "list" })}><Icon name="list" />リスト</button>
+    <div className="view-control-group">
+      <div role="group" aria-label="表示形式" className="segmented-control">
+        <button type="button" aria-pressed={view.layout === "cards"} onClick={(event) => choose(event.currentTarget, { ...view, layout: "cards" })}><Icon name="projects" />カード</button>
+        <button type="button" aria-pressed={view.layout === "list"} onClick={(event) => choose(event.currentTarget, { ...view, layout: "list" })}><Icon name="list" />リスト</button>
+      </div>
+      {view.layout === "cards" && <div role="group" aria-label="カードサイズ" className="segmented-control">
+        {(["small", "standard", "large"] as const).map((size, index) => <button type="button" key={size} aria-pressed={view.cardSize === size} onClick={(event) => choose(event.currentTarget, { ...view, cardSize: size })}>{["小", "標準", "大"][index]}</button>)}
+      </div>}
     </div>
     <label className="sort-control">
       <span className="sr-only">並び順</span>
-      <select aria-label="並び順" value={sort} onChange={(event) => {
+      <select className="field" value={sort} onChange={(event) => {
         activationTarget.current = event.currentTarget;
         onSortChange(event.target.value as ProjectSort);
       }}>
         {(Object.entries(projectSortLabels) as [ProjectSort, string][]).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select>
     </label>
-    {view.layout === "cards" && <div role="group" aria-label="カードサイズ" className="segmented-control">
-      {(["small", "standard", "large"] as const).map((size, index) => <button type="button" key={size} aria-pressed={view.cardSize === size} onClick={(event) => choose(event.currentTarget, { ...view, cardSize: size })}>{["小", "標準", "大"][index]}</button>)}
-    </div>}
   </fieldset>;
 }

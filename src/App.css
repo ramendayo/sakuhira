@@ -473,6 +473,7 @@
 
 @layer components {
   .project-toolbar {
+    --toolbar-control-height: calc(var(--ui-space-unit) * 11);
     display: flex;
     flex-wrap: wrap;
     align-items: end;
@@ -482,14 +483,47 @@
     flex: 1 1 16rem;
     min-width: 0;
   }
-  .project-view-options {
-    min-width: 0;
-  }
   .view-controls {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: calc(var(--ui-space-unit) * 3);
+    gap: calc(var(--ui-space-unit) * 2) calc(var(--ui-space-unit) * 5);
+    min-width: 0;
+  }
+  .view-control-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: calc(var(--ui-space-unit) * 2);
+    max-width: 100%;
+  }
+  .project-toolbar :is(.field, .segmented-control, .button-secondary) {
+    block-size: var(--toolbar-control-height);
+  }
+  .view-control-group .segmented-control {
+    white-space: nowrap;
+  }
+  .sort-control {
+    position: relative;
+    max-width: 100%;
+  }
+  .sort-control .field {
+    appearance: none;
+    width: auto;
+    max-width: 100%;
+    padding-inline-end: calc(var(--ui-space-unit) * 8);
+  }
+  .sort-control::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: calc(var(--ui-space-unit) * 3.5);
+    inset-block-start: 50%;
+    width: calc(var(--ui-space-unit) * 1.5);
+    height: calc(var(--ui-space-unit) * 1.5);
+    border-inline-end: 1.5px solid var(--ui-muted);
+    border-block-end: 1.5px solid var(--ui-muted);
+    transform: translateY(-70%) rotate(45deg);
+    pointer-events: none;
   }
   .segmented-control {
     display: inline-flex;
@@ -715,17 +749,6 @@
 }
 
 @layer components {
-  .sort-control select {
-    max-width: 100%;
-    min-height: calc(var(--ui-space-unit) * 10);
-    padding: calc(var(--ui-space-unit) * 2) calc(var(--ui-space-unit) * 3);
-    border: 1px solid var(--ui-line);
-    border-radius: var(--ui-radius-lg);
-    background: var(--ui-surface);
-    color: var(--ui-ink);
-    font-size: var(--ui-text-sm);
-    box-shadow: var(--ui-shadow-button);
-  }
   .manual-order-help { margin-bottom: calc(var(--ui-space-unit) * 4); line-height: 1.8; }
   .project-item { position: relative; }
   .project-item.drop-target {

@@ -145,25 +145,25 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
         )}
         {status === "ready" && (
           <>
-            <div className="project-toolbar mb-5">
-              <div className="project-search">
-                <label htmlFor="project-search" className="field-label">プロジェクトを検索</label>
-                <div className="flex flex-wrap gap-3">
-                  <div className="relative min-w-0 flex-1">
-                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"><Icon name="search" /></span>
-                    <input id="project-search" ref={searchInput} type="search" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="名前・フォルダパスで検索" aria-controls="project-results" className="field pl-10" />
+            <div className="mb-5">
+              <div className="project-toolbar">
+                <div className="project-search">
+                  <label htmlFor="project-search" className="field-label">プロジェクトを検索</label>
+                  <div className="flex items-center gap-3">
+                    <div className="relative min-w-0 flex-1">
+                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"><Icon name="search" /></span>
+                      <input id="project-search" ref={searchInput} type="search" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="名前・フォルダパスで検索" aria-controls="project-results" className="field pl-10" />
+                    </div>
+                    {query !== "" && <button type="button" onClick={clearSearch} className="button-secondary shrink-0">検索をクリア</button>}
                   </div>
-                  {query !== "" && <button type="button" onClick={clearSearch} className="button-secondary">検索をクリア</button>}
                 </div>
-              </div>
-              <div className="project-view-options">
                 <ProjectViewControls view={presentation.view} sort={presentation.order.sort} disabled={presentation.disabled || showForm} onChange={presentation.save} onSortChange={(sort) => { void presentation.saveOrder({ ...presentation.order, sort, manualIds }); }} />
-                {presentation.pending && <p role="status" className="sr-only">表示設定を保存中…</p>}
-                {presentation.failure && <div className="mt-3 rounded-lg border border-danger-line bg-danger-soft p-3">
-                  <p role="alert" className="text-sm text-danger">表示設定を保存できませんでした：{presentation.failure.message}</p>
-                  <button type="button" disabled={presentation.disabled} onClick={presentation.retry} className="button-secondary mt-2">もう一度保存</button>
-                </div>}
               </div>
+              {presentation.pending && <p role="status" className="sr-only">表示設定を保存中…</p>}
+              {presentation.failure && <div className="mt-3 rounded-lg border border-danger-line bg-danger-soft p-3">
+                <p role="alert" className="text-sm text-danger">表示設定を保存できませんでした：{presentation.failure.message}</p>
+                <button type="button" disabled={presentation.disabled} onClick={presentation.retry} className="button-secondary mt-2">もう一度保存</button>
+              </div>}
             </div>
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <h2 className="text-sm font-medium text-ink">すべてのプロジェクト</h2>
