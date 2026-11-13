@@ -1,7 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "quick-resume",
-  "description": "Listen for project history updates in the quick resume window",
+  "description": "Allow the quick resume window to load candidates, apply its theme, resume projects, and close itself",
   "windows": ["quick-resume"],
-  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-list-projects",
+    "allow-get-settings",
+    "allow-apply-theme",
+    "allow-resume-project",
+    "allow-close-quick-resume"
+  ]
 }

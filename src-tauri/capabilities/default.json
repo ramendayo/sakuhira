@@ -6,6 +6,25 @@
     "main"
   ],
   "permissions": [
-    "core:default"
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-list-projects",
+    "allow-get-settings",
+    "allow-save-settings",
+    "allow-apply-theme",
+    "allow-set-project-notes",
+    "allow-open-note-link",
+    "allow-get-git-status",
+    "allow-set-project-launch-url",
+    "allow-resume-project",
+    "allow-add-project",
+    "allow-update-project",
+    "allow-remove-project",
+    "allow-set-project-shortcut",
+    "allow-set-shortcut-capture",
+    "allow-get-shortcut-errors",
+    "allow-set-quick-resume-shortcut",
+    "allow-get-quick-resume-shortcut-error",
+    "allow-select-project-directory"
   ]
 }
