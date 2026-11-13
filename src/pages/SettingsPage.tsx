@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useSettings } from "../hooks/useSettings";
+import QuickResumeSettings from "../components/QuickResumeSettings";
 import { saveSettings } from "../services/settings";
+import { supportsShortcuts } from "../services/shortcuts";
 import { errorMessage } from "../services/projects";
 import type { Editor, Settings, ThemePreference } from "../types/settings";
 
@@ -30,12 +32,13 @@ function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload:
   const [editor, setEditor] = useState(initial.defaultEditor);
   const [theme, setTheme] = useState(initial.theme);
   const [pending, setPending] = useState(false);
+  const [shortcutPending, setShortcutPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || shortcutPending) return;
     setPending(true);
     setError(null);
     setNotice("");
@@ -53,10 +56,10 @@ function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload:
     }
   }
 
-  return (
+  return (<>
     <form onSubmit={save} aria-label="アプリ設定" aria-busy={pending} className="mt-8 max-w-2xl panel">
       <h2 className="section-title">開発環境</h2>
-      <fieldset disabled={pending} className="mt-5 space-y-5 disabled:opacity-60">
+      <fieldset disabled={pending || shortcutPending} className="mt-5 space-y-5 disabled:opacity-60">
         <div>
           <label htmlFor="default-editor" className="field-label">デフォルトエディタ</label>
           <select id="default-editor" value={editor} onChange={(event) => { setEditor(event.target.value as Editor); setNotice(""); }} className="field">
@@ -85,7 +88,15 @@ function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload:
       <p role="status" className="notice mt-4">{notice}</p>
       <p className="mt-3 text-xs leading-6 text-muted">再読み込みや画面移動で、未保存の選択は破棄されます。</p>
     </form>
-  );
+    {supportsShortcuts() && (
+      <QuickResumeSettings
+        settings={baseline}
+        busy={pending || shortcutPending}
+        onBusy={setShortcutPending}
+        onSaved={(saved) => { setBaseline(saved); onSaved(saved); }}
+      />
+    )}
+  </>);
 }
 
 export default SettingsPage;

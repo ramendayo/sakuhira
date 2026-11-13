@@ -12,9 +12,10 @@ type Props = {
   shortcut: string | null;
   onChange: (shortcut: string | null) => void;
   saveError?: string | null;
+  legend?: string;
 };
 
-export default function ProjectShortcutField({ shortcut, onChange, saveError }: Props) {
+export default function ProjectShortcutField({ shortcut, onChange, saveError, legend = "グローバルショートカット" }: Props) {
   const id = useId();
   const [capturing, setCapturing] = useState(false);
   const [ready, setReady] = useState(false);
@@ -103,7 +104,7 @@ export default function ProjectShortcutField({ shortcut, onChange, saveError }: 
 
   return (
     <fieldset aria-describedby={feedbackId} className="space-y-3 rounded-xl border border-line p-4">
-      <legend className="px-1 text-sm font-medium">グローバルショートカット</legend>
+      <legend className="px-1 text-sm font-medium">{legend}</legend>
       <div className="flex flex-wrap items-center gap-3">
         <span aria-live="polite" className="text-sm">{shortcut ? <kbd>{shortcutLabel(shortcut)}</kbd> : "未設定"}</span>
         <button ref={captureButton} type="button" className="button-secondary" aria-pressed={capturing}

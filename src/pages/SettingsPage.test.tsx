@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { getSettings, saveSettings } from "../services/settings";
 import { resumeProject } from "../services/launch";
+import * as shortcuts from "../services/shortcuts";
 import { editorName } from "../types/settings";
 import type { Settings } from "../types/settings";
 import type { Project } from "../types/project";
@@ -15,6 +16,16 @@ vi.mock("../services/projects", async (importOriginal) => ({
   listProjects: vi.fn(async () => [{ id: "id", name: "Example", path: "/project", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } } satisfies Project]),
 }));
 vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
+vi.mock("../services/shortcuts", () => ({
+  supportsShortcuts: vi.fn(() => false),
+  onShortcutResume: vi.fn(),
+  onShortcutsRestored: vi.fn(),
+  onCapturedShortcut: vi.fn(),
+  setShortcutCapture: vi.fn(),
+  readShortcutIssues: vi.fn(),
+  readQuickResumeShortcutIssue: vi.fn(),
+  setQuickResumeShortcut: vi.fn(),
+}));
 let stored: Settings;
 beforeEach(() => {
   vi.resetAllMocks();
@@ -24,6 +35,86 @@ beforeEach(() => {
   vi.mocked(resumeProject).mockImplementation(async () => ({ history: { status: "skipped" }, editorName: editorName(stored.defaultEditor), editor: { status: "success" }, browser: null }));
 });
 afterEach(cleanup);
+
+it("configures quick resume, retains the previous key on failure, and clears a restored key", async () => {
+  vi.mocked(shortcuts.supportsShortcuts).mockReturnValue(true);
+  vi.mocked(shortcuts.onShortcutResume).mockResolvedValue(() => {});
+  vi.mocked(shortcuts.onShortcutsRestored).mockResolvedValue(() => {});
+  vi.mocked(shortcuts.onCapturedShortcut).mockResolvedValue(() => {});
+  vi.mocked(shortcuts.setShortcutCapture).mockResolvedValue(undefined);
+  vi.mocked(shortcuts.readShortcutIssues).mockResolvedValue([]);
+  vi.mocked(shortcuts.readQuickResumeShortcutIssue).mockResolvedValue(null);
+  vi.mocked(shortcuts.setQuickResumeShortcut).mockImplementation(async (expected, shortcut) => {
+    expect(expected).toEqual(stored);
+    if (shortcut === "Control+KeyK") throw "このショートカットは「Example」に割り当てられています。";
+    if (shortcut === "Control+KeyL") throw "OSにショートカットを登録できません。";
+    stored = { ...expected, quickResumeShortcut: shortcut ?? undefined };
+    return stored;
+  });
+
+  const user = userEvent.setup();
+  const { unmount } = render(<App />);
+  await user.click(screen.getByRole("link", { name: "設定" }));
+  const quick = within(await screen.findByRole("form", { name: "クイック再開" }));
+  expect(quick.getByText("未設定")).toBeTruthy();
+  const save = quick.getByRole("button", { name: "ショートカットを保存" });
+  expect(save.matches(":disabled")).toBe(true);
+
+  async function capture(letter: string) {
+    await user.click(quick.getByRole("button", { name: "キーを入力" }));
+    await quick.findByRole("button", { name: "キーを入力してください" });
+    await user.keyboard(`{Control>}${letter}{/Control}`);
+  }
+  await capture("j");
+  await user.click(save);
+  expect(await quick.findByText("ショートカットを保存しました。")).toBeTruthy();
+  expect(stored.quickResumeShortcut).toBe("Control+KeyJ");
+
+  await capture("k");
+  await user.click(save);
+  expect((await quick.findByRole("alert")).textContent).toContain("Example");
+  expect(quick.getByText("⌃ + J")).toBeTruthy();
+  expect(quick.getByText("⌃ + K")).toBeTruthy();
+  expect(stored.quickResumeShortcut).toBe("Control+KeyJ");
+
+  await capture("l");
+  await user.click(save);
+  expect((await quick.findByRole("alert")).textContent).toContain("OSにショートカットを登録できません");
+  expect(stored.quickResumeShortcut).toBe("Control+KeyJ");
+  expect(saveSettings).not.toHaveBeenCalled();
+
+  unmount();
+  render(<App />);
+  await user.click(screen.getByRole("link", { name: "設定" }));
+  const restored = within(await screen.findByRole("form", { name: "クイック再開" }));
+  expect(restored.getByText("⌃ + J")).toBeTruthy();
+  await user.click(restored.getByRole("button", { name: "ショートカットを解除" }));
+  await user.click(restored.getByRole("button", { name: "ショートカットを保存" }));
+  expect(await restored.findByText("ショートカットを解除しました。")).toBeTruthy();
+  expect(stored.quickResumeShortcut).toBeUndefined();
+});
+
+it("reports a restore failure even when restoration finishes after opening settings", async () => {
+  stored.quickResumeShortcut = "Control+KeyJ";
+  vi.mocked(shortcuts.supportsShortcuts).mockReturnValue(true);
+  vi.mocked(shortcuts.onShortcutResume).mockResolvedValue(() => {});
+  vi.mocked(shortcuts.readShortcutIssues).mockResolvedValue([]);
+  let notifyRestored!: () => void;
+  vi.mocked(shortcuts.onShortcutsRestored).mockImplementation(async (handler) => {
+    notifyRestored = handler;
+    return () => {};
+  });
+  const reason = "クイック再開のショートカットを復元できません。";
+  vi.mocked(shortcuts.readQuickResumeShortcutIssue).mockResolvedValueOnce(null).mockResolvedValueOnce(reason);
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole("link", { name: "設定" }));
+  const quick = within(await screen.findByRole("form", { name: "クイック再開" }));
+  await waitFor(() => expect(shortcuts.readQuickResumeShortcutIssue).toHaveBeenCalledTimes(1));
+  act(() => notifyRestored());
+  expect((await quick.findByRole("alert")).textContent).toBe(reason);
+  expect(quick.getByRole("button", { name: "ショートカットを保存" }).matches(":disabled")).toBe(false);
+});
 
 it("applies themes only after a successful save and retains the saved choice across navigation", async () => {
   vi.mocked(saveSettings).mockRejectedValueOnce("保存できません").mockImplementation(async (_expected, settings) => { stored = { ...settings }; return { ...stored }; });
