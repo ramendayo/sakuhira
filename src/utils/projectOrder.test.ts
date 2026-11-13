@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveProject, normalizeManualIds, orderedProjects } from "./projectOrder";
+import { moveProject, normalizeManualIds, orderedProjects, quickResumeCandidates } from "./projectOrder";
 import type { Project } from "../types/project";
 import type { ProjectSort } from "../types/settings";
 
@@ -34,5 +34,42 @@ describe("project order", () => {
     expect(moveProject(original, "c", 0)).toEqual(["c", "a", "b"]);
     for (const [id, target] of [["gone", 1], ["a", -1], ["a", 3], ["a", 0]] as const) expect(moveProject(original, id, target)).toBe(original);
     expect(original).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("quick resume candidates", () => {
+  it("puts the most recently resumed project first, then pinned and recent projects without duplicates", () => {
+    const pinnedRecent = project("pinned-recent", "Pinned recent", 20);
+    const latest = project("latest", "Latest", 30);
+    const pinnedNever = project("pinned-never", "Pinned never");
+    const older = project("older", "Older", 10);
+    const entries = [pinnedNever, older, pinnedRecent, latest];
+    const pins = ["missing", pinnedNever.id, pinnedRecent.id, pinnedRecent.id];
+    expect(quickResumeCandidates(entries, "  ", pins)).toEqual([latest, pinnedRecent, pinnedNever, older]);
+    expect(quickResumeCandidates(entries, "", [...pins, latest.id])).toEqual([latest, pinnedRecent, pinnedNever, older]);
+  });
+
+  it("uses stable registration order for equal timestamps and the first pinned item when there is no history", () => {
+    const first = project("first", "First", 20);
+    const pinned = project("pinned", "Pinned", 20);
+    expect(quickResumeCandidates([first, pinned], "", [pinned.id])).toEqual([first, pinned]);
+    const never = { ...first, lastResumedAt: null };
+    const pinnedNever = { ...pinned, lastResumedAt: null };
+    expect(quickResumeCandidates([never, pinnedNever], "", [pinned.id])).toEqual([pinnedNever, never]);
+    expect(quickResumeCandidates([], "")).toEqual([]);
+  });
+
+  it("ranks exact names, prefixes, substrings, and paths before using pin and recency to break ties", () => {
+    const pathMatch = { ...project("path", "Docs", 60), path: "/WORK/開発APP/docs" };
+    const substring = project("substring", "個人用 開発App", 50);
+    const prefix = project("prefix", "開発App 手順", 40);
+    const pinnedPrefix = project("pinned-prefix", "開発App メモ", 20);
+    const exact = { ...project("exact", "開発App"), path: null, launchUrl: "https://example.com" };
+    const urlOnly = { ...project("web", "Web"), path: null, launchUrl: "https://example.com/開発app" };
+    const entries = [pathMatch, substring, prefix, pinnedPrefix, exact, urlOnly];
+    expect(quickResumeCandidates(entries, "  開発APP  ", [pathMatch.id, pinnedPrefix.id])).toEqual([
+      exact, pinnedPrefix, prefix, substring, pathMatch,
+    ]);
+    expect(quickResumeCandidates(entries, "example.com")).toEqual([]);
   });
 });
