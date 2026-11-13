@@ -38,6 +38,12 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, resumeE
     selectedRow.current?.scrollIntoView?.({ block: "nearest" });
   }, [selected?.id]);
 
+  function resumeCandidate(project: Project) {
+    if (pending) return;
+    setSelectedId(project.id);
+    onResume(project);
+  }
+
   function handleKey(event: KeyboardEvent<HTMLInputElement>) {
     // WebKit can report the IME confirmation key after compositionend.
     if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -54,10 +60,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, resumeE
       setSelectedId(candidates[index].id);
     } else if (event.key === "Enter") {
       event.preventDefault();
-      if (!event.repeat && selected && !pending) {
-        setSelectedId(selected.id);
-        onResume(selected);
-      }
+      if (!event.repeat && selected) resumeCandidate(selected);
     }
   }
 
@@ -109,8 +112,8 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, resumeE
                 aria-disabled={pending || undefined}
                 ref={active ? selectedRow : undefined}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={() => { if (!pending) setSelectedId(project.id); }}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 hover:bg-subtle aria-selected:border-accent aria-selected:bg-accent-soft"
+                onClick={() => resumeCandidate(project)}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 hover:bg-subtle aria-disabled:cursor-default aria-selected:border-accent aria-selected:bg-accent-soft"
               >
                 <ProjectIcon path={project.path} appearance={project.icon} compact />
                 <div className="min-w-0">
@@ -124,7 +127,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, resumeE
       </div>
       <footer className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 border-t border-line py-3 text-xs text-muted">
         <span><kbd>↑↓</kbd> 選択</span>
-        <span><kbd>Enter</kbd> 再開</span>
+        <span><kbd>Enter</kbd>／クリック 再開</span>
         <span><kbd>Esc</kbd> 閉じる</span>
         {pending && <span role="status" className="ml-auto">起動中…</span>}
       </footer>

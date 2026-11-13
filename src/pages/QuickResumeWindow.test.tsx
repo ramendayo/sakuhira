@@ -72,7 +72,7 @@ it("leaves IME confirmation and an empty result alone", async () => {
   expect(onResume).toHaveBeenCalledOnce();
 });
 
-it("reuses the project resume command and retains the query and selection after a partial failure", async () => {
+it("resumes a clicked candidate and retains the query and selection after a partial failure", async () => {
   vi.stubGlobal("isTauri", true);
   const other = { ...pinned, name: "開発ガイド", path: "/work/guide" };
   const success: ResumeReport = {
@@ -97,11 +97,9 @@ it("reuses the project resume command and retains the query and selection after 
   await screen.findByRole("option", { name: /開発ツール/, selected: true });
   const input = screen.getByRole<HTMLInputElement>("combobox");
   await user.type(input, "開発");
-  await user.keyboard("{ArrowDown}");
-  act(() => {
-    fireEvent.keyDown(input, { key: "Enter" });
-    fireEvent.keyDown(input, { key: "Enter" });
-  });
+  const candidate = screen.getByRole("option", { name: /開発ガイド/, selected: false });
+  await user.dblClick(candidate);
+  await user.keyboard("{Enter}");
   expect(screen.getByRole("status").textContent).toBe("起動中…");
   expect(resume).toHaveBeenCalledExactlyOnceWith({ project: other });
   await act(async () => finish({ ...success, browser: { status: "error", message: "起動先を開けませんでした。" } }));
