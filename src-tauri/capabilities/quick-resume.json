@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "quick-resume",
+  "description": "Listen for project history updates in the quick resume window",
+  "windows": ["quick-resume"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

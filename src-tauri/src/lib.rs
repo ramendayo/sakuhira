@@ -2,6 +2,8 @@ mod commands;
 mod git_status;
 mod launch;
 mod projects;
+#[cfg(target_os = "macos")]
+mod quick_resume;
 mod settings;
 mod shortcuts;
 mod storage;
@@ -27,6 +29,7 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             {
                 app.manage(shortcuts::ShortcutRuntime::default());
+                app.manage(quick_resume::QuickResumeWindow::default());
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     if let Err(error) = shortcuts::restore(handle.clone()).await {
@@ -59,6 +62,7 @@ pub fn run() {
             commands::get_shortcut_errors,
             commands::set_quick_resume_shortcut,
             commands::get_quick_resume_shortcut_error,
+            commands::close_quick_resume,
             commands::select_project_directory
         ])
         .build(tauri::generate_context!())
@@ -75,6 +79,18 @@ fn handle_macos_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
     use tauri::{RunEvent, WindowEvent};
 
     match event {
+        RunEvent::WindowEvent {
+            label,
+            event: WindowEvent::CloseRequested { api, .. },
+            ..
+        } if label == quick_resume::WINDOW_LABEL => {
+            api.prevent_close();
+            if let Some(window) = app.get_webview_window(&label)
+                && let Err(error) = quick_resume::dismiss(&window)
+            {
+                eprintln!("クイック再開を閉じられません: {error}");
+            }
+        }
         RunEvent::WindowEvent {
             label,
             event: WindowEvent::CloseRequested { api, .. },

@@ -319,3 +319,14 @@ pub fn get_quick_resume_shortcut_error(app: tauri::AppHandle) -> Option<String> 
         None
     }
 }
+
+#[tauri::command]
+pub fn close_quick_resume(window: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    if window.label() == crate::quick_resume::WINDOW_LABEL {
+        return crate::quick_resume::dismiss(&window)
+            .map_err(|error| format!("クイック再開を閉じられません: {error}"));
+    }
+    let _ = window;
+    Err("クイック再開ウィンドウから実行してください。".into())
+}

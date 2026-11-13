@@ -183,8 +183,8 @@ mod runtime {
             return;
         }
         if quick_resume {
-            if let Err(error) = app.emit("quick-resume-requested", ()) {
-                eprintln!("クイック再開を通知できません: {error}");
+            if let Err(error) = crate::quick_resume::request_open(app) {
+                eprintln!("クイック再開を開けません: {error}");
             }
             return;
         }
