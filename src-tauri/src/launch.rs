@@ -67,6 +67,29 @@ pub enum ResumeHistory {
     Error { message: String },
 }
 
+#[cfg(target_os = "macos")]
+pub fn notify_shortcut_resume(app: &tauri::AppHandle, project_id: &str, history: &ResumeHistory) {
+    use tauri::Emitter;
+    #[derive(Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ShortcutResumed<'a> {
+        project_id: &'a str,
+        timestamp: u64,
+    }
+
+    if let ResumeHistory::Saved { timestamp } = history
+        && let Err(error) = app.emit(
+            "project-shortcut-resumed",
+            ShortcutResumed {
+                project_id,
+                timestamp: *timestamp,
+            },
+        )
+    {
+        eprintln!("最終再開日時を画面に通知できません: {error}");
+    }
+}
+
 fn record_history(
     store: &ProjectStore,
     project: &Project,

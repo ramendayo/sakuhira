@@ -1,8 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import type { ResumeReport } from "../types/launch";
 import type { Project } from "../types/project";
-import { QuickResumeSearch } from "./QuickResumeWindow";
+import QuickResumeWindow, { QuickResumeSearch } from "./QuickResumeWindow";
 
 const pinned: Project = {
   id: "pinned", name: "ガイド", path: null, launchUrl: "https://example.com/guide",
@@ -12,7 +14,11 @@ const latest: Project = {
   ...pinned, id: "latest", name: "開発ツール", path: "/work/tool", launchUrl: null, lastResumedAt: 100,
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  clearMocks();
+  vi.unstubAllGlobals();
+});
 
 it("focuses an empty search and starts on the most recently resumed project each time it opens", async () => {
   const user = userEvent.setup();
@@ -64,4 +70,46 @@ it("leaves IME confirmation and an empty result alone", async () => {
   expect(input.getAttribute("aria-activedescendant")).toBeNull();
   await user.keyboard("{ArrowDown}{Enter}");
   expect(onResume).toHaveBeenCalledOnce();
+});
+
+it("reuses the project resume command and retains the query and selection after a partial failure", async () => {
+  vi.stubGlobal("isTauri", true);
+  const other = { ...pinned, name: "開発ガイド", path: "/work/guide" };
+  const success: ResumeReport = {
+    editorName: "VS Code", editor: { status: "success" }, browser: { status: "success" },
+    history: { status: "saved", timestamp: 200 },
+  };
+  let finish!: (report: ResumeReport) => void;
+  const resume = vi.fn()
+    .mockImplementationOnce(() => new Promise<ResumeReport>((resolve) => { finish = resolve; }))
+    .mockResolvedValueOnce(success);
+  mockIPC((command, args) => {
+    switch (command) {
+      case "get_settings": return { theme: "light", defaultEditor: "vsCode", projectOrder: { sort: "recent", manualIds: [] } };
+      case "list_projects": return [latest, other];
+      case "resume_project": return resume(args);
+      default: return undefined;
+    }
+  }, { shouldMockEvents: true });
+
+  const user = userEvent.setup();
+  render(<QuickResumeWindow />);
+  await screen.findByRole("option", { name: /開発ツール/, selected: true });
+  const input = screen.getByRole<HTMLInputElement>("combobox");
+  await user.type(input, "開発");
+  await user.keyboard("{ArrowDown}");
+  act(() => {
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.keyDown(input, { key: "Enter" });
+  });
+  expect(screen.getByRole("status").textContent).toBe("起動中…");
+  expect(resume).toHaveBeenCalledExactlyOnceWith({ project: other });
+  await act(async () => finish({ ...success, browser: { status: "error", message: "起動先を開けませんでした。" } }));
+  expect(screen.getByRole("alert").textContent).toBe("ブラウザ：起動先を開けませんでした。");
+  expect(input.value).toBe("開発");
+  expect(screen.getByRole("option", { name: /開発ガイド/, selected: true })).toBeTruthy();
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(resume).toHaveBeenCalledTimes(2);
+  expect(resume).toHaveBeenLastCalledWith({ project: other });
 });

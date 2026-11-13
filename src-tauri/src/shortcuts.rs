@@ -146,13 +146,6 @@ mod runtime {
         state: Mutex<State>,
     }
 
-    #[derive(Clone, serde::Serialize)]
-    #[serde(rename_all = "camelCase")]
-    struct ShortcutResumed {
-        project_id: String,
-        timestamp: u64,
-    }
-
     pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
         let Some(key) = normalize_shortcut(&shortcut.into_string()).ok() else {
             return;
@@ -209,15 +202,7 @@ mod runtime {
                 let Ok(report) = launch::resume_and_record(app.clone(), project).await else {
                     return;
                 };
-                if let launch::ResumeHistory::Saved { timestamp } = report.history {
-                    let _ = app.emit(
-                        "project-shortcut-resumed",
-                        ShortcutResumed {
-                            project_id,
-                            timestamp,
-                        },
-                    );
-                }
+                launch::notify_shortcut_resume(&app, &project_id, &report.history);
             });
         }
     }

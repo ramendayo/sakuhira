@@ -252,10 +252,16 @@ pub fn set_project_launch_url(
 #[tauri::command]
 pub async fn resume_project(
     app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
     store: State<'_, ProjectStore>,
     project: Project,
 ) -> Result<crate::launch::ResumeReport, String> {
     let project = store.get_matching(&project)?;
+    #[cfg(target_os = "macos")]
+    if window.label() == crate::quick_resume::WINDOW_LABEL {
+        return crate::quick_resume::resume(&window, project).await;
+    }
+    let _ = window;
     crate::launch::resume_and_record(app, project).await
 }
 

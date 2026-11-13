@@ -1,3 +1,7 @@
+use crate::{
+    launch::{self, LaunchOutcome, ResumeHistory, ResumeReport},
+    projects::Project,
+};
 use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication, NSWorkspace};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
@@ -7,6 +11,7 @@ pub const WINDOW_LABEL: &str = "quick-resume";
 #[derive(Default)]
 pub struct QuickResumeWindow {
     previous_app: Mutex<Option<i32>>,
+    launching: tauri::async_runtime::Mutex<()>,
 }
 
 pub fn request_open(app: &AppHandle) -> tauri::Result<()> {
@@ -19,6 +24,10 @@ pub fn request_open(app: &AppHandle) -> tauri::Result<()> {
 }
 
 fn open(app: &AppHandle) -> tauri::Result<()> {
+    let state = app.state::<QuickResumeWindow>();
+    let Ok(_idle) = state.launching.try_lock() else {
+        return Ok(());
+    };
     let previous_app = frontmost_pid().filter(|pid| *pid != std::process::id() as i32);
     if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
         if previous_app.is_some() || !window.is_focused()? {
@@ -38,6 +47,34 @@ fn open(app: &AppHandle) -> tauri::Result<()> {
         .build()?;
     remember_previous_app(app, previous_app);
     window.set_focus()
+}
+
+pub async fn resume(window: &WebviewWindow, project: Project) -> Result<ResumeReport, String> {
+    let state = window.state::<QuickResumeWindow>();
+    let _launch = state
+        .launching
+        .try_lock()
+        .map_err(|_| "プロジェクトを再開中です。")?;
+    let project_id = project.id.clone();
+    let app = window.app_handle();
+    let report = launch::resume_and_record(app.clone(), project).await?;
+    launch::notify_shortcut_resume(app, &project_id, &report.history);
+    if resume_completed(&report) {
+        // The launched app should keep focus after a successful resume.
+        window
+            .hide()
+            .map_err(|error| format!("再開しましたが、クイック再開を閉じられません: {error}"))?;
+        remember_previous_app(app, None);
+    }
+    Ok(report)
+}
+
+fn resume_completed(report: &ResumeReport) -> bool {
+    matches!(report.history, ResumeHistory::Saved { .. })
+        && [&report.editor, &report.browser]
+            .into_iter()
+            .flatten()
+            .all(|outcome| *outcome == LaunchOutcome::Success)
 }
 
 fn remember_previous_app(app: &AppHandle, previous_app: Option<i32>) {
@@ -70,4 +107,30 @@ fn frontmost_pid() -> Option<i32> {
     NSWorkspace::sharedWorkspace()
         .frontmostApplication()
         .map(|app| app.processIdentifier())
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_full_success_with_saved_history_closes_the_window() {
+        let mut report = ResumeReport {
+            editor_name: "VS Code".into(),
+            editor: Some(LaunchOutcome::Success),
+            browser: Some(LaunchOutcome::Error {
+                message: "ブラウザの起動に失敗しました。".into(),
+            }),
+            history: ResumeHistory::Saved { timestamp: 100 },
+        };
+        assert!(!resume_completed(&report));
+        report.browser = Some(LaunchOutcome::Success);
+        assert!(resume_completed(&report));
+        report.history = ResumeHistory::Error {
+            message: "ディスクに書き込めませんでした。".into(),
+        };
+        assert!(!resume_completed(&report));
+        report.editor = None;
+        report.history = ResumeHistory::Saved { timestamp: 101 };
+        assert!(resume_completed(&report));
+    }
 }
