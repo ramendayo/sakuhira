@@ -11,6 +11,6 @@
     "allow-apply-theme",
     "allow-resume-project",
     "allow-close-quick-resume",
-    "allow-open-reentry"
+    "allow-open-main-window"
   ]
 }

@@ -338,10 +338,10 @@ pub fn close_quick_resume(window: tauri::WebviewWindow) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn open_reentry(window: tauri::WebviewWindow) -> Result<(), String> {
+pub fn open_main_window(window: tauri::WebviewWindow) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     if window.label() == crate::quick_resume::WINDOW_LABEL {
-        return crate::quick_resume::open_main(&window);
+        return crate::quick_resume::open_main_window(&window);
     }
     let _ = window;
     Err("クイック再開ウィンドウから実行してください。".into())

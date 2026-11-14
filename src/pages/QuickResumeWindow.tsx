@@ -13,7 +13,7 @@ import type { ResumeReport } from "../types/launch";
 import type { Project } from "../types/project";
 import { quickResumeCandidates } from "../utils/projectOrder";
 
-type PendingAction = "resume" | "openReentry";
+type PendingAction = "resume" | "openMainWindow";
 
 type SearchProps = {
   projects: Project[];
@@ -24,10 +24,10 @@ type SearchProps = {
   pending?: PendingAction | null;
   onDismiss: () => void;
   onResume: (project: Project) => void;
-  onOpenReentry: () => void;
+  onOpenMainWindow: () => void;
 };
 
-export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionErrors, pending, onDismiss, onResume, onOpenReentry }: SearchProps) {
+export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionErrors, pending, onDismiss, onResume, onOpenMainWindow }: SearchProps) {
   const id = useId();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -141,7 +141,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
           <span><kbd>Esc</kbd> 閉じる</span>
           {pending && <span role="status">{pending === "resume" ? "起動中…" : "表示中…"}</span>}
         </div>
-        <button type="button" className="ml-auto button-quiet" aria-disabled={pending ? true : undefined} onClick={onOpenReentry}>
+        <button type="button" className="ml-auto button-quiet" aria-disabled={pending ? true : undefined} onClick={onOpenMainWindow}>
           sakuhiraを開く <span aria-hidden="true">↗</span>
         </button>
       </footer>
@@ -190,9 +190,9 @@ function QuickResumeContent() {
     actionErrors={actionErrors}
     pending={pending}
     onResume={(project) => { void runAction("resume", async () => resumeErrorMessages(await resumeProject(project))); }}
-    onOpenReentry={() => {
-      void runAction("openReentry", async () => {
-        await invoke("open_reentry");
+    onOpenMainWindow={() => {
+      void runAction("openMainWindow", async () => {
+        await invoke("open_main_window");
         return [];
       });
     }}

@@ -18,7 +18,7 @@ fn main() {
         "set_quick_resume_shortcut",
         "get_quick_resume_shortcut_error",
         "close_quick_resume",
-        "open_reentry",
+        "open_main_window",
         "select_project_directory",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))

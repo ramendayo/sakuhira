@@ -77,7 +77,7 @@ fn resume_completed(report: &ResumeReport) -> bool {
             .all(|outcome| *outcome == LaunchOutcome::Success)
 }
 
-pub fn open_main(window: &WebviewWindow) -> Result<(), String> {
+pub fn open_main_window(window: &WebviewWindow) -> Result<(), String> {
     let state = window.state::<QuickResumeWindow>();
     let _idle = state
         .launching
