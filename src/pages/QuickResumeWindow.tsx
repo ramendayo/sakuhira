@@ -146,7 +146,14 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
           {pending && <span role="status">{pending === "resume" ? "起動中…" : "表示中…"}</span>}
         </div>
         <button type="button" className="ml-auto button-quiet" aria-keyshortcuts="Meta+Enter" aria-disabled={pending ? true : undefined} onClick={onOpenMainWindow}>
-          sakuhiraを開く <kbd aria-hidden="true" className="text-xs">⌘↵</kbd>
+          sakuhiraを開く
+          <span aria-hidden="true" className="inline-flex gap-1">
+            {["⌘", "↵"].map((key) => (
+              <kbd key={key} className="inline-grid size-6 place-items-center rounded-md border border-line bg-subtle font-sans text-sm leading-none text-muted">
+                {key}
+              </kbd>
+            ))}
+          </span>
         </button>
       </footer>
     </main>

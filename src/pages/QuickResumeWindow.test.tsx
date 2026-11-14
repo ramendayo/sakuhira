@@ -144,7 +144,7 @@ it("opens sakuhira with Command+Enter from an empty search and allows retry with
   expect(screen.getByRole("status").textContent).toContain("一致するプロジェクトがありません");
   const button = screen.getByRole("button", { name: "sakuhiraを開く" });
   expect(button.getAttribute("aria-keyshortcuts")).toBe("Meta+Enter");
-  expect(button.textContent).toContain("⌘↵");
+  expect(Array.from(button.querySelectorAll("kbd"), (key) => key.textContent)).toEqual(["⌘", "↵"]);
   await user.keyboard("{Meta>}{Enter}{/Meta}");
   expect((await screen.findByRole("alert")).textContent).toBe("メインウィンドウを表示できません。");
   expect(openMainWindow).toHaveBeenCalledExactlyOnceWith({});
