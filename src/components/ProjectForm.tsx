@@ -137,7 +137,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
             autoFocus
             required
             maxLength={100}
-            placeholder="例：Reentry"
+            placeholder="例：sakuhira"
             className="field"
           />
         </div>

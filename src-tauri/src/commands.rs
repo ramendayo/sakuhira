@@ -110,7 +110,7 @@ pub fn set_shortcut_capture(window: tauri::WebviewWindow, capturing: bool) -> Re
         if window.label() != "main"
             || (capturing && !window.is_focused().map_err(|error| error.to_string())?)
         {
-            return Err("Reentryのウィンドウでショートカットを入力してください。".into());
+            return Err("sakuhiraのウィンドウでショートカットを入力してください。".into());
         }
         crate::shortcuts::set_capture(window.app_handle(), capturing)
     }

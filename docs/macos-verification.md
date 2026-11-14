@@ -9,8 +9,8 @@ OS起動処理やフォルダ選択はテスト用の処理に置き換えてい
 - `npm run tauri dev`で起動する。
 - テスト用のGitリポジトリと、Git管理されていないフォルダを用意する。
 - VS CodeまたはCursorをインストールする。URL確認には機密情報を含まないHTTPSのページを使う。
-- 既存の登録がある場合、Reentryを終了してからアプリデータの`projects.json`と`settings.json`を控える。
-  保存先は通常`~/Library/Application Support/dev.reentry.desktop/`。
+- 既存の登録がある場合、sakuhiraを終了してからアプリデータの`projects.json`と`settings.json`を控える。
+  保存先は通常`~/Library/Application Support/dev.sakuhira.desktop/`。
 
 ## 確認項目
 

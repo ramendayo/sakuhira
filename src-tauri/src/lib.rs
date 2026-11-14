@@ -67,7 +67,7 @@ pub fn run() {
             commands::select_project_directory
         ])
         .build(tauri::generate_context!())
-        .expect("failed to build Reentry");
+        .expect("failed to build sakuhira");
 
     #[cfg(target_os = "macos")]
     app.run(handle_macos_event);

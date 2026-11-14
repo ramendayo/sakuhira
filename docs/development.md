@@ -141,7 +141,7 @@ URLのみの登録は`path: null`として保存します。従来の文字列�
 保存先はTauriの`app_data_dir()`で取得します。macOSでは通常、次の場所です。
 
 ```text
-~/Library/Application Support/dev.reentry.desktop/projects.json
+~/Library/Application Support/dev.sakuhira.desktop/projects.json
 ```
 
 保存形式は`{ "version": 1, "projects": [{ "id": "UUID", "name": "表示名", "path": "絶対パス", "launchUrl": null }] }`です。
@@ -161,7 +161,7 @@ URLのみの登録は`path: null`として保存します。従来の文字列�
 - 一覧の「詳細を開く」で名前とフォルダを確認できます。サイドバーまたは「プロジェクト一覧に戻る」で一覧に戻ります。
 - 「プロジェクト情報を編集」で名前・フォルダ・アイコン・再開ショートカットを変更し、「変更を保存」でJSONに反映します。IDと一覧の順序は保持します。
 - フォルダが見つからなくなっても、パスを変えなければ名前を変更できます。新しいパスには実在するフォルダが必要です。
-- 「登録を解除」は確認画面を表示し、「登録解除を確定」でReentryの保存情報だけを削除します。元のフォルダとファイルは削除しません。
+- 「登録を解除」は確認画面を表示し、「登録解除を確定」でsakuhiraの保存情報だけを削除します。元のフォルダとファイルは削除しません。
 - 保存・登録解除に失敗した場合は画面にエラーを表示し、入力や登録情報を残します。
 - 編集開始時の情報と保存済み情報を比較し、別の操作で更新・解除されたプロジェクトの上書き・削除を防ぎます。
   競合が表示されたら一覧に戻って「再読み込み」を押し、最新情報を確認してください。
@@ -248,7 +248,7 @@ URLのみのプロジェクトではURLは必須で、ブラウザだけを開�
 - 設定はプロジェクト情報と別の`settings.json`に保存します。通常のmacOSの保存先は次の場所です。
 
 ```text
-~/Library/Application Support/dev.reentry.desktop/settings.json
+~/Library/Application Support/dev.sakuhira.desktop/settings.json
 ```
 
 保存形式は`{ "version": 1, "settings": { "defaultEditor": "vsCode", "theme": "system", "projectView": { "layout": "cards", "cardSize": "standard" }, "projectOrder": { "sort": "recent", "manualIds": [] } } }`です。

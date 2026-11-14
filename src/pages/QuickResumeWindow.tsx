@@ -142,7 +142,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
           {pending && <span role="status">{pending === "resume" ? "起動中…" : "表示中…"}</span>}
         </div>
         <button type="button" className="ml-auto button-quiet" aria-disabled={pending ? true : undefined} onClick={onOpenReentry}>
-          Reentryを開く <span aria-hidden="true">↗</span>
+          sakuhiraを開く <span aria-hidden="true">↗</span>
         </button>
       </footer>
     </main>

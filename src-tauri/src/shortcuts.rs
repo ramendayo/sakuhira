@@ -343,7 +343,7 @@ mod runtime {
                     && let Err(reason) = rollback_key(app, key)
                 {
                     return format!(
-                        "{save_error} 新しいショートカットの解除にも失敗しました。Reentryを終了してから再試行してください。{reason}"
+                        "{save_error} 新しいショートカットの解除にも失敗しました。sakuhiraを終了してから再試行してください。{reason}"
                     );
                 }
                 save_error
@@ -440,7 +440,7 @@ mod runtime {
             |error| match rollback_key(app, &key) {
                 Ok(()) => error,
                 Err(reason) => ProjectRegistrationError::shortcut(format!(
-                    "プロジェクトを保存できず、ショートカットの解除にも失敗しました。Reentryを終了してから再試行してください。{reason}"
+                    "プロジェクトを保存できず、ショートカットの解除にも失敗しました。sakuhiraを終了してから再試行してください。{reason}"
                 )),
             },
         )?;

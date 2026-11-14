@@ -96,7 +96,7 @@ pub fn open_main(window: &WebviewWindow) -> Result<(), String> {
     app.emit_to("main", "show-project-list", ())
         .map_err(|error| format!("プロジェクト一覧を開けません: {error}"))?;
     main.set_focus().map_err(display_error)?;
-    // Keep focus in Reentry instead of returning to the previous app.
+    // Keep focus in sakuhira instead of returning to the previous app.
     window
         .hide()
         .map_err(|error| format!("クイック再開を閉じられません: {error}"))?;

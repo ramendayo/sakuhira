@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "quick-resume",
-  "description": "Allow the quick resume window to load candidates, apply its theme, resume projects, close itself, and open Reentry",
+  "description": "Allow the quick resume window to load candidates, apply its theme, resume projects, close itself, and open sakuhira",
   "windows": ["quick-resume"],
   "permissions": [
     "core:event:allow-listen",

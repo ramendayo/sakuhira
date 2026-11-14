@@ -112,7 +112,7 @@ it("resumes a clicked candidate and retains the query and selection after a part
   expect(resume).toHaveBeenLastCalledWith({ project: other });
 });
 
-it("opens Reentry with Tab and Enter from an empty search and allows retry after failure", async () => {
+it("opens sakuhira with Tab and Enter from an empty search and allows retry after failure", async () => {
   vi.stubGlobal("isTauri", true);
   const openReentry = vi.fn()
     .mockRejectedValueOnce("メインウィンドウを表示できません。")
@@ -137,7 +137,7 @@ it("opens Reentry with Tab and Enter from an empty search and allows retry after
   await user.type(input, "該当なし");
   expect(screen.getByRole("status").textContent).toContain("一致するプロジェクトがありません");
   await user.tab();
-  const button = screen.getByRole("button", { name: "Reentryを開く" });
+  const button = screen.getByRole("button", { name: "sakuhiraを開く" });
   expect(document.activeElement).toBe(button);
   await user.keyboard("{Enter}");
   expect((await screen.findByRole("alert")).textContent).toBe("メインウィンドウを表示できません。");

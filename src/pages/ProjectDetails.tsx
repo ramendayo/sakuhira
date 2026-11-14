@@ -157,7 +157,7 @@ function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, 
           <section aria-labelledby="removal-heading" aria-busy={pending} className="rounded-xl border border-danger-line bg-danger-soft p-6">
             <h2 id="removal-heading" className="section-title">登録を解除しますか？</h2>
             <p className="mt-3 break-words text-sm leading-7 text-ink">
-              「{project.name}」をReentryの一覧から削除します。フォルダとその中のファイルは削除されません。
+              「{project.name}」をsakuhiraの一覧から削除します。フォルダとその中のファイルは削除されません。
             </p>
             <fieldset disabled={pending} className="mt-5 flex flex-wrap gap-3 disabled:opacity-60">
               <button type="button" ref={cancelRemove} onClick={() => setMode("view")} className="button-secondary">キャンセル</button>

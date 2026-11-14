@@ -22,5 +22,5 @@ fn main() {
         "select_project_directory",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
-        .expect("failed to build Reentry's Tauri configuration");
+        .expect("failed to build sakuhira's Tauri configuration");
 }
