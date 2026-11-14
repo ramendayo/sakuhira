@@ -74,7 +74,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
   }
 
   return (
-    <main aria-label="クイック再開" onKeyDown={handleEscape} className="flex h-dvh min-h-0 flex-col bg-surface px-4 pt-4">
+    <main aria-label="sakuhira" onKeyDown={handleEscape} className="flex h-dvh min-h-0 flex-col bg-surface px-4 pt-4">
       <label htmlFor={`${id}-search`} className="sr-only">プロジェクトを検索</label>
       <div className="relative shrink-0">
         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"><Icon name="search" /></span>

@@ -39,7 +39,7 @@ fn open(app: &AppHandle) -> tauri::Result<()> {
     }
 
     let window = WebviewWindowBuilder::new(app, WINDOW_LABEL, WebviewUrl::App("index.html".into()))
-        .title("クイック再開")
+        .title("sakuhira")
         .inner_size(560.0, 430.0)
         .center()
         .resizable(false)
