@@ -52,10 +52,14 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
     return composing.current || event.nativeEvent.isComposing || event.keyCode === 229;
   }
 
-  function handleEscape(event: KeyboardEvent<HTMLElement>) {
-    if (event.key === "Escape" && !isComposing(event)) {
+  function handleWindowKey(event: KeyboardEvent<HTMLElement>) {
+    if (isComposing(event)) return;
+    if (event.key === "Escape") {
       event.preventDefault();
       onDismiss();
+    } else if (event.key === "Enter" && event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+      event.preventDefault();
+      if (!event.repeat && !pending) onOpenMainWindow();
     }
   }
 
@@ -67,14 +71,14 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
       const direction = event.key === "ArrowDown" ? 1 : -1;
       const index = Math.max(0, Math.min(selectedIndex + direction, candidates.length - 1));
       setSelectedId(candidates[index].id);
-    } else if (event.key === "Enter") {
+    } else if (event.key === "Enter" && !event.metaKey) {
       event.preventDefault();
       if (!event.repeat && selected) resumeCandidate(selected);
     }
   }
 
   return (
-    <main aria-label="sakuhira" onKeyDown={handleEscape} className="flex h-dvh min-h-0 flex-col bg-surface px-4 pt-4">
+    <main aria-label="sakuhira" onKeyDown={handleWindowKey} className="flex h-dvh min-h-0 flex-col bg-surface px-4 pt-4">
       <label htmlFor={`${id}-search`} className="sr-only">プロジェクトを検索</label>
       <div className="relative shrink-0">
         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"><Icon name="search" /></span>
@@ -141,8 +145,8 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
           <span><kbd>Esc</kbd> 閉じる</span>
           {pending && <span role="status">{pending === "resume" ? "起動中…" : "表示中…"}</span>}
         </div>
-        <button type="button" className="ml-auto button-quiet" aria-disabled={pending ? true : undefined} onClick={onOpenMainWindow}>
-          sakuhiraを開く <span aria-hidden="true">↗</span>
+        <button type="button" className="ml-auto button-quiet" aria-keyshortcuts="Meta+Enter" aria-disabled={pending ? true : undefined} onClick={onOpenMainWindow}>
+          sakuhiraを開く <span aria-hidden="true">↗</span><kbd aria-hidden="true" className="text-xs">⌘↵</kbd>
         </button>
       </footer>
     </main>

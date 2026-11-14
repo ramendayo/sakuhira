@@ -52,16 +52,22 @@ it("leaves IME confirmation and an empty result alone", async () => {
   const user = userEvent.setup();
   const onResume = vi.fn();
   const onDismiss = vi.fn();
-  render(<QuickResumeSearch projects={[latest]} onResume={onResume} onDismiss={onDismiss} onOpenMainWindow={vi.fn()} />);
+  const onOpenMainWindow = vi.fn();
+  render(<QuickResumeSearch projects={[latest]} onResume={onResume} onDismiss={onDismiss} onOpenMainWindow={onOpenMainWindow} />);
   const input = screen.getByRole("combobox");
   fireEvent.compositionStart(input);
   fireEvent.keyDown(input, { key: "Enter" });
   fireEvent.keyDown(input, { key: "Escape" });
+  fireEvent.keyDown(input, { key: "Enter", metaKey: true });
   fireEvent.compositionEnd(input);
   fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
   fireEvent.keyDown(input, { key: "Enter", isComposing: true });
   expect(onResume).not.toHaveBeenCalled();
+  fireEvent.keyDown(input, { key: "Enter", metaKey: true, keyCode: 229 });
+  fireEvent.keyDown(input, { key: "Enter", metaKey: true, isComposing: true });
+  fireEvent.keyDown(input, { key: "Enter", metaKey: true, repeat: true });
   expect(onDismiss).not.toHaveBeenCalled();
+  expect(onOpenMainWindow).not.toHaveBeenCalled();
   await user.keyboard("{Enter}");
   expect(onResume).toHaveBeenCalledOnce();
 
@@ -112,7 +118,7 @@ it("resumes a clicked candidate and retains the query and selection after a part
   expect(resume).toHaveBeenLastCalledWith({ project: other });
 });
 
-it("opens sakuhira with Tab and Enter from an empty search and allows retry after failure", async () => {
+it("opens sakuhira with Command+Enter from an empty search and allows retry with Tab and Enter", async () => {
   vi.stubGlobal("isTauri", true);
   const openMainWindow = vi.fn()
     .mockRejectedValueOnce("メインウィンドウを表示できません。")
@@ -136,14 +142,16 @@ it("opens sakuhira with Tab and Enter from an empty search and allows retry afte
   const input = screen.getByRole<HTMLInputElement>("combobox");
   await user.type(input, "該当なし");
   expect(screen.getByRole("status").textContent).toContain("一致するプロジェクトがありません");
-  await user.tab();
   const button = screen.getByRole("button", { name: "sakuhiraを開く" });
-  expect(document.activeElement).toBe(button);
-  await user.keyboard("{Enter}");
+  expect(button.getAttribute("aria-keyshortcuts")).toBe("Meta+Enter");
+  expect(button.textContent).toContain("⌘↵");
+  await user.keyboard("{Meta>}{Enter}{/Meta}");
   expect((await screen.findByRole("alert")).textContent).toBe("メインウィンドウを表示できません。");
   expect(openMainWindow).toHaveBeenCalledExactlyOnceWith({});
   expect(resume).not.toHaveBeenCalled();
   expect(input.value).toBe("該当なし");
+  expect(document.activeElement).toBe(input);
+  await user.tab();
   expect(document.activeElement).toBe(button);
   await user.keyboard("{Enter}");
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
