@@ -10,8 +10,42 @@ pub const WINDOW_LABEL: &str = "quick-resume";
 
 #[derive(Default)]
 pub struct QuickResumeWindow {
-    previous_app: Mutex<Option<i32>>,
+    presentation: Mutex<Presentation>,
     launching: tauri::async_runtime::Mutex<()>,
+}
+
+#[derive(Default)]
+struct Presentation {
+    focus: PresentationFocus,
+    previous_app: Option<i32>,
+}
+
+#[derive(Default, PartialEq, Eq)]
+enum PresentationFocus {
+    #[default]
+    Hidden,
+    AwaitingFocus,
+    Focused,
+}
+
+impl PresentationFocus {
+    fn event(&mut self, focused: bool, is_focused: bool, handoff_in_progress: bool) -> bool {
+        if *self == Self::Hidden || focused != is_focused {
+            return false;
+        }
+        if focused {
+            *self = Self::Focused;
+            return false;
+        }
+
+        let gained_focus = *self == Self::Focused;
+        // A launch can activate another app before its success or failure is known.
+        if handoff_in_progress {
+            *self = Self::AwaitingFocus;
+            return false;
+        }
+        gained_focus
+    }
 }
 
 pub fn request_open(app: &AppHandle) -> tauri::Result<()> {
@@ -29,24 +63,55 @@ fn open(app: &AppHandle) -> tauri::Result<()> {
         return Ok(());
     };
     let previous_app = frontmost_pid().filter(|pid| *pid != std::process::id() as i32);
-    if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-        if previous_app.is_some() || !window.is_focused()? {
-            remember_previous_app(app, previous_app);
-        }
+    let existing = app.get_webview_window(WINDOW_LABEL);
+    let window = if let Some(window) = existing {
         window.reload()?;
-        window.show()?;
-        return window.set_focus();
+        window
+    } else {
+        WebviewWindowBuilder::new(app, WINDOW_LABEL, WebviewUrl::App("index.html".into()))
+            .title("sakuhira")
+            .inner_size(560.0, 430.0)
+            .center()
+            .resizable(false)
+            .minimizable(false)
+            .visible(false)
+            .focused(false)
+            .build()?
+    };
+    let already_focused = window.is_focused()?;
+    {
+        let mut presentation = state
+            .presentation
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if previous_app.is_some() || !already_focused {
+            presentation.previous_app = previous_app;
+        }
+        presentation.focus = if already_focused {
+            PresentationFocus::Focused
+        } else {
+            PresentationFocus::AwaitingFocus
+        };
     }
-
-    let window = WebviewWindowBuilder::new(app, WINDOW_LABEL, WebviewUrl::App("index.html".into()))
-        .title("sakuhira")
-        .inner_size(560.0, 430.0)
-        .center()
-        .resizable(false)
-        .minimizable(false)
-        .build()?;
-    remember_previous_app(app, previous_app);
+    window.show()?;
     window.set_focus()
+}
+
+pub fn focus_changed(window: &WebviewWindow, focused: bool) -> tauri::Result<()> {
+    // An AppKit event may have been queued before the window was reopened.
+    let is_focused = window.is_focused()?;
+    let state = window.state::<QuickResumeWindow>();
+    let handoff = state.launching.try_lock();
+    let should_hide = state
+        .presentation
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .focus
+        .event(focused, is_focused, handoff.is_err());
+    if should_hide {
+        hide(window)?;
+    }
+    Ok(())
 }
 
 pub async fn resume(window: &WebviewWindow, project: Project) -> Result<ResumeReport, String> {
@@ -61,10 +126,8 @@ pub async fn resume(window: &WebviewWindow, project: Project) -> Result<ResumeRe
     launch::notify_shortcut_resume(app, &project_id, &report.history);
     if resume_completed(&report) {
         // The launched app should keep focus after a successful resume.
-        window
-            .hide()
+        hide(window)
             .map_err(|error| format!("再開しましたが、クイック再開を閉じられません: {error}"))?;
-        remember_previous_app(app, None);
     }
     Ok(report)
 }
@@ -97,29 +160,23 @@ pub fn open_main_window(window: &WebviewWindow) -> Result<(), String> {
         .map_err(|error| format!("プロジェクト一覧を開けません: {error}"))?;
     main.set_focus().map_err(display_error)?;
     // Keep focus in sakuhira instead of returning to the previous app.
-    window
-        .hide()
-        .map_err(|error| format!("クイック再開を閉じられません: {error}"))?;
-    remember_previous_app(app, None);
+    hide(window).map_err(|error| format!("クイック再開を閉じられません: {error}"))?;
     Ok(())
 }
 
-fn remember_previous_app(app: &AppHandle, previous_app: Option<i32>) {
-    *app.state::<QuickResumeWindow>()
-        .previous_app
+fn hide(window: &WebviewWindow) -> tauri::Result<Option<i32>> {
+    window.hide()?;
+    let state = window.state::<QuickResumeWindow>();
+    let mut presentation = state
+        .presentation
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner()) = previous_app;
+        .unwrap_or_else(|error| error.into_inner());
+    Ok(std::mem::take(&mut *presentation).previous_app)
 }
 
 pub fn dismiss(window: &WebviewWindow) -> tauri::Result<()> {
     let was_frontmost = frontmost_pid() == Some(std::process::id() as i32);
-    window.hide()?;
-    let previous_app = window
-        .state::<QuickResumeWindow>()
-        .previous_app
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .take();
+    let previous_app = hide(window)?;
     if was_frontmost
         && let Some(previous_app) =
             previous_app.and_then(NSRunningApplication::runningApplicationWithProcessIdentifier)
@@ -138,6 +195,37 @@ fn frontmost_pid() -> Option<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_focused_presentation_can_close_on_focus_loss() {
+        let mut focus = PresentationFocus::Hidden;
+        assert!(!focus.event(true, true, false));
+
+        focus = PresentationFocus::AwaitingFocus;
+        assert!(!focus.event(false, false, false));
+        assert!(!focus.event(true, true, false));
+        assert!(focus.event(false, false, false));
+    }
+
+    #[test]
+    fn stale_focus_events_do_not_close_a_reopened_window() {
+        let mut focus = PresentationFocus::AwaitingFocus;
+        assert!(!focus.event(true, false, false));
+        assert!(!focus.event(false, false, false));
+
+        assert!(!focus.event(true, true, false));
+        assert!(!focus.event(false, true, false));
+        assert!(focus.event(false, false, false));
+    }
+
+    #[test]
+    fn a_handoff_can_finish_or_report_an_error_after_losing_focus() {
+        let mut focus = PresentationFocus::Focused;
+        assert!(!focus.event(false, false, true));
+        assert!(!focus.event(false, false, false));
+        assert!(!focus.event(true, true, false));
+        assert!(focus.event(false, false, false));
+    }
 
     #[test]
     fn only_full_success_with_saved_history_closes_the_window() {

@@ -107,6 +107,17 @@ fn handle_macos_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
         }
         RunEvent::WindowEvent {
             label,
+            event: WindowEvent::Focused(focused),
+            ..
+        } if label == quick_resume::WINDOW_LABEL => {
+            if let Some(window) = app.get_webview_window(&label)
+                && let Err(error) = quick_resume::focus_changed(&window, focused)
+            {
+                eprintln!("クイック再開のフォーカス変更を処理できません: {error}");
+            }
+        }
+        RunEvent::WindowEvent {
+            label,
             event: WindowEvent::Focused(false),
             ..
         } if label == "main" => {
