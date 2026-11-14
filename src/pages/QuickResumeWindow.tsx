@@ -13,18 +13,21 @@ import type { ResumeReport } from "../types/launch";
 import type { Project } from "../types/project";
 import { quickResumeCandidates } from "../utils/projectOrder";
 
+type PendingAction = "resume" | "openReentry";
+
 type SearchProps = {
   projects: Project[];
   pinnedIds?: string[];
   loading?: boolean;
   error?: string | null;
-  resumeErrors?: string[];
-  pending?: boolean;
+  actionErrors?: string[];
+  pending?: PendingAction | null;
   onDismiss: () => void;
   onResume: (project: Project) => void;
+  onOpenReentry: () => void;
 };
 
-export function QuickResumeSearch({ projects, pinnedIds, loading, error, resumeErrors, pending, onDismiss, onResume }: SearchProps) {
+export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionErrors, pending, onDismiss, onResume, onOpenReentry }: SearchProps) {
   const id = useId();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -44,14 +47,20 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, resumeE
     onResume(project);
   }
 
-  function handleKey(event: KeyboardEvent<HTMLInputElement>) {
+  function isComposing(event: KeyboardEvent) {
     // WebKit can report the IME confirmation key after compositionend.
-    if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) return;
-    if (event.key === "Escape") {
+    return composing.current || event.nativeEvent.isComposing || event.keyCode === 229;
+  }
+
+  function handleEscape(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape" && !isComposing(event)) {
       event.preventDefault();
       onDismiss();
-      return;
     }
+  }
+
+  function handleSearchKey(event: KeyboardEvent<HTMLInputElement>) {
+    if (isComposing(event)) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       if (!selected || pending) return;
@@ -65,7 +74,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, resumeE
   }
 
   return (
-    <main aria-label="クイック再開" className="flex h-dvh min-h-0 flex-col bg-surface px-4 pt-4">
+    <main aria-label="クイック再開" onKeyDown={handleEscape} className="flex h-dvh min-h-0 flex-col bg-surface px-4 pt-4">
       <label htmlFor={`${id}-search`} className="sr-only">プロジェクトを検索</label>
       <div className="relative shrink-0">
         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"><Icon name="search" /></span>
@@ -79,18 +88,18 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, resumeE
           aria-activedescendant={selected ? `${id}-option-${selectedIndex}` : undefined}
           placeholder="名前・フォルダパスで検索"
           autoComplete="off"
-          readOnly={pending}
+          readOnly={Boolean(pending)}
           value={query}
           onChange={(event) => { setQuery(event.target.value); setSelectedId(null); }}
           onCompositionStart={() => { composing.current = true; }}
           onCompositionEnd={() => { composing.current = false; }}
-          onKeyDown={handleKey}
+          onKeyDown={handleSearchKey}
           className="field pl-10"
         />
       </div>
-      {resumeErrors && resumeErrors.length > 0 && (
+      {actionErrors && actionErrors.length > 0 && (
         <div role="alert" className="mt-2 max-h-28 shrink-0 space-y-1 overflow-y-auto break-words rounded-lg border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">
-          {resumeErrors.map((message) => <p key={message}>{message}</p>)}
+          {actionErrors.map((message) => <p key={message}>{message}</p>)}
         </div>
       )}
       <div className="my-3 min-h-0 flex-1 overflow-y-auto">
@@ -109,7 +118,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, resumeE
                 id={`${id}-option-${index}`}
                 role="option"
                 aria-selected={active}
-                aria-disabled={pending || undefined}
+                aria-disabled={pending ? true : undefined}
                 ref={active ? selectedRow : undefined}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => resumeCandidate(project)}
@@ -125,11 +134,16 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, resumeE
           })}
         </ul>
       </div>
-      <footer className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 border-t border-line py-3 text-xs text-muted">
-        <span><kbd>↑↓</kbd> 選択</span>
-        <span><kbd>Enter</kbd>／クリック 再開</span>
-        <span><kbd>Esc</kbd> 閉じる</span>
-        {pending && <span role="status" className="ml-auto">起動中…</span>}
+      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-line py-2 text-xs text-muted">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <span><kbd>↑↓</kbd> 選択</span>
+          <span><kbd>Enter</kbd>／クリック 再開</span>
+          <span><kbd>Esc</kbd> 閉じる</span>
+          {pending && <span role="status">{pending === "resume" ? "起動中…" : "表示中…"}</span>}
+        </div>
+        <button type="button" className="ml-auto button-quiet" aria-disabled={pending ? true : undefined} onClick={onOpenReentry}>
+          Reentryを開く <span aria-hidden="true">↗</span>
+        </button>
       </footer>
     </main>
   );
@@ -148,24 +162,23 @@ function QuickResumeContent() {
   const { result } = useSettings();
   const appearance = useAppearance();
   const [dismissError, setDismissError] = useState<string | null>(null);
-  const [resumeErrors, setResumeErrors] = useState<string[]>([]);
-  const [pending, setPending] = useState(false);
-  const launching = useRef(false);
+  const [actionErrors, setActionErrors] = useState<string[]>([]);
+  const [pending, setPending] = useState<PendingAction | null>(null);
+  const running = useRef(false);
   const pinnedIds = result.status === "ready" ? result.settings.projectOrder.pinnedIds : undefined;
 
-  async function resume(project: Project) {
-    if (launching.current) return;
-    launching.current = true;
-    setPending(true);
-    setResumeErrors([]);
+  async function runAction(action: PendingAction, run: () => Promise<string[]>) {
+    if (running.current) return;
+    running.current = true;
+    setPending(action);
+    setActionErrors([]);
     try {
-      const report = await resumeProject(project);
-      setResumeErrors(resumeErrorMessages(report));
+      setActionErrors(await run());
     } catch (error) {
-      setResumeErrors([errorMessage(error)]);
+      setActionErrors([errorMessage(error)]);
     } finally {
-      launching.current = false;
-      setPending(false);
+      running.current = false;
+      setPending(null);
     }
   }
 
@@ -174,9 +187,15 @@ function QuickResumeContent() {
     pinnedIds={pinnedIds}
     loading={status === "loading" || result.status === "loading"}
     error={error ?? appearance.loadError ?? appearance.error ?? dismissError}
-    resumeErrors={resumeErrors}
+    actionErrors={actionErrors}
     pending={pending}
-    onResume={resume}
+    onResume={(project) => { void runAction("resume", async () => resumeErrorMessages(await resumeProject(project))); }}
+    onOpenReentry={() => {
+      void runAction("openReentry", async () => {
+        await invoke("open_reentry");
+        return [];
+      });
+    }}
     onDismiss={() => { void invoke("close_quick_resume").catch((error) => setDismissError(errorMessage(error))); }}
   />;
 }

@@ -4,7 +4,7 @@ use crate::{
 };
 use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication, NSWorkspace};
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 pub const WINDOW_LABEL: &str = "quick-resume";
 
@@ -75,6 +75,33 @@ fn resume_completed(report: &ResumeReport) -> bool {
             .into_iter()
             .flatten()
             .all(|outcome| *outcome == LaunchOutcome::Success)
+}
+
+pub fn open_main(window: &WebviewWindow) -> Result<(), String> {
+    let state = window.state::<QuickResumeWindow>();
+    let _idle = state
+        .launching
+        .try_lock()
+        .map_err(|_| "プロジェクトを再開中です。")?;
+    let app = window.app_handle();
+    let main = app
+        .get_webview_window("main")
+        .ok_or("メインウィンドウが見つかりません。")?;
+    let display_error = |error| format!("メインウィンドウを表示できません: {error}");
+
+    if main.is_minimized().map_err(display_error)? {
+        main.unminimize().map_err(display_error)?;
+    }
+    main.show().map_err(display_error)?;
+    app.emit_to("main", "show-project-list", ())
+        .map_err(|error| format!("プロジェクト一覧を開けません: {error}"))?;
+    main.set_focus().map_err(display_error)?;
+    // Keep focus in Reentry instead of returning to the previous app.
+    window
+        .hide()
+        .map_err(|error| format!("クイック再開を閉じられません: {error}"))?;
+    remember_previous_app(app, None);
+    Ok(())
 }
 
 fn remember_previous_app(app: &AppHandle, previous_app: Option<i32>) {

@@ -28,6 +28,7 @@ fn application_command_acl_restricts_calls_by_window() {
         ("apply_theme", true, true),
         ("resume_project", true, true),
         ("close_quick_resume", false, true),
+        ("open_reentry", false, true),
         ("add_project", true, false),
         ("update_project", true, false),
         ("remove_project", true, false),

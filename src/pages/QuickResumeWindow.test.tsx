@@ -24,7 +24,7 @@ it("focuses an empty search and starts on the most recently resumed project each
   const user = userEvent.setup();
   const onDismiss = vi.fn();
   const onResume = vi.fn();
-  const props = { projects: [pinned, latest], pinnedIds: [pinned.id], onDismiss, onResume };
+  const props = { projects: [pinned, latest], pinnedIds: [pinned.id], onDismiss, onResume, onOpenReentry: vi.fn() };
   const { rerender } = render(<QuickResumeSearch key="first" {...props} />);
   const input = screen.getByRole<HTMLInputElement>("combobox", { name: "プロジェクトを検索" });
   expect(document.activeElement).toBe(input);
@@ -52,7 +52,7 @@ it("leaves IME confirmation and an empty result alone", async () => {
   const user = userEvent.setup();
   const onResume = vi.fn();
   const onDismiss = vi.fn();
-  render(<QuickResumeSearch projects={[latest]} onResume={onResume} onDismiss={onDismiss} />);
+  render(<QuickResumeSearch projects={[latest]} onResume={onResume} onDismiss={onDismiss} onOpenReentry={vi.fn()} />);
   const input = screen.getByRole("combobox");
   fireEvent.compositionStart(input);
   fireEvent.keyDown(input, { key: "Enter" });
@@ -110,4 +110,44 @@ it("resumes a clicked candidate and retains the query and selection after a part
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(resume).toHaveBeenCalledTimes(2);
   expect(resume).toHaveBeenLastCalledWith({ project: other });
+});
+
+it("opens Reentry with Tab and Enter from an empty search and allows retry after failure", async () => {
+  vi.stubGlobal("isTauri", true);
+  const openReentry = vi.fn()
+    .mockRejectedValueOnce("メインウィンドウを表示できません。")
+    .mockResolvedValueOnce(undefined);
+  const resume = vi.fn();
+  const dismiss = vi.fn();
+  mockIPC((command, args) => {
+    switch (command) {
+      case "get_settings": return { theme: "light", defaultEditor: "vsCode", projectOrder: { sort: "recent", manualIds: [] } };
+      case "list_projects": return [latest];
+      case "open_reentry": return openReentry(args);
+      case "resume_project": return resume();
+      case "close_quick_resume": return dismiss();
+      default: return undefined;
+    }
+  }, { shouldMockEvents: true });
+
+  const user = userEvent.setup();
+  render(<QuickResumeWindow />);
+  await screen.findByRole("option");
+  const input = screen.getByRole<HTMLInputElement>("combobox");
+  await user.type(input, "該当なし");
+  expect(screen.getByRole("status").textContent).toContain("一致するプロジェクトがありません");
+  await user.tab();
+  const button = screen.getByRole("button", { name: "Reentryを開く" });
+  expect(document.activeElement).toBe(button);
+  await user.keyboard("{Enter}");
+  expect((await screen.findByRole("alert")).textContent).toBe("メインウィンドウを表示できません。");
+  expect(openReentry).toHaveBeenCalledExactlyOnceWith({});
+  expect(resume).not.toHaveBeenCalled();
+  expect(input.value).toBe("該当なし");
+  expect(document.activeElement).toBe(button);
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(openReentry).toHaveBeenCalledTimes(2);
+  await user.keyboard("{Escape}");
+  expect(dismiss).toHaveBeenCalledOnce();
 });
