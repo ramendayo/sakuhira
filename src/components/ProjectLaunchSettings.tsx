@@ -2,7 +2,7 @@ import { useSettings } from "../hooks/useSettings";
 import { editorName } from "../types/settings";
 import { useId, useState } from "react";
 import type { FormEvent } from "react";
-import { setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";
+import { setProjectAppLaunchTargets, setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";
 import { errorMessage } from "../services/projects";
 import type { Project } from "../types/project";
 import ProjectAppLaunchTargets from "./ProjectAppLaunchTargets";
@@ -63,7 +63,12 @@ function ProjectLaunchSettings({ project, onSaved }: { project: Project; onSaved
         {error && <p role="alert" className="mt-4 break-words text-sm leading-6 text-danger">{error}</p>}
         <p role="status" className="notice mt-3">{notice}</p>
       </form>
-      {supportsAppLaunchTargets() && <ProjectAppLaunchTargets project={baseline} disabled={pending || appsBusy} onBusyChange={setAppsBusy} onSaved={commit} />}
+      {supportsAppLaunchTargets() && <ProjectAppLaunchTargets
+        targets={baseline.appLaunchTargets ?? []}
+        disabled={pending || appsBusy}
+        onBusyChange={setAppsBusy}
+        onChange={async (targets) => commit(await setProjectAppLaunchTargets(baseline, targets))}
+      />}
     </section>
   );
 }

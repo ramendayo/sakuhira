@@ -93,6 +93,45 @@ fn app_launch_targets_round_trip_and_survive_project_edits() {
 }
 
 #[test]
+fn registration_saves_app_targets_atomically_with_other_options() {
+    let root = tempdir().unwrap();
+    let data = root.path().join("data");
+    let store = ProjectStore::new(data.clone());
+    let app = test_app(root.path(), "Preview.app", "APPL");
+    let file = root.path().join("仕様書.pdf");
+    let target = AppLaunchTarget {
+        app_path: app.to_str().unwrap().into(),
+        file_path: Some(file.to_str().unwrap().into()),
+    };
+    let register = || {
+        store.add_with_options(
+            "Docs",
+            None,
+            Some("https://example.com"),
+            ProjectIcon::Auto,
+            Some("Ctrl+B"),
+            vec![
+                target.clone(),
+                AppLaunchTarget {
+                    file_path: None,
+                    ..target.clone()
+                },
+            ],
+        )
+    };
+    assert!(register().is_err());
+    assert!(store.list().unwrap().is_empty());
+    assert!(!data.join("projects.json").exists());
+
+    fs::write(file, "").unwrap();
+    let project = register().unwrap();
+    assert_eq!(project.shortcut.as_deref(), Some("Control+KeyB"));
+    assert_eq!(project.app_launch_targets.len(), 2);
+    assert_eq!(project.app_launch_targets[0], target.validated().unwrap());
+    assert_eq!(ProjectStore::new(data).list().unwrap(), vec![project]);
+}
+
+#[test]
 fn invalid_app_launch_targets_leave_saved_projects_untouched() {
     let root = tempdir().unwrap();
     let store = ProjectStore::new(root.path().join("data"));
@@ -138,6 +177,7 @@ fn registering_with_optional_settings_persists_them_and_can_retry_after_a_confli
             Some("https://first.example"),
             icon,
             Some("Ctrl+A"),
+            Vec::new(),
         )
         .unwrap();
     assert_eq!(first.shortcut.as_deref(), Some("Control+KeyA"));
@@ -151,6 +191,7 @@ fn registering_with_optional_settings_persists_them_and_can_retry_after_a_confli
             Some("https://second.example"),
             icon,
             Some("control+keya"),
+            Vec::new(),
         )
         .unwrap_err();
     assert_eq!(
@@ -169,6 +210,7 @@ fn registering_with_optional_settings_persists_them_and_can_retry_after_a_confli
             Some("https://second.example"),
             icon,
             Some("Ctrl+B"),
+            Vec::new(),
         )
         .unwrap();
     assert_eq!(second.shortcut.as_deref(), Some("Control+KeyB"));

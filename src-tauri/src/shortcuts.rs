@@ -610,6 +610,7 @@ mod tests {
                 Some("https://example.com"),
                 ProjectIcon::Auto,
                 Some("Ctrl+J"),
+                Vec::new(),
             )
             .unwrap();
         let projects = store.list().unwrap();

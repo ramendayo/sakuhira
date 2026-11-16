@@ -350,7 +350,7 @@ impl ProjectStore {
         path: Option<&Path>,
         launch_url: Option<&str>,
     ) -> Result<Project, ProjectRegistrationError> {
-        self.add_with_options(name, path, launch_url, ProjectIcon::Auto, None)
+        self.add_with_options(name, path, launch_url, ProjectIcon::Auto, None, Vec::new())
     }
 
     pub fn add_with_options(
@@ -360,11 +360,16 @@ impl ProjectStore {
         launch_url: Option<&str>,
         icon: ProjectIcon,
         shortcut: Option<&str>,
+        app_launch_targets: Vec<AppLaunchTarget>,
     ) -> Result<Project, ProjectRegistrationError> {
         let name = project_name(name)?;
         let path = path.map(directory_path).transpose()?;
         let launch_url = crate::launch::normalize_url(launch_url)?;
         validate_launch_target(path.as_deref(), launch_url.as_deref())?;
+        let app_launch_targets = app_launch_targets
+            .into_iter()
+            .map(AppLaunchTarget::validated)
+            .collect::<Result<_, _>>()?;
         self.change(|projects| {
             if path.is_some() && projects.iter().any(|project| project.path == path) {
                 return Err("このフォルダはすでに登録されています。".to_owned().into());
@@ -378,7 +383,7 @@ impl ProjectStore {
                 name,
                 path,
                 launch_url,
-                app_launch_targets: Vec::new(),
+                app_launch_targets,
                 notes: ProjectNotes::default(),
                 last_resumed_at: None,
                 icon,

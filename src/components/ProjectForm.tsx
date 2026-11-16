@@ -1,8 +1,10 @@
 import { useCallback, useId, useState } from "react";
 import type { FormEvent } from "react";
 import { addProject, errorMessage, selectProjectDirectory, shortcutRegistrationError, updateProject } from "../services/projects";
+import { supportsAppLaunchTargets } from "../services/launch";
 import { supportsShortcuts } from "../services/shortcuts";
-import type { Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
+import type { AppLaunchTarget, Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
+import ProjectAppLaunchTargets from "./ProjectAppLaunchTargets";
 import ProjectIcon from "./ProjectIcon";
 import ProjectIconField from "./ProjectIconField";
 import ProjectShortcutField, { shortcutLabel } from "./ProjectShortcutField";
@@ -20,6 +22,9 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
   const [name, setName] = useState(project?.name ?? "");
   const [path, setPath] = useState(project?.path ?? "");
   const [launchUrl, setLaunchUrl] = useState("");
+  const [appLaunchTargets, setAppLaunchTargets] = useState<AppLaunchTarget[]>([]);
+  const [appDraftOpen, setAppDraftOpen] = useState(false);
+  const [appsBusy, setAppsBusy] = useState(false);
   const [shortcut, setShortcut] = useState<string | null | undefined>(undefined);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [shortcutError, setShortcutError] = useState<string | null>(null);
@@ -67,7 +72,11 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || appsBusy) return;
+    if (appDraftOpen) {
+      setError("編集中の起動先を確定するか、キャンセルしてください。");
+      return;
+    }
     if (!name.trim()) {
       setError("プロジェクト名を入力してください。");
       return;
@@ -80,12 +89,14 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     setShortcutError(null);
     setPending("saving");
     try {
-      const registrationOptions = customIcon || selectedShortcut
-        ? [{ icon: appearance, shortcut: selectedShortcut }] as const
-        : [] as const;
+      const hasOptions = customIcon || selectedShortcut !== null || appLaunchTargets.length > 0;
+      const registrationOptions = {
+        ...((customIcon || selectedShortcut) && { icon: appearance, shortcut: selectedShortcut }),
+        ...(appLaunchTargets.length > 0 && { appLaunchTargets }),
+      };
       const saved = project
         ? await updateProject(project, name.trim(), path || null, appearance, ...(shortcut === undefined ? [] : [{ shortcut }]))
-        : await addProject(name.trim(), path || null, launchUrl, ...registrationOptions);
+        : await addProject(name.trim(), path || null, launchUrl, ...(hasOptions ? [registrationOptions] : []));
       onSaved(saved);
     } catch (error) {
       const shortcutFailure = !project && canSetShortcut ? shortcutRegistrationError(error) : null;
@@ -120,14 +131,14 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     <form
       onSubmit={submit}
       aria-labelledby={`${id}-heading`}
-      aria-busy={pending !== null}
+      aria-busy={pending !== null || appsBusy}
       className="mb-8 panel"
     >
       <h2 id={`${id}-heading`} className="section-title">{project ? "プロジェクトを編集" : "プロジェクトを登録"}</h2>
       <p className="mt-2 text-sm leading-6 text-muted">
         名前を入力し、フォルダまたは起動URLを設定してください。
       </p>
-      <fieldset disabled={pending !== null} className="mt-5 space-y-5 disabled:opacity-60">
+      <fieldset disabled={pending !== null || appsBusy} className="mt-5 space-y-5 disabled:opacity-60">
         <div>
           <label htmlFor={`${id}-name`} className="field-label">プロジェクト名</label>
           <input
@@ -155,13 +166,28 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
               {pending === "picking" ? "選択中…" : "フォルダを選択"}
             </button>
           </div>
-          <p className="mt-2 text-xs leading-6 text-muted">URLのみで登録する場合は空欄にできます。フォルダなしではブラウザだけを開きます。</p>
+          <p className="mt-2 text-xs leading-6 text-muted">起動URLを設定する場合は空欄にできます。フォルダなしではエディタを開きません。</p>
         </div>
         {!project && <div>
           <label htmlFor={`${id}-launch-url`} className="field-label">起動URL（任意）</label>
           <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => setLaunchUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="field" />
           <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-muted">フォルダがない場合は必須です。HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
         </div>}
+        {!project && supportsAppLaunchTargets() && (
+          <details className="rounded-lg border border-line px-3 py-2">
+            <summary className="cursor-pointer rounded-sm text-sm font-medium text-ink">
+              再開時に開くアプリ（任意）{appLaunchTargets.length > 0 && ` · ${appLaunchTargets.length}件`}
+            </summary>
+            <ProjectAppLaunchTargets
+              targets={appLaunchTargets}
+              disabled={pending !== null || appsBusy}
+              onBusyChange={setAppsBusy}
+              onChange={setAppLaunchTargets}
+              onDraftChange={setAppDraftOpen}
+              deferred
+            />
+          </details>
+        )}
         {project && appearanceFields}
         <p className="text-xs leading-6 text-muted">フォルダ内のファイルは変更されません。</p>
         {!project && (

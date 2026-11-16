@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import ProjectForm from "./ProjectForm";
 import ProjectShortcutField from "./ProjectShortcutField";
+import * as launch from "../services/launch";
 import * as api from "../services/projects";
 import * as shortcuts from "../services/shortcuts";
 import type { Project } from "../types/project";
@@ -10,13 +11,22 @@ import type { Project } from "../types/project";
 vi.mock("../services/projects", async (importOriginal) => ({
   ...await importOriginal<typeof api>(),
   updateProject: vi.fn(),
+  addProject: vi.fn(),
 }));
 vi.mock("../services/shortcuts", () => ({
   supportsShortcuts: vi.fn(() => false),
   onCapturedShortcut: vi.fn(),
   setShortcutCapture: vi.fn(),
 }));
-afterEach(cleanup);
+vi.mock("../services/launch", async (importOriginal) => ({
+  ...await importOriginal<typeof launch>(),
+  supportsAppLaunchTargets: vi.fn(() => false),
+  selectProjectLaunchItem: vi.fn(),
+}));
+afterEach(() => {
+  cleanup();
+  vi.mocked(launch.supportsAppLaunchTargets).mockReturnValue(false);
+});
 
 it("shows a save error in the shortcut field without replacing the entered key", () => {
   const shortcut = "Control+KeyA";
@@ -156,4 +166,51 @@ it("previews independent icon choices and keeps the draft after a failed save", 
   expect(screen.queryByRole("group", { name: "形" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "変更を保存" }));
   expect(api.updateProject).toHaveBeenLastCalledWith(updated, updated.name, null, { mode: "auto" });
+});
+
+it("registers app and file targets with the project and keeps them for retry", async () => {
+  const preview = { appPath: "/System/Applications/Preview.app", filePath: "/work/仕様書.pdf" };
+  const slack = { appPath: "/Applications/Slack.app", filePath: null };
+  const saved: Project = {
+    id: "docs", name: "Docs", path: null, launchUrl: "https://example.com/",
+    appLaunchTargets: [preview, slack], lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null },
+  };
+  vi.mocked(launch.supportsAppLaunchTargets).mockReturnValue(true);
+  vi.mocked(launch.selectProjectLaunchItem)
+    .mockResolvedValueOnce(preview.appPath)
+    .mockResolvedValueOnce(preview.filePath)
+    .mockResolvedValueOnce(slack.appPath);
+  vi.mocked(api.addProject).mockRejectedValueOnce("起動先のファイルが見つかりません。").mockResolvedValueOnce(saved);
+
+  const user = userEvent.setup();
+  const onSaved = vi.fn();
+  render(<ProjectForm onSaved={onSaved} onCancel={vi.fn()} />);
+  await user.type(screen.getByLabelText("プロジェクト名"), saved.name);
+  await user.type(screen.getByLabelText("起動URL（任意）"), saved.launchUrl!);
+  await user.click(screen.getByText("再開時に開くアプリ（任意）"));
+  const add = () => user.click(screen.getByRole("button", { name: "アプリを追加" }));
+  const saveTarget = () => user.click(screen.getByRole("button", { name: "起動先を追加" }));
+  const register = () => user.click(screen.getByRole("button", { name: "登録する" }));
+
+  await add();
+  await user.click(screen.getByRole("button", { name: "ファイルを選択（任意）" }));
+  await register();
+  expect(screen.getByRole("alert").textContent).toContain("編集中の起動先");
+  expect(api.addProject).not.toHaveBeenCalled();
+  await saveTarget();
+  await add();
+  await saveTarget();
+  await user.click(screen.getByText("再開時に開くアプリ（任意） · 2件"));
+  await register();
+
+  expect(api.addProject).toHaveBeenNthCalledWith(1, saved.name, null, saved.launchUrl, { appLaunchTargets: [preview, slack] });
+  expect(await screen.findByText("起動先のファイルが見つかりません。")).toBeTruthy();
+  expect(onSaved).not.toHaveBeenCalled();
+  await user.click(screen.getByText("再開時に開くアプリ（任意） · 2件"));
+  expect(screen.getByRole("button", { name: "Preview（仕様書.pdf）を変更" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Slackを削除" })).toBeTruthy();
+  expect((screen.getByLabelText("プロジェクト名") as HTMLInputElement).value).toBe(saved.name);
+  await register();
+  expect(api.addProject).toHaveBeenNthCalledWith(2, saved.name, null, saved.launchUrl, { appLaunchTargets: [preview, slack] });
+  await waitFor(() => expect(onSaved).toHaveBeenCalledWith(saved));
 });

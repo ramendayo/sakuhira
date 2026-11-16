@@ -34,6 +34,7 @@ pub async fn add_project(
     launch_url: Option<String>,
     icon: Option<ProjectIcon>,
     shortcut: Option<String>,
+    app_launch_targets: Option<Vec<AppLaunchTarget>>,
 ) -> Result<Project, ProjectRegistrationError> {
     tauri::async_runtime::spawn_blocking(move || {
         let save = |store: &ProjectStore, key: Option<&str>| {
@@ -43,6 +44,7 @@ pub async fn add_project(
                 launch_url.as_deref(),
                 icon.unwrap_or_default(),
                 key,
+                app_launch_targets.unwrap_or_default(),
             )
         };
         if let Some(key) = shortcut {

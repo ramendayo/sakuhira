@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { Project, ProjectIcon, SelectedDirectory } from "../types/project";
+import type { AppLaunchTarget, Project, ProjectIcon, SelectedDirectory } from "../types/project";
 
 function requireDesktop() {
   if (!isTauri()) {
@@ -12,7 +12,7 @@ export async function listProjects(): Promise<Project[]> {
   return invoke<Project[]>("list_projects");
 }
 
-type ProjectRegistrationOptions = { icon?: ProjectIcon; shortcut?: string | null };
+type ProjectRegistrationOptions = { icon?: ProjectIcon; shortcut?: string | null; appLaunchTargets?: AppLaunchTarget[] };
 
 export async function addProject(name: string, path: string | null, launchUrl = "", options?: ProjectRegistrationOptions): Promise<Project> {
   requireDesktop();
