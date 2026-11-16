@@ -36,6 +36,92 @@ fn url_only_projects_persist_and_can_gain_or_remove_a_folder() {
     assert_eq!(store.list().unwrap(), vec![second]);
 }
 
+fn test_app(root: &Path, name: &str, package_type: &str) -> PathBuf {
+    let app = root.join(name);
+    fs::create_dir_all(app.join("Contents")).unwrap();
+    let mut info = plist::Dictionary::new();
+    info.insert("CFBundlePackageType".into(), package_type.into());
+    plist::to_file_xml(app.join("Contents/Info.plist"), &info).unwrap();
+    app
+}
+
+#[test]
+fn app_launch_targets_round_trip_and_survive_project_edits() {
+    let root = tempdir().unwrap();
+    let data = root.path().join("data");
+    let store = ProjectStore::new(data.clone());
+    let app = test_app(root.path(), "Preview.app", "APPL");
+    let first_file = root.path().join("仕様書.pdf");
+    let second_file = root.path().join("設計書.pdf");
+    fs::write(&first_file, "").unwrap();
+    fs::write(&second_file, "").unwrap();
+    let target = |file: Option<&Path>| AppLaunchTarget {
+        app_path: app.canonicalize().unwrap().to_str().unwrap().into(),
+        file_path: file.map(|path| path.canonicalize().unwrap().to_str().unwrap().into()),
+    };
+    let project = store
+        .add("Docs", None, Some("https://example.com"))
+        .unwrap();
+    let json: serde_json::Value =
+        serde_json::from_slice(&fs::read(data.join("projects.json")).unwrap()).unwrap();
+    assert!(json["projects"][0].get("appLaunchTargets").is_none());
+    assert!(store.list().unwrap()[0].app_launch_targets.is_empty());
+
+    let targets = vec![
+        target(None),
+        target(Some(&first_file)),
+        target(Some(&second_file)),
+    ];
+    let configured = store
+        .set_app_launch_targets(&project, targets.clone())
+        .unwrap();
+    let reopened = ProjectStore::new(data);
+    assert_eq!(reopened.list().unwrap()[0].app_launch_targets, targets);
+    assert!(reopened.set_app_launch_targets(&project, vec![]).is_err());
+
+    fs::remove_file(first_file).unwrap();
+    let renamed = reopened.update(&configured, "Renamed", None, None).unwrap();
+    let edited = reopened
+        .set_app_launch_targets(&renamed, vec![targets[1].clone(), targets[0].clone()])
+        .unwrap();
+    assert_eq!(
+        edited.app_launch_targets,
+        [targets[1].clone(), targets[0].clone()]
+    );
+    let cleared = reopened.set_app_launch_targets(&edited, vec![]).unwrap();
+    assert!(cleared.app_launch_targets.is_empty());
+}
+
+#[test]
+fn invalid_app_launch_targets_leave_saved_projects_untouched() {
+    let root = tempdir().unwrap();
+    let store = ProjectStore::new(root.path().join("data"));
+    let project = store
+        .add("Docs", None, Some("https://example.com"))
+        .unwrap();
+    let app = test_app(root.path(), "Preview.app", "APPL");
+    let wrong_bundle = test_app(root.path(), "Other.app", "BNDL");
+    let target = |app: &Path, file: Option<&Path>| AppLaunchTarget {
+        app_path: app.to_str().unwrap().into(),
+        file_path: file.map(|path| path.to_str().unwrap().into()),
+    };
+    for invalid in [
+        target(Path::new("relative.app"), None),
+        target(&root.path().join("Missing.app"), None),
+        target(root.path(), None),
+        target(&wrong_bundle, None),
+        target(&app, Some(root.path())),
+        target(&app, Some(&root.path().join("Missing.pdf"))),
+    ] {
+        assert!(
+            store
+                .set_app_launch_targets(&project, vec![target(&app, None), invalid])
+                .is_err()
+        );
+        assert_eq!(store.list().unwrap(), vec![project.clone()]);
+    }
+}
+
 #[test]
 fn registering_with_optional_settings_persists_them_and_can_retry_after_a_conflict() {
     let root = tempdir().unwrap();

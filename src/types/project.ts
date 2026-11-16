@@ -30,11 +30,17 @@ export type ProjectIcon =
   | { mode: "auto" }
   | { mode: "custom"; shape: ProjectIconShape; color: ProjectIconColor };
 
+export type AppLaunchTarget = {
+  appPath: string;
+  filePath: string | null;
+};
+
 export type Project = {
   id: string;
   name: string;
   path: string | null;
   launchUrl: string | null;
+  appLaunchTargets?: AppLaunchTarget[];
   notes: ProjectNotes;
   lastResumedAt: number | null;
   icon?: ProjectIcon;

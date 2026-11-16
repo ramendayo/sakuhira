@@ -1,5 +1,5 @@
 use crate::projects::{
-    Project, ProjectIcon, ProjectRegistrationError, ProjectStore, directory_path,
+    AppLaunchTarget, Project, ProjectIcon, ProjectRegistrationError, ProjectStore, directory_path,
 };
 use std::path::Path;
 use tauri::{Manager, State};
@@ -247,6 +247,15 @@ pub fn set_project_launch_url(
     url: Option<String>,
 ) -> Result<Project, String> {
     store.set_launch_url(&project, url.as_deref())
+}
+
+#[tauri::command(async)]
+pub fn set_project_app_launch_targets(
+    store: State<'_, ProjectStore>,
+    project: Project,
+    targets: Vec<AppLaunchTarget>,
+) -> Result<Project, String> {
+    store.set_app_launch_targets(&project, targets)
 }
 
 #[tauri::command]

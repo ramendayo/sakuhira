@@ -16,6 +16,7 @@
     "allow-open-note-link",
     "allow-get-git-status",
     "allow-set-project-launch-url",
+    "allow-set-project-app-launch-targets",
     "allow-resume-project",
     "allow-add-project",
     "allow-update-project",

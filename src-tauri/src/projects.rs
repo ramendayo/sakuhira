@@ -16,6 +16,12 @@ pub struct Project {
     pub path: Option<String>,
     #[serde(default, rename = "launchUrl")]
     pub launch_url: Option<String>,
+    #[serde(
+        default,
+        rename = "appLaunchTargets",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub app_launch_targets: Vec<AppLaunchTarget>,
     #[serde(default)]
     pub notes: ProjectNotes,
     #[serde(default, rename = "lastResumedAt")]
@@ -28,6 +34,66 @@ pub struct Project {
         skip_serializing_if = "Option::is_none"
     )]
     pub shortcut: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AppLaunchTarget {
+    pub app_path: String,
+    pub file_path: Option<String>,
+}
+
+impl AppLaunchTarget {
+    fn validated(self) -> Result<Self, String> {
+        let app = canonical_launch_path(&self.app_path, "アプリ")?;
+        let is_app = app
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("app"))
+            && app.is_dir();
+        if !is_app {
+            return Err("macOSのアプリ（.app）を指定してください。".into());
+        }
+        let info: plist::Dictionary = plist::from_file(app.join("Contents/Info.plist"))
+            .map_err(|error| format!("アプリの情報を読み込めません: {error}"))?;
+        if info
+            .get("CFBundlePackageType")
+            .and_then(plist::Value::as_string)
+            != Some("APPL")
+        {
+            return Err("選択した項目はmacOSのアプリではありません。".into());
+        }
+
+        let file_path = self
+            .file_path
+            .map(|path| {
+                let file = canonical_launch_path(&path, "ファイル")?;
+                if !file.is_file() {
+                    return Err("ローカルファイルを指定してください。".into());
+                }
+                launch_path_string(file, "ファイル")
+            })
+            .transpose()?;
+
+        Ok(Self {
+            app_path: launch_path_string(app, "アプリ")?,
+            file_path,
+        })
+    }
+}
+
+fn canonical_launch_path(path: &str, label: &str) -> Result<PathBuf, String> {
+    let path = Path::new(path);
+    if !path.is_absolute() {
+        return Err(format!("{label}は絶対パスで指定してください。"));
+    }
+    path.canonicalize()
+        .map_err(|error| format!("{label}を確認できません: {error}"))
+}
+
+fn launch_path_string(path: PathBuf, label: &str) -> Result<String, String> {
+    path.into_os_string()
+        .into_string()
+        .map_err(|_| format!("{label}のパスを文字列として扱えません。"))
 }
 
 #[derive(Debug, Serialize)]
@@ -308,6 +374,7 @@ impl ProjectStore {
                 name,
                 path,
                 launch_url,
+                app_launch_targets: Vec::new(),
                 notes: ProjectNotes::default(),
                 last_resumed_at: None,
                 icon,
@@ -363,6 +430,7 @@ impl ProjectStore {
                 name,
                 path,
                 launch_url: expected.launch_url.clone(),
+                app_launch_targets: expected.app_launch_targets.clone(),
                 notes: expected.notes.clone(),
                 last_resumed_at: projects[index].last_resumed_at,
                 icon: icon.unwrap_or(expected.icon),
@@ -395,6 +463,29 @@ impl ProjectStore {
             validate_launch_target(projects[index].path.as_deref(), url.as_deref())?;
             projects[index].launch_url = url;
             Ok(projects[index].clone())
+        })
+    }
+
+    pub fn set_app_launch_targets(
+        &self,
+        expected: &Project,
+        targets: Vec<AppLaunchTarget>,
+    ) -> Result<Project, String> {
+        self.change(|projects| {
+            let index = matching_project(projects, expected)?;
+            let project = &mut projects[index];
+            // 編集していない起動先が移動・削除されていても、他の設定を保存できる。
+            project.app_launch_targets = targets
+                .into_iter()
+                .map(|target| {
+                    if project.app_launch_targets.contains(&target) {
+                        Ok(target)
+                    } else {
+                        target.validated()
+                    }
+                })
+                .collect::<Result<_, _>>()?;
+            Ok(project.clone())
         })
     }
 

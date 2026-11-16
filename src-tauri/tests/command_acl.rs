@@ -38,6 +38,7 @@ fn application_command_acl_restricts_calls_by_window() {
         ("open_note_link", true, false),
         ("get_git_status", true, false),
         ("set_project_launch_url", true, false),
+        ("set_project_app_launch_targets", true, false),
         ("set_project_shortcut", true, false),
         ("set_shortcut_capture", true, false),
         ("get_shortcut_errors", true, false),

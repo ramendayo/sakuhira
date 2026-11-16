@@ -53,6 +53,7 @@ pub fn run() {
             commands::open_note_link,
             commands::get_git_status,
             commands::set_project_launch_url,
+            commands::set_project_app_launch_targets,
             commands::resume_project,
             commands::add_project,
             commands::update_project,

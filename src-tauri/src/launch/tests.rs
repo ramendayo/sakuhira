@@ -8,6 +8,7 @@ fn project(path: &Path, url: Option<&str>) -> Project {
         name: "Fixture".into(),
         path: Some(path.to_str().unwrap().into()),
         launch_url: url.map(str::to_owned),
+        app_launch_targets: Vec::new(),
         notes: Default::default(),
         last_resumed_at: None,
         icon: Default::default(),

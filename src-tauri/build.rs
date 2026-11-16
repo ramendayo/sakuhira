@@ -8,6 +8,7 @@ fn main() {
         "open_note_link",
         "get_git_status",
         "set_project_launch_url",
+        "set_project_app_launch_targets",
         "resume_project",
         "add_project",
         "update_project",

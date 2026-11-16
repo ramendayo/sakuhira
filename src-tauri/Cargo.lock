@@ -2930,6 +2930,7 @@ version = "0.1.0"
 dependencies = [
  "git2",
  "objc2-app-kit",
+ "plist",
  "serde",
  "serde_json",
  "tauri",
