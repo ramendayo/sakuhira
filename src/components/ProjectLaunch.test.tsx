@@ -4,12 +4,12 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ProjectLaunchSettings from "./ProjectLaunchSettings";
 import ResumeProject from "./ResumeProject";
-import { resumeProject, setProjectLaunchUrl } from "../services/launch";
+import { resumeProject, selectProjectLaunchItem, setProjectAppLaunchTargets, setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";
 import { getSettings } from "../services/settings";
 import type { Project } from "../types/project";
 import type { ResumeReport } from "../types/launch";
 
-vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
+vi.mock("../services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../services/launch")>(), resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn(), selectProjectLaunchItem: vi.fn(), setProjectAppLaunchTargets: vi.fn(), supportsAppLaunchTargets: vi.fn(() => false) }));
 vi.mock("../services/settings", () => ({ getSettings: vi.fn(async () => ({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" })) }));
 
 const project: Project = { id: "id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
@@ -133,4 +133,50 @@ it("does not show an old launch result after the saved settings change", async (
   finish(success);
   expect(screen.queryByText("VS Code：起動要求を送信しました。")).toBeNull();
   expect((screen.getByRole("button", { name: "Reentryを再開" }) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it("adds apps with optional files, keeps a failed draft, and lets saved targets be edited or removed", async () => {
+  const preview = { appPath: "/System/Applications/Preview.app", filePath: "/work/仕様書.pdf" };
+  const slack = { appPath: "/Applications/Slack.app", filePath: null };
+  vi.mocked(supportsAppLaunchTargets).mockReturnValue(true);
+  vi.mocked(selectProjectLaunchItem)
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce(preview.appPath)
+    .mockResolvedValueOnce(preview.filePath)
+    .mockResolvedValueOnce(slack.appPath)
+    .mockResolvedValueOnce(null);
+  vi.mocked(setProjectAppLaunchTargets)
+    .mockRejectedValueOnce("保存できませんでした。")
+    .mockImplementation(async (project, targets) => ({ ...project, appLaunchTargets: targets }));
+
+  const user = userEvent.setup();
+  render(<Harness />);
+  const add = () => user.click(screen.getByRole("button", { name: "アプリを追加" }));
+  const save = () => user.click(screen.getByRole("button", { name: "起動先を追加" }));
+  await add();
+  expect(setProjectAppLaunchTargets).not.toHaveBeenCalled();
+  await add();
+  await user.click(screen.getByRole("button", { name: "ファイルを選択（任意）" }));
+  await save();
+  expect(await screen.findByText("保存できませんでした。")).toBeTruthy();
+  expect(screen.getByText("Preview（仕様書.pdf）")).toBeTruthy();
+  await save();
+  await screen.findByRole("button", { name: "Preview（仕様書.pdf）を変更" });
+  expect(setProjectAppLaunchTargets).toHaveBeenNthCalledWith(2, project, [preview]);
+
+  await add();
+  await save();
+  await screen.findByRole("button", { name: "Slackを削除" });
+  expect(setProjectAppLaunchTargets).toHaveBeenNthCalledWith(3, { ...project, appLaunchTargets: [preview] }, [preview, slack]);
+  await user.click(screen.getByRole("button", { name: "Preview（仕様書.pdf）を変更" }));
+  await user.click(screen.getByRole("button", { name: "ファイルを選び直す" }));
+  await user.click(screen.getByRole("button", { name: "ファイルを解除" }));
+  await user.click(screen.getByRole("button", { name: "変更を保存" }));
+  await screen.findByRole("button", { name: "Previewを変更" });
+  expect(setProjectAppLaunchTargets).toHaveBeenNthCalledWith(4, { ...project, appLaunchTargets: [preview, slack] }, [{ ...preview, filePath: null }, slack]);
+
+  await user.click(screen.getByRole("button", { name: "Slackを削除" }));
+  expect(screen.queryByRole("button", { name: "Slackを削除" })).toBeNull();
+  expect(vi.mocked(setProjectAppLaunchTargets).mock.lastCall?.[1]).toEqual([{ ...preview, filePath: null }]);
+  expect(vi.mocked(selectProjectLaunchItem).mock.calls.flat()).toEqual(["app", "app", "file", "app", "file"]);
 });

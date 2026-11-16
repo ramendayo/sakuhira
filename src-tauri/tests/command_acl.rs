@@ -34,6 +34,7 @@ fn application_command_acl_restricts_calls_by_window() {
         ("update_project", true, false),
         ("remove_project", true, false),
         ("select_project_directory", true, false),
+        ("select_project_launch_item", true, false),
         ("set_project_notes", true, false),
         ("open_note_link", true, false),
         ("get_git_status", true, false),

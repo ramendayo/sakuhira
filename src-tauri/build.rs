@@ -21,6 +21,7 @@ fn main() {
         "close_quick_resume",
         "open_main_window",
         "select_project_directory",
+        "select_project_launch_item",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("failed to build sakuhira's Tauri configuration");

@@ -22,7 +22,7 @@ vi.mock("../services/git", () => ({
 }));
 
 vi.mock("../services/notes", () => ({ setProjectNotes: vi.fn() }));
-vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
+vi.mock("../services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../services/launch")>(), resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 vi.mock("../services/shortcuts", () => ({
   supportsShortcuts: vi.fn(() => false),
   onShortcutsRestored: vi.fn(),

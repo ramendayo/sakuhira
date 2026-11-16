@@ -65,7 +65,8 @@ pub fn run() {
             commands::get_quick_resume_shortcut_error,
             commands::close_quick_resume,
             commands::open_main_window,
-            commands::select_project_directory
+            commands::select_project_directory,
+            commands::select_project_launch_item
         ])
         .build(tauri::generate_context!())
         .expect("failed to build sakuhira");

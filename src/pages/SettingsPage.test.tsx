@@ -10,7 +10,7 @@ import type { Settings } from "../types/settings";
 import type { Project } from "../types/project";
 
 vi.mock("../services/settings", () => ({ applyTheme: vi.fn(async () => {}), getSettings: vi.fn(), saveSettings: vi.fn() }));
-vi.mock("../services/launch", () => ({ resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
+vi.mock("../services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../services/launch")>(), resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 vi.mock("../services/projects", async (importOriginal) => ({
   ...await importOriginal<typeof import("../services/projects")>(),
   listProjects: vi.fn(async () => [{ id: "id", name: "Example", path: "/project", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } } satisfies Project]),

@@ -258,6 +258,59 @@ pub fn set_project_app_launch_targets(
     store.set_app_launch_targets(&project, targets)
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LaunchItemKind {
+    App,
+    File,
+}
+
+#[tauri::command]
+pub async fn select_project_launch_item(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    kind: LaunchItemKind,
+) -> Result<Option<String>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use crate::projects::{validated_app_path, validated_file_path};
+
+        tauri::async_runtime::spawn_blocking(move || {
+            let dialog = app.dialog().file().set_parent(&window);
+            let (dialog, validate): (_, fn(&str) -> Result<String, String>) = match kind {
+                LaunchItemKind::App => (
+                    dialog
+                        .set_title("起動するアプリを選択")
+                        .set_directory("/Applications")
+                        .add_filter("macOSアプリ", &["app"]),
+                    validated_app_path,
+                ),
+                LaunchItemKind::File => (
+                    dialog.set_title("アプリで開くファイルを選択"),
+                    validated_file_path,
+                ),
+            };
+            let Some(selected) = dialog.blocking_pick_file() else {
+                return Ok(None);
+            };
+            let path = selected
+                .into_path()
+                .map_err(|error| format!("選択したパスを取得できません: {error}"))?;
+            let path = path
+                .to_str()
+                .ok_or("選択したパスを文字列として扱えません。")?;
+            validate(path).map(Some)
+        })
+        .await
+        .map_err(|error| format!("起動先の選択を完了できません: {error}"))?
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, window, kind);
+        Err("起動先のアプリ選択は現在macOSのみ対応しています。".into())
+    }
+}
+
 #[tauri::command]
 pub async fn resume_project(
     app: tauri::AppHandle,

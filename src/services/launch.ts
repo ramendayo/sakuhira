@@ -11,6 +11,20 @@ export async function setProjectLaunchUrl(project: Project, url: string): Promis
   return invoke<Project>("set_project_launch_url", { project, url: url.trim() || null });
 }
 
+export function supportsAppLaunchTargets() {
+  return isTauri() && /Mac/.test(navigator.platform);
+}
+
+export async function selectProjectLaunchItem(kind: "app" | "file"): Promise<string | null> {
+  requireDesktop();
+  return invoke<string | null>("select_project_launch_item", { kind });
+}
+
+export async function setProjectAppLaunchTargets(project: Project, targets: AppLaunchTarget[]): Promise<Project> {
+  requireDesktop();
+  return invoke<Project>("set_project_app_launch_targets", { project, targets });
+}
+
 export async function resumeProject(project: Project): Promise<ResumeReport> {
   requireDesktop();
   return invoke<ResumeReport>("resume_project", { project });

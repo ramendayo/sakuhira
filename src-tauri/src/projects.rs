@@ -45,40 +45,44 @@ pub struct AppLaunchTarget {
 
 impl AppLaunchTarget {
     pub(crate) fn validated(self) -> Result<Self, String> {
-        let app = canonical_launch_path(&self.app_path, "アプリ")?;
-        let is_app = app
-            .extension()
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("app"))
-            && app.is_dir();
-        if !is_app {
-            return Err("macOSのアプリ（.app）を指定してください。".into());
-        }
-        let info: plist::Dictionary = plist::from_file(app.join("Contents/Info.plist"))
-            .map_err(|error| format!("アプリの情報を読み込めません: {error}"))?;
-        if info
-            .get("CFBundlePackageType")
-            .and_then(plist::Value::as_string)
-            != Some("APPL")
-        {
-            return Err("選択した項目はmacOSのアプリではありません。".into());
-        }
-
-        let file_path = self
-            .file_path
-            .map(|path| {
-                let file = canonical_launch_path(&path, "ファイル")?;
-                if !file.is_file() {
-                    return Err("ローカルファイルを指定してください。".into());
-                }
-                launch_path_string(file, "ファイル")
-            })
-            .transpose()?;
-
         Ok(Self {
-            app_path: launch_path_string(app, "アプリ")?,
-            file_path,
+            app_path: validated_app_path(&self.app_path)?,
+            file_path: self
+                .file_path
+                .as_deref()
+                .map(validated_file_path)
+                .transpose()?,
         })
     }
+}
+
+pub(crate) fn validated_app_path(path: &str) -> Result<String, String> {
+    let app = canonical_launch_path(path, "アプリ")?;
+    let is_app = app
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("app"))
+        && app.is_dir();
+    if !is_app {
+        return Err("macOSのアプリ（.app）を指定してください。".into());
+    }
+    let info: plist::Dictionary = plist::from_file(app.join("Contents/Info.plist"))
+        .map_err(|error| format!("アプリの情報を読み込めません: {error}"))?;
+    if info
+        .get("CFBundlePackageType")
+        .and_then(plist::Value::as_string)
+        != Some("APPL")
+    {
+        return Err("選択した項目はmacOSのアプリではありません。".into());
+    }
+    launch_path_string(app, "アプリ")
+}
+
+pub(crate) fn validated_file_path(path: &str) -> Result<String, String> {
+    let file = canonical_launch_path(path, "ファイル")?;
+    if !file.is_file() {
+        return Err("ローカルファイルを指定してください。".into());
+    }
+    launch_path_string(file, "ファイル")
 }
 
 fn canonical_launch_path(path: &str, label: &str) -> Result<PathBuf, String> {

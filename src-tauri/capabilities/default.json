@@ -26,6 +26,7 @@
     "allow-get-shortcut-errors",
     "allow-set-quick-resume-shortcut",
     "allow-get-quick-resume-shortcut-error",
-    "allow-select-project-directory"
+    "allow-select-project-directory",
+    "allow-select-project-launch-item"
   ]
 }
