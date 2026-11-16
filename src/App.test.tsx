@@ -28,3 +28,34 @@ it("returns the main window from settings to the project list on request", async
   await act(() => emit("show-project-list"));
   expect(await screen.findByRole("heading", { name: "プロジェクト", level: 1 })).toBeTruthy();
 });
+
+it("shows per-target launch errors from a project shortcut", async () => {
+  vi.stubGlobal("isTauri", true);
+  mockIPC((command) => {
+    if (command === "get_settings") {
+      return { theme: "light", defaultEditor: "vsCode", projectOrder: defaultProjectOrder, projectView: defaultProjectView };
+    }
+    if (command === "list_projects") return [];
+  }, { shouldMockEvents: true });
+
+  const user = userEvent.setup();
+  render(<App />);
+  await act(() => emit("project-shortcut-launch-failed", {
+    projectName: "開発",
+    result: { Ok: {
+      editorName: "VS Code",
+      editor: { status: "success" },
+      browser: null,
+      apps: [
+        { target: { appPath: "/Applications/Preview.app", filePath: "/work/仕様書.pdf" }, outcome: { status: "error", message: "ファイルが見つかりません。" } },
+        { target: { appPath: "/Applications/Slack.app", filePath: null }, outcome: { status: "success" } },
+      ],
+      history: { status: "saved", timestamp: 100 },
+    } },
+  }));
+  expect(screen.getByRole("alert").textContent).toContain("「開発」をショートカットで再開");
+  expect(screen.getByRole("alert").textContent).toContain("Preview（仕様書.pdf）：ファイルが見つかりません。");
+  expect(screen.getByRole("alert").textContent).not.toContain("Slack");
+  await user.click(screen.getByRole("button", { name: "通知を閉じる" }));
+  expect(screen.queryByRole("alert")).toBeNull();
+});

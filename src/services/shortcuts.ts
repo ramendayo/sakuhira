@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { ResumeReport } from "../types/launch";
 import type { Settings } from "../types/settings";
 
 export type ShortcutIssue = { projectId: string; reason: string };
@@ -19,6 +20,12 @@ export function onShortcutsRestored(handler: () => void) {
 
 export function onShortcutResume(handler: (resume: ShortcutResume) => void) {
   return listen<ShortcutResume>("project-shortcut-resumed", ({ payload }) => handler(payload));
+}
+
+type ShortcutLaunchFailure = { projectName: string; result: { Ok: ResumeReport } | { Err: string } };
+
+export function onShortcutLaunchFailure(handler: (failure: ShortcutLaunchFailure) => void) {
+  return listen<ShortcutLaunchFailure>("project-shortcut-launch-failed", ({ payload }) => handler(payload), { target: "main" });
 }
 
 export function onCapturedShortcut(handler: (shortcut: string) => void) {

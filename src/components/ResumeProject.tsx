@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Icon from "./Icon";
-import { resumeProject } from "../services/launch";
+import { appLaunchTargetLabel, resumeProject } from "../services/launch";
 import { errorMessage } from "../services/projects";
 import type { Project } from "../types/project";
 import type { LaunchOutcome, ResumeReport } from "../types/launch";
@@ -47,6 +47,9 @@ function ResumeAction({ project, onResumed }: ResumeProjectProps) {
         {report && <>
           {report.editor ? <Outcome name={report.editorName} result={report.editor} /> : <p className="text-muted">URLのみのため、エディタは開きませんでした。</p>}
           {report.browser ? <Outcome name="ブラウザ" result={report.browser} /> : <p role="status" className="text-muted">URL未設定のため、ブラウザは開きませんでした。</p>}
+          {report.apps?.map(({ target, outcome }, index) => (
+            <Outcome key={index} name={appLaunchTargetLabel(target)} result={outcome} />
+          ))}
           <p className="text-muted">起動先での読み込み完了は確認していません。</p>
           {report.history.status === "error" && <p role="alert" className="text-danger">最終再開日時を保存できませんでした：{report.history.message}</p>}
         </>}

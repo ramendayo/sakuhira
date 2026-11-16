@@ -7,9 +7,8 @@ import SettingsProvider from "../components/SettingsProvider";
 import { useAppearance } from "../hooks/useAppearance";
 import { useProjects } from "../hooks/useProjects";
 import { useSettings } from "../hooks/useSettings";
-import { resumeProject } from "../services/launch";
+import { resumeErrorMessages, resumeProject } from "../services/launch";
 import { errorMessage } from "../services/projects";
-import type { ResumeReport } from "../types/launch";
 import type { Project } from "../types/project";
 import { quickResumeCandidates } from "../utils/projectOrder";
 
@@ -158,14 +157,6 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
       </footer>
     </main>
   );
-}
-
-function resumeErrorMessages(report: ResumeReport): string[] {
-  const errors: string[] = [];
-  if (report.editor?.status === "error") errors.push(`${report.editorName}：${report.editor.message}`);
-  if (report.browser?.status === "error") errors.push(`ブラウザ：${report.browser.message}`);
-  if (report.history.status === "error") errors.push(`最終再開日時を保存できませんでした：${report.history.message}`);
-  return errors;
 }
 
 function QuickResumeContent() {

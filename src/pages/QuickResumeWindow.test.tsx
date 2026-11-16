@@ -108,8 +108,11 @@ it("resumes a clicked candidate and retains the query and selection after a part
   await user.keyboard("{Enter}");
   expect(screen.getByRole("status").textContent).toBe("起動中…");
   expect(resume).toHaveBeenCalledExactlyOnceWith({ project: other });
-  await act(async () => finish({ ...success, browser: { status: "error", message: "起動先を開けませんでした。" } }));
-  expect(screen.getByRole("alert").textContent).toBe("ブラウザ：起動先を開けませんでした。");
+  await act(async () => finish({ ...success, apps: [{
+    target: { appPath: "/Applications/Preview.app", filePath: "/work/仕様書.pdf" },
+    outcome: { status: "error", message: "起動先を開けませんでした。" },
+  }] }));
+  expect(screen.getByRole("alert").textContent).toBe("Preview（仕様書.pdf）：起動先を開けませんでした。");
   expect(input.value).toBe("開発");
   expect(screen.getByRole("option", { name: /開発ガイド/, selected: true })).toBeTruthy();
   await user.keyboard("{Enter}");

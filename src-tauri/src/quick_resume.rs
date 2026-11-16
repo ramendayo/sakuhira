@@ -1,5 +1,5 @@
 use crate::{
-    launch::{self, LaunchOutcome, ResumeHistory, ResumeReport},
+    launch::{self, ResumeHistory, ResumeReport},
     projects::Project,
 };
 use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication, NSWorkspace};
@@ -133,11 +133,7 @@ pub async fn resume(window: &WebviewWindow, project: Project) -> Result<ResumeRe
 }
 
 fn resume_completed(report: &ResumeReport) -> bool {
-    matches!(report.history, ResumeHistory::Saved { .. })
-        && [&report.editor, &report.browser]
-            .into_iter()
-            .flatten()
-            .all(|outcome| *outcome == LaunchOutcome::Success)
+    matches!(report.history, ResumeHistory::Saved { .. }) && !report.has_errors()
 }
 
 pub fn open_main_window(window: &WebviewWindow) -> Result<(), String> {
@@ -195,6 +191,7 @@ fn frontmost_pid() -> Option<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::launch::LaunchOutcome;
 
     #[test]
     fn only_a_focused_presentation_can_close_on_focus_loss() {
@@ -236,6 +233,7 @@ mod tests {
                 message: "ブラウザの起動に失敗しました。".into(),
             }),
             history: ResumeHistory::Saved { timestamp: 100 },
+            apps: Vec::new(),
         };
         assert!(!resume_completed(&report));
         report.browser = Some(LaunchOutcome::Success);
@@ -247,5 +245,15 @@ mod tests {
         report.editor = None;
         report.history = ResumeHistory::Saved { timestamp: 101 };
         assert!(resume_completed(&report));
+        report.apps.push(crate::launch::AppLaunchOutcome {
+            target: crate::projects::AppLaunchTarget {
+                app_path: "/Applications/Preview.app".into(),
+                file_path: Some("/tmp/missing.pdf".into()),
+            },
+            outcome: LaunchOutcome::Error {
+                message: "ファイルが見つかりません。".into(),
+            },
+        });
+        assert!(!resume_completed(&report));
     }
 }

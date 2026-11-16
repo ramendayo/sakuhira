@@ -44,7 +44,7 @@ pub struct AppLaunchTarget {
 }
 
 impl AppLaunchTarget {
-    fn validated(self) -> Result<Self, String> {
+    pub(crate) fn validated(self) -> Result<Self, String> {
         let app = canonical_launch_path(&self.app_path, "アプリ")?;
         let is_app = app
             .extension()

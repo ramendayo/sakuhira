@@ -199,10 +199,8 @@ mod runtime {
                 })
                 .await;
                 let Ok(Some(project)) = project else { return };
-                let Ok(report) = launch::resume_and_record(app.clone(), project).await else {
-                    return;
-                };
-                launch::notify_shortcut_resume(&app, &project_id, &report.history);
+                let result = launch::resume_and_record(app.clone(), project.clone()).await;
+                launch::notify_project_shortcut_result(&app, &project, &result);
             });
         }
     }

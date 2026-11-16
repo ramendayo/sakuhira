@@ -2,6 +2,15 @@ use super::*;
 use std::{cell::Cell, fs};
 use tempfile::tempdir;
 
+fn resume_with(
+    project: &Project,
+    selected: Editor,
+    editor: impl FnOnce(&str) -> Result<(), String>,
+    browser: impl FnOnce(&str) -> Result<(), String>,
+) -> Result<ResumeReport, String> {
+    resume_with_apps(project, selected, editor, browser, |_| unreachable!())
+}
+
 fn project(path: &Path, url: Option<&str>) -> Project {
     Project {
         id: "fixture".into(),
@@ -186,6 +195,7 @@ fn sends_canonical_folder_and_url_to_separate_launchers() {
             editor_name: "VS Code".into(),
             editor: Some(LaunchOutcome::Success),
             browser: Some(LaunchOutcome::Success),
+            apps: Vec::new(),
             history: ResumeHistory::Skipped,
         }
     );
@@ -289,4 +299,80 @@ fn selected_editor_is_invoked_and_named_in_the_report() {
     .unwrap();
     assert_eq!(report.editor_name, "Cursor");
     assert_eq!(report.editor, Some(LaunchOutcome::Success));
+}
+
+#[test]
+fn app_targets_continue_after_missing_paths_and_os_rejections() {
+    let root = tempdir().unwrap();
+    let app = root.path().join("Preview.app");
+    fs::create_dir_all(app.join("Contents")).unwrap();
+    let mut info = plist::Dictionary::new();
+    info.insert("CFBundlePackageType".into(), "APPL".into());
+    plist::to_file_xml(app.join("Contents/Info.plist"), &info).unwrap();
+    let denied = root.path().join("denied.pdf");
+    let document = root.path().join("仕様書.pdf");
+    fs::write(&denied, "").unwrap();
+    fs::write(&document, "").unwrap();
+
+    let target = |app: &Path, file: Option<&Path>| AppLaunchTarget {
+        app_path: app.to_str().unwrap().into(),
+        file_path: file.map(|path| path.to_str().unwrap().into()),
+    };
+    let mut project = project(root.path(), Some("https://example.com"));
+    project.app_launch_targets = vec![
+        target(&root.path().join("Missing.app"), None),
+        target(&app, Some(&root.path().join("missing.pdf"))),
+        target(&app, Some(&denied)),
+        target(&app, None),
+        target(&app, Some(&document)),
+    ];
+    let mut calls = Vec::new();
+    let report = resume_with_apps(
+        &project,
+        Editor::VsCode,
+        |_| Ok(()),
+        |_| Ok(()),
+        |target| {
+            calls.push(target.clone());
+            if target
+                .file_path
+                .as_deref()
+                .is_some_and(|path| path.ends_with("/denied.pdf"))
+            {
+                return Err("起動要求が拒否されました".into());
+            }
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    let canonical = |p: &Path| p.canonicalize().unwrap();
+    assert_eq!(
+        calls,
+        [
+            target(&canonical(&app), Some(&canonical(&denied))),
+            target(&canonical(&app), None),
+            target(&canonical(&app), Some(&canonical(&document))),
+        ]
+    );
+    assert_eq!(report.editor, Some(LaunchOutcome::Success));
+    assert_eq!(report.browser, Some(LaunchOutcome::Success));
+    assert!(report.has_errors());
+    assert_eq!(
+        report.apps[2].outcome,
+        LaunchOutcome::Error {
+            message: "起動要求が拒否されました".into()
+        }
+    );
+    for (index, result) in report.apps.iter().enumerate() {
+        assert_eq!(result.target, project.app_launch_targets[index]);
+        assert_eq!(result.outcome == LaunchOutcome::Success, index >= 3);
+    }
+
+    let payload = serde_json::to_value(&report).unwrap();
+    assert_eq!(
+        payload["apps"][4]["target"]["filePath"],
+        document.to_str().unwrap()
+    );
+    assert_eq!(payload["apps"][4]["outcome"]["status"], "success");
 }
