@@ -46,8 +46,18 @@ export function shortcutRegistrationError(error: unknown): string | null {
   return null;
 }
 
+export function appLaunchTargetRegistrationError(error: unknown): { index: number; message: string } | null {
+  if (typeof error === "object" && error !== null &&
+    "field" in error && error.field === "appLaunchTargets" &&
+    "index" in error && typeof error.index === "number" &&
+    "message" in error && typeof error.message === "string") {
+    return { index: error.index, message: error.message };
+  }
+  return null;
+}
+
 export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
-  return shortcutRegistrationError(error) ?? "予期しないエラーが発生しました。もう一度お試しください。";
+  return shortcutRegistrationError(error) ?? appLaunchTargetRegistrationError(error)?.message ?? "予期しないエラーが発生しました。もう一度お試しください。";
 }

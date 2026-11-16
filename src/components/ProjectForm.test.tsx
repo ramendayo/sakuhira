@@ -173,47 +173,58 @@ it("previews independent icon choices and keeps the draft after a failed save", 
 it("registers app and file targets with the project and keeps them for retry", async () => {
   const preview = { appPath: "/System/Applications/Preview.app", filePath: "/work/仕様書.pdf" };
   const slack = { appPath: "/Applications/Slack.app", filePath: null };
+  const correctedPreview = { ...preview, filePath: "/work/新しい仕様書.pdf" };
   const saved: Project = {
     id: "docs", name: "Docs", path: null, launchUrl: "https://example.com/",
-    appLaunchTargets: [preview, slack], lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null },
+    appLaunchTargets: [correctedPreview, slack], lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null },
   };
   vi.mocked(launch.supportsAppLaunchTargets).mockReturnValue(true);
   vi.mocked(launch.selectProjectLaunchItem)
     .mockResolvedValueOnce(preview.appPath)
     .mockResolvedValueOnce(preview.filePath)
-    .mockResolvedValueOnce(slack.appPath);
-  vi.mocked(api.addProject).mockRejectedValueOnce("起動先のファイルが見つかりません。").mockResolvedValueOnce(saved);
+    .mockResolvedValueOnce(slack.appPath)
+    .mockResolvedValueOnce(correctedPreview.filePath);
+  vi.mocked(api.addProject).mockRejectedValueOnce({ field: "appLaunchTargets", index: 0, message: "起動先のファイルが見つかりません。" }).mockResolvedValueOnce(saved);
 
   const user = userEvent.setup();
   const onSaved = vi.fn();
   render(<ProjectForm onSaved={onSaved} onCancel={vi.fn()} />);
   await user.type(screen.getByLabelText("プロジェクト名"), saved.name);
   await user.type(screen.getByLabelText("起動URL（任意）"), saved.launchUrl!);
-  await user.click(screen.getByText("再開時に開くアプリ（任意）"));
+  const disclosure = screen.getByRole("button", { name: "オプション設定（任意）", expanded: false });
+  await user.click(disclosure);
   const add = () => user.click(screen.getByRole("button", { name: "アプリを追加" }));
   const saveTarget = () => user.click(screen.getByRole("button", { name: "起動先を追加" }));
   const register = () => user.click(screen.getByRole("button", { name: "登録する" }));
 
   await add();
   await user.click(screen.getByRole("button", { name: "ファイルを選択（任意）" }));
+  await user.click(disclosure);
   await register();
+  expect(disclosure.getAttribute("aria-expanded")).toBe("true");
   expect(screen.getByRole("alert").textContent).toContain("編集中の起動先");
   expect(api.addProject).not.toHaveBeenCalled();
   await saveTarget();
   await add();
   await saveTarget();
-  await user.click(screen.getByText("再開時に開くアプリ（任意） · 2件"));
+  await user.click(disclosure);
+  expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+  expect(within(disclosure).getByText("アプリ 2件")).toBeTruthy();
+  expect(screen.queryByRole("group", { name: "再開時に開くアプリ" })).toBeNull();
   await register();
 
   expect(api.addProject).toHaveBeenNthCalledWith(1, saved.name, null, saved.launchUrl, { appLaunchTargets: [preview, slack] });
-  expect(await screen.findByText("起動先のファイルが見つかりません。")).toBeTruthy();
+  expect(await screen.findByText("Preview（仕様書.pdf）：起動先のファイルが見つかりません。")).toBeTruthy();
   expect(onSaved).not.toHaveBeenCalled();
-  await user.click(screen.getByText("再開時に開くアプリ（任意） · 2件"));
+  expect(disclosure.getAttribute("aria-expanded")).toBe("true");
   expect(screen.getByRole("button", { name: "Preview（仕様書.pdf）を変更" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Slackを削除" })).toBeTruthy();
   expect((screen.getByLabelText("プロジェクト名") as HTMLInputElement).value).toBe(saved.name);
+  await user.click(screen.getByRole("button", { name: "Preview（仕様書.pdf）を変更" }));
+  await user.click(screen.getByRole("button", { name: "ファイルを選び直す" }));
+  await user.click(screen.getByRole("button", { name: "変更を反映" }));
   await register();
-  expect(api.addProject).toHaveBeenNthCalledWith(2, saved.name, null, saved.launchUrl, { appLaunchTargets: [preview, slack] });
+  expect(api.addProject).toHaveBeenNthCalledWith(2, saved.name, null, saved.launchUrl, { appLaunchTargets: [correctedPreview, slack] });
   await waitFor(() => expect(onSaved).toHaveBeenCalledWith(saved));
 });
 

@@ -1,7 +1,7 @@
 import { useCallback, useId, useState } from "react";
 import type { FormEvent } from "react";
-import { addProject, errorMessage, selectProjectDirectory, shortcutRegistrationError, updateProject } from "../services/projects";
-import { supportsAppLaunchTargets } from "../services/launch";
+import { addProject, appLaunchTargetRegistrationError, errorMessage, selectProjectDirectory, shortcutRegistrationError, updateProject } from "../services/projects";
+import { appLaunchTargetLabel, supportsAppLaunchTargets } from "../services/launch";
 import { supportsShortcuts } from "../services/shortcuts";
 import type { AppLaunchTarget, Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
 import ProjectAppLaunchTargets from "./ProjectAppLaunchTargets";
@@ -23,6 +23,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
   const [path, setPath] = useState(project?.path ?? "");
   const [launchUrl, setLaunchUrl] = useState("");
   const [appLaunchTargets, setAppLaunchTargets] = useState<AppLaunchTarget[]>([]);
+  const [appError, setAppError] = useState<{ index?: number; message: string } | null>(null);
   const [appDraftOpen, setAppDraftOpen] = useState(false);
   const [appsBusy, setAppsBusy] = useState(false);
   const [shortcut, setShortcut] = useState<string | null | undefined>(undefined);
@@ -74,7 +75,8 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     event.preventDefault();
     if (pending || appsBusy) return;
     if (appDraftOpen) {
-      setError("編集中の起動先を確定するか、キャンセルしてください。");
+      setOptionsOpen(true);
+      setAppError({ message: "編集中の起動先を確定するか、キャンセルしてください。" });
       return;
     }
     if (!name.trim()) {
@@ -87,6 +89,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     }
     setError(null);
     setShortcutError(null);
+    setAppError(null);
     setPending("saving");
     try {
       const hasOptions = customIcon || selectedShortcut !== null || appLaunchTargets.length > 0;
@@ -99,10 +102,14 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
         : await addProject(name.trim(), path || null, launchUrl, ...(hasOptions ? [registrationOptions] : []));
       onSaved(saved);
     } catch (error) {
+      const appFailure = !project ? appLaunchTargetRegistrationError(error) : null;
       const shortcutFailure = !project && canSetShortcut ? shortcutRegistrationError(error) : null;
       if (shortcutFailure) {
         setOptionsOpen(true);
         setShortcutError(shortcutFailure);
+      } else if (appFailure) {
+        setOptionsOpen(true);
+        setAppError(appFailure);
       } else {
         setError(errorMessage(error));
       }
@@ -111,21 +118,32 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     }
   }
 
-  const appearanceFields = <>
-    <ProjectIconField
-      path={previewPath}
-      appearance={appearance}
-      onCustomChange={changeIconMode}
-      onShapeChange={setIconShape}
-      onColorChange={setIconColor}
-    />
-    {canSetShortcut && <ProjectShortcutField
-      shortcut={selectedShortcut}
-      onChange={changeShortcut}
-      saveError={shortcutError}
-    />}
-  </>;
-  const showOptionsSummary = !optionsOpen && (customIcon || selectedShortcut !== null);
+  const iconField = <ProjectIconField
+    path={previewPath}
+    appearance={appearance}
+    compact={!project}
+    onCustomChange={changeIconMode}
+    onShapeChange={setIconShape}
+    onColorChange={setIconColor}
+  />;
+  const shortcutField = canSetShortcut && <ProjectShortcutField
+    shortcut={selectedShortcut}
+    compact={!project}
+    legend={project ? undefined : "再開ショートカット"}
+    onChange={changeShortcut}
+    saveError={shortcutError}
+  />;
+  const showOptionsSummary = !optionsOpen && (customIcon || selectedShortcut !== null || appLaunchTargets.length > 0);
+  const failedTarget = appError?.index === undefined ? undefined : appLaunchTargets[appError.index];
+
+  const actions = (
+    <div className="flex flex-wrap justify-end gap-3">
+      <button type="button" onClick={onCancel} className="button-secondary">キャンセル</button>
+      <button type="submit" className="button-primary">
+        {pending === "saving" ? "保存中…" : project ? "変更を保存" : "登録する"}
+      </button>
+    </div>
+  );
 
   return (
     <form
@@ -166,64 +184,66 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
               {pending === "picking" ? "選択中…" : "フォルダを選択"}
             </button>
           </div>
-          <p className="mt-2 text-xs leading-6 text-muted">起動URLを設定する場合は空欄にできます。フォルダなしではエディタを開きません。</p>
+          <p className="mt-2 text-xs leading-6 text-muted">起動URLを設定する場合は空欄にできます。フォルダなしではエディタを開きません。フォルダ内のファイルは変更されません。</p>
         </div>
         {!project && <div>
           <label htmlFor={`${id}-launch-url`} className="field-label">起動URL（任意）</label>
           <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => setLaunchUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="field" />
           <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-muted">フォルダがない場合は必須です。HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
         </div>}
-        {!project && supportsAppLaunchTargets() && (
-          <details className="rounded-lg border border-line px-3 py-2">
-            <summary className="cursor-pointer rounded-sm text-sm font-medium text-ink">
-              再開時に開くアプリ（任意）{appLaunchTargets.length > 0 && ` · ${appLaunchTargets.length}件`}
-            </summary>
-            <ProjectAppLaunchTargets
-              targets={appLaunchTargets}
-              disabled={pending !== null || appsBusy}
-              onBusyChange={setAppsBusy}
-              onChange={setAppLaunchTargets}
-              onDraftChange={setAppDraftOpen}
-              deferred
-            />
-          </details>
-        )}
-        {project && appearanceFields}
-        <p className="text-xs leading-6 text-muted">フォルダ内のファイルは変更されません。</p>
-        {!project && (
+        {project && <>{iconField}{shortcutField}</>}
+        {project ? actions : (
           <div className="space-y-3">
-            <button
-              type="button"
-              aria-expanded={optionsOpen}
-              aria-controls={`${id}-optional-settings`}
-              aria-labelledby={`${id}-optional-label`}
-              aria-describedby={showOptionsSummary ? `${id}-optional-summary` : undefined}
-              onClick={() => setOptionsOpen((open) => !open)}
-              className="button-secondary w-full justify-start text-left"
-            >
-              <span id={`${id}-optional-label`}>アイコン・再開ショートカット（任意）</span>
-              {showOptionsSummary && (
-                <span id={`${id}-optional-summary`} className="ml-auto flex shrink-0 items-center gap-2">
-                  {customIcon && <>
-                    <span className="sr-only">カスタムアイコン設定済み</span>
-                    <ProjectIcon path={previewPath} appearance={appearance} compact />
-                  </>}
-                  {selectedShortcut && <kbd className="text-xs text-muted">{shortcutLabel(selectedShortcut)}</kbd>}
-                </span>
-              )}
-              <span aria-hidden="true" className={`size-2 shrink-0 border-b border-r border-current ${showOptionsSummary ? "" : "ml-auto"} ${optionsOpen ? "rotate-[225deg]" : "rotate-45"}`} />
-            </button>
-            <div id={`${id}-optional-settings`} hidden={!optionsOpen} className="space-y-3">
-              {optionsOpen && appearanceFields}
+            <div className="rounded-lg border border-line">
+              <button
+                type="button"
+                aria-expanded={optionsOpen}
+                aria-controls={`${id}-optional-settings`}
+                aria-labelledby={`${id}-optional-label`}
+                aria-describedby={showOptionsSummary ? `${id}-optional-summary` : undefined}
+                onClick={() => setOptionsOpen((open) => !open)}
+                className="button-quiet w-full flex-wrap justify-start px-3 py-2 text-left text-ink"
+              >
+                <span id={`${id}-optional-label`}>オプション設定（任意）</span>
+                {showOptionsSummary && (
+                  <span id={`${id}-optional-summary`} className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+                    {customIcon && <>
+                      <span className="sr-only">カスタムアイコン設定済み</span>
+                      <ProjectIcon path={previewPath} appearance={appearance} compact />
+                    </>}
+                    {selectedShortcut && <kbd className="text-xs text-muted">{shortcutLabel(selectedShortcut)}</kbd>}
+                    {appLaunchTargets.length > 0 && <span className="text-xs text-muted">アプリ {appLaunchTargets.length}件</span>}
+                  </span>
+                )}
+                <span aria-hidden="true" className={`size-2 shrink-0 border-b border-r border-current ${showOptionsSummary ? "" : "ml-auto"} ${optionsOpen ? "rotate-[225deg]" : "rotate-45"}`} />
+              </button>
+              <div id={`${id}-optional-settings`} hidden={!optionsOpen} className="divide-y divide-line border-t border-line px-3">
+                <div className="py-3">{iconField}</div>
+                {canSetShortcut && <div className="py-3">{optionsOpen && shortcutField}</div>}
+                {supportsAppLaunchTargets() && (
+                  <div className="py-3">
+                    <ProjectAppLaunchTargets
+                      targets={appLaunchTargets}
+                      disabled={pending !== null || appsBusy}
+                      onBusyChange={setAppsBusy}
+                      onChange={(targets) => { setAppLaunchTargets(targets); setAppError(null); }}
+                      onDraftChange={(editing) => {
+                        setAppDraftOpen(editing);
+                        if (!editing) setAppError((current) => current?.index === undefined ? null : current);
+                      }}
+                      compact
+                      deferred
+                    />
+                    {appError && <p role="alert" className="mt-2 break-words text-sm text-danger">
+                      {failedTarget && `${appLaunchTargetLabel(failedTarget)}：`}{appError.message}
+                    </p>}
+                  </div>
+                )}
+              </div>
             </div>
+            {actions}
           </div>
         )}
-        <div className="flex flex-wrap justify-end gap-3">
-          <button type="button" onClick={onCancel} className="button-secondary">キャンセル</button>
-          <button type="submit" className="button-primary">
-            {pending === "saving" ? "保存中…" : project ? "変更を保存" : "登録する"}
-          </button>
-        </div>
       </fieldset>
       {error && <p role="alert" className="mt-4 break-words text-sm leading-6 text-danger">{error}</p>}
     </form>

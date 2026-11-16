@@ -297,7 +297,7 @@ describe("project registration", () => {
     let finishSave!: (value: Project) => void;
     vi.mocked(api.addProject).mockImplementation(() => new Promise((resolve) => { finishSave = resolve; }));
     const user = await openForm();
-    expect(screen.getByRole("button", { name: "アイコン・再開ショートカット（任意）", expanded: false })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "オプション設定（任意）", expanded: false })).toBeTruthy();
     expect(screen.queryByRole("group", { name: "アイコン" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "フォルダを選択" }));
     expect((screen.getByLabelText("フォルダ") as HTMLInputElement).value).toBe(project.path);
@@ -340,9 +340,10 @@ describe("project registration", () => {
     await user.type(folder, project.path);
     await user.type(urlField, url);
 
-    const disclosure = screen.getByRole("button", { name: "アイコン・再開ショートカット（任意）", expanded: false });
+    const disclosure = screen.getByRole("button", { name: "オプション設定（任意）", expanded: false });
     disclosure.focus();
     await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: "アイコンを変更" }));
     await user.click(screen.getByRole("radio", { name: "カスタム" }));
     expect(screen.getByRole("radio", { name: "フォルダ", checked: true })).toBeTruthy();
     await user.click(within(screen.getByRole("group", { name: "形" })).getByText("コード"));
@@ -364,7 +365,7 @@ describe("project registration", () => {
     const submit = screen.getByRole("button", { name: "登録する" });
     await user.click(submit);
     expect(api.addProject).toHaveBeenNthCalledWith(1, project.name, project.path, url, { icon, shortcut: "Control+KeyJ" });
-    const shortcutField = within(screen.getByRole("group", { name: "グローバルショートカット" }));
+    const shortcutField = within(screen.getByRole("group", { name: "再開ショートカット" }));
     expect(disclosure.getAttribute("aria-expanded")).toBe("true");
     expect(shortcutField.getByRole("alert").textContent).toBe(conflict);
     expect(document.activeElement).toBe(shortcutField.getByRole("button", { name: "キーを入力" }));
@@ -379,7 +380,7 @@ describe("project registration", () => {
     expect(shortcutField.queryByRole("alert")).toBeNull();
     await capture("k");
     await user.click(submit);
-    expect(shortcutField.getByRole("alert").textContent).toBe(osError);
+    expect(screen.getByRole("group", { name: "再開ショートカット" }).textContent).toContain(osError);
     expect(screen.getByText("0 件")).toBeTruthy();
     await user.click(submit);
     expect(api.addProject).toHaveBeenLastCalledWith(project.name, project.path, url, { icon, shortcut: saved.shortcut });

@@ -108,6 +108,11 @@ pub enum ProjectRegistrationError {
         field: &'static str,
         message: String,
     },
+    AppLaunchTarget {
+        field: &'static str,
+        index: usize,
+        message: String,
+    },
 }
 
 impl ProjectRegistrationError {
@@ -368,7 +373,16 @@ impl ProjectStore {
         validate_launch_target(path.as_deref(), launch_url.as_deref())?;
         let app_launch_targets = app_launch_targets
             .into_iter()
-            .map(AppLaunchTarget::validated)
+            .enumerate()
+            .map(|(index, target)| {
+                target
+                    .validated()
+                    .map_err(|message| ProjectRegistrationError::AppLaunchTarget {
+                        field: "appLaunchTargets",
+                        index,
+                        message,
+                    })
+            })
             .collect::<Result<_, _>>()?;
         self.change(|projects| {
             if path.is_some() && projects.iter().any(|project| project.path == path) {

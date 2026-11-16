@@ -119,7 +119,10 @@ fn registration_saves_app_targets_atomically_with_other_options() {
             ],
         )
     };
-    assert!(register().is_err());
+    let error = serde_json::to_value(register().unwrap_err()).unwrap();
+    assert_eq!(error["field"], "appLaunchTargets");
+    assert_eq!(error["index"], 0);
+    assert!(error["message"].as_str().unwrap().contains("ファイル"));
     assert!(store.list().unwrap().is_empty());
     assert!(!data.join("projects.json").exists());
 
