@@ -13,9 +13,10 @@ type Props = {
   onChange: (shortcut: string | null) => void;
   saveError?: string | null;
   legend?: string;
+  compact?: boolean;
 };
 
-export default function ProjectShortcutField({ shortcut, onChange, saveError, legend = "グローバルショートカット" }: Props) {
+export default function ProjectShortcutField({ shortcut, onChange, saveError, legend = "グローバルショートカット", compact }: Props) {
   const id = useId();
   const [capturing, setCapturing] = useState(false);
   const [ready, setReady] = useState(false);
@@ -23,6 +24,7 @@ export default function ProjectShortcutField({ shortcut, onChange, saveError, le
   const active = useRef(false);
   const captureButton = useRef<HTMLButtonElement>(null);
   const feedback = error ?? saveError;
+  const showGuide = !compact || capturing;
   const feedbackId = feedback ? `${id}-error` : undefined;
 
   useEffect(() => {
@@ -103,24 +105,27 @@ export default function ProjectShortcutField({ shortcut, onChange, saveError, le
   }
 
   return (
-    <fieldset aria-describedby={feedbackId} className="space-y-3 rounded-xl border border-line p-4">
-      <legend className="px-1 text-sm font-medium">{legend}</legend>
-      <div className="flex flex-wrap items-center gap-3">
-        <span aria-live="polite" className="text-sm">{shortcut ? <kbd>{shortcutLabel(shortcut)}</kbd> : "未設定"}</span>
-        <button ref={captureButton} type="button" className="button-secondary" aria-pressed={capturing}
-          aria-describedby={feedbackId ? `${id} ${feedbackId}` : id}
-          onBlur={stop} onKeyDown={captureKey} onClick={(event) => {
-            if (capturing) { stop(); return; }
-            event.currentTarget.focus();
-            setError(null);
-            active.current = true;
-            setCapturing(true);
-          }}>
-          {capturing ? (ready ? "キーを入力してください" : "入力を準備中…") : "キーを入力"}
-        </button>
-        {shortcut && <button type="button" className="button-quiet" onClick={() => { setError(null); onChange(null); }}>ショートカットを解除</button>}
+    <fieldset aria-describedby={feedbackId} className={compact ? "min-w-0 space-y-3" : "space-y-3 rounded-xl border border-line p-4"}>
+      <legend className={compact ? "sr-only" : "px-1 text-sm font-medium"}>{legend}</legend>
+      <div className={compact ? "project-option-row" : undefined}>
+        {compact && <span aria-hidden="true" className="text-sm font-medium text-ink">{legend}</span>}
+        <div className={compact ? "project-option-actions" : "flex flex-wrap items-center gap-3"}>
+          <span aria-live="polite" className="text-sm">{shortcut ? <kbd>{shortcutLabel(shortcut)}</kbd> : "未設定"}</span>
+          <button ref={captureButton} type="button" className="button-secondary" aria-pressed={capturing}
+            aria-describedby={showGuide ? [id, feedbackId].filter(Boolean).join(" ") : feedbackId}
+            onBlur={stop} onKeyDown={captureKey} onClick={(event) => {
+              if (capturing) { stop(); return; }
+              event.currentTarget.focus();
+              setError(null);
+              active.current = true;
+              setCapturing(true);
+            }}>
+            {capturing ? (ready ? "キーを入力してください" : "入力を準備中…") : "キーを入力"}
+          </button>
+          {shortcut && <button type="button" className="button-quiet" onClick={() => { setError(null); onChange(null); }}>ショートカットを解除</button>}
+        </div>
       </div>
-      <p id={id} className="text-xs leading-6 text-muted">⌘・⌃・⌥のいずれかと英字・数字・F1〜F12を押します。Escで入力を終了できます。</p>
+      {showGuide && <p id={id} className="text-xs leading-6 text-muted">⌘・⌃・⌥のいずれかと英字・数字・F1〜F12を押します。Escで入力を終了できます。</p>}
       {feedback && <p id={feedbackId} role="alert" className="text-sm text-danger">{feedback}</p>}
     </fieldset>
   );

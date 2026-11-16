@@ -2,6 +2,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ProjectForm from "./ProjectForm";
+import ProjectAppLaunchTargets from "./ProjectAppLaunchTargets";
+import ProjectIconField from "./ProjectIconField";
 import ProjectShortcutField from "./ProjectShortcutField";
 import * as launch from "../services/launch";
 import * as api from "../services/projects";
@@ -213,4 +215,58 @@ it("registers app and file targets with the project and keeps them for retry", a
   await register();
   expect(api.addProject).toHaveBeenNthCalledWith(2, saved.name, null, saved.launchUrl, { appLaunchTargets: [preview, slack] });
   await waitFor(() => expect(onSaved).toHaveBeenCalledWith(saved));
+});
+
+it("opens the compact icon editor with the keyboard and selects a custom shape", async () => {
+  const onCustomChange = vi.fn();
+  const onShapeChange = vi.fn();
+  const user = userEvent.setup();
+  render(<ProjectIconField path={null} appearance={{ mode: "auto" }} compact
+    onCustomChange={onCustomChange} onShapeChange={onShapeChange} onColorChange={vi.fn()} />);
+  const change = screen.getByRole("button", { name: "アイコンを変更", expanded: false });
+  expect(screen.queryByRole("group", { name: "形" })).toBeNull();
+  await user.tab();
+  expect(document.activeElement).toBe(change);
+  await user.keyboard("{Enter}");
+  const shape = within(screen.getByRole("group", { name: "形" }));
+  expect(screen.getByRole("combobox", { name: "背景色" })).toBeTruthy();
+  expect(onCustomChange).not.toHaveBeenCalled();
+  await user.click(shape.getByRole("radio", { name: "コード" }));
+  expect(onCustomChange).toHaveBeenCalledWith(true);
+  expect(onShapeChange).toHaveBeenCalledWith("code");
+  await user.click(screen.getByRole("button", { name: "アイコンの変更を閉じる", expanded: true }));
+  expect(screen.queryByRole("group", { name: "形" })).toBeNull();
+});
+
+it("shows the compact shortcut guide while capturing and hides it on Escape", async () => {
+  vi.mocked(shortcuts.onCapturedShortcut).mockResolvedValue(vi.fn());
+  vi.mocked(shortcuts.setShortcutCapture).mockResolvedValue(undefined);
+  const user = userEvent.setup();
+  render(<ProjectShortcutField compact legend="再開ショートカット" shortcut={null} onChange={vi.fn()} />);
+  const field = within(screen.getByRole("group", { name: "再開ショートカット" }));
+  expect(field.queryByText(/Escで入力を終了/)).toBeNull();
+  await user.tab();
+  await user.keyboard("{Enter}");
+  await field.findByRole("button", { name: "キーを入力してください", pressed: true });
+  expect(field.getByText(/Escで入力を終了/)).toBeTruthy();
+  await user.keyboard("{Escape}");
+  expect(field.getByRole("button", { name: "キーを入力", pressed: false })).toBeTruthy();
+  expect(field.queryByText(/Escで入力を終了/)).toBeNull();
+});
+
+it("shows compact app actions before the saved targets and reuses their editor", async () => {
+  const target = { appPath: "/System/Applications/Preview.app", filePath: "/work/仕様書.pdf" };
+  const user = userEvent.setup();
+  const onChange = vi.fn();
+  render(<ProjectAppLaunchTargets compact deferred targets={[target]} disabled={false} onBusyChange={vi.fn()} onChange={onChange} />);
+  const field = within(screen.getByRole("group", { name: "再開時に開くアプリ" }));
+  expect(field.getByText("1件")).toBeTruthy();
+  await user.tab();
+  expect(document.activeElement).toBe(field.getByRole("button", { name: "アプリを追加" }));
+  await user.tab();
+  expect(document.activeElement).toBe(field.getByRole("button", { name: "Preview（仕様書.pdf）を変更" }));
+  await user.keyboard("{Enter}");
+  await user.click(field.getByRole("button", { name: "ファイルを解除" }));
+  await user.click(field.getByRole("button", { name: "変更を反映" }));
+  expect(onChange).toHaveBeenCalledExactlyOnceWith([{ ...target, filePath: null }]);
 });

@@ -10,11 +10,12 @@ type Props = {
   onChange: (targets: AppLaunchTarget[]) => Promise<void> | void;
   onDraftChange?: (editing: boolean) => void;
   deferred?: boolean;
+  compact?: boolean;
 };
 
 type Draft = { index: number | null; target: AppLaunchTarget };
 
-export default function ProjectAppLaunchTargets({ targets, disabled, onBusyChange, onChange, onDraftChange, deferred }: Props) {
+export default function ProjectAppLaunchTargets({ targets, disabled, onBusyChange, onChange, onDraftChange, deferred, compact }: Props) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -60,9 +61,17 @@ export default function ProjectAppLaunchTargets({ targets, disabled, onBusyChang
   }
 
   return (
-    <fieldset disabled={disabled} className={`w-full min-w-0 space-y-3 disabled:opacity-60 ${deferred ? "mt-3" : "mt-6 border-t border-line pt-5"}`}>
+    <fieldset disabled={disabled} className={`w-full min-w-0 space-y-3 disabled:opacity-60 ${compact ? "" : deferred ? "mt-3" : "mt-6 border-t border-line pt-5"}`}>
       <legend className="sr-only">再開時に開くアプリ</legend>
-      {!deferred && <h3 className="text-sm font-semibold text-ink">再開時に開くアプリ</h3>}
+      {compact ? (
+        <div className="project-option-row">
+          <span aria-hidden="true" className="text-sm font-medium text-ink">再開時に開くアプリ</span>
+          <div className="project-option-actions">
+            <span className="text-sm text-muted">{targets.length > 0 ? `${targets.length}件` : "未設定"}</span>
+            <button type="button" className="button-secondary" disabled={draft !== null} onClick={() => choose("app")}>アプリを追加</button>
+          </div>
+        </div>
+      ) : !deferred && <h3 className="text-sm font-semibold text-ink">再開時に開くアプリ</h3>}
       {targets.length > 0 && (
         <ul className="divide-y divide-line rounded-lg border border-line">
           {targets.map((target, index) => {
@@ -102,7 +111,7 @@ export default function ProjectAppLaunchTargets({ targets, disabled, onBusyChang
             <button type="button" className="button-quiet" onClick={() => { changeDraft(null); setError(null); }}>キャンセル</button>
           </div>
         </div>
-      ) : (
+      ) : !compact && (
         <button type="button" className="button-secondary" onClick={() => choose("app")}>アプリを追加</button>
       )}
       {error && <p role="alert" className="break-words text-sm text-danger">{error}</p>}

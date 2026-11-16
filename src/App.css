@@ -325,6 +325,12 @@
     border-color: var(--ui-accent);
     outline-offset: 2px;
   }
+  .project-option-row {
+    @apply flex flex-wrap items-center justify-between gap-x-4 gap-y-2;
+  }
+  .project-option-actions {
+    @apply ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2;
+  }
   .field-label {
     display: block;
     margin-bottom: calc(var(--ui-space-unit) * 2);
