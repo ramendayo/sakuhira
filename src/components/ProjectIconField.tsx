@@ -21,7 +21,7 @@ export default function ProjectIconField({ path, appearance, compact, onCustomCh
   const customIcon = appearance.mode === "custom";
 
   return (
-    <fieldset className={compact ? "min-w-0 space-y-3" : "space-y-4 rounded-xl border border-line p-4"}>
+    <fieldset className={compact ? "project-option-field" : "space-y-4 rounded-xl border border-line p-4"}>
       <legend className={compact ? "sr-only" : "px-1 text-sm font-medium"}>アイコン</legend>
       {compact && (
         <div className="project-option-row">

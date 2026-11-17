@@ -61,7 +61,7 @@ export default function ProjectAppLaunchTargets({ targets, disabled, onBusyChang
   }
 
   return (
-    <fieldset disabled={disabled} className={`w-full min-w-0 space-y-3 disabled:opacity-60 ${compact ? "" : deferred ? "mt-3" : "mt-6 border-t border-line pt-5"}`}>
+    <fieldset disabled={disabled} className={`w-full disabled:opacity-60 ${compact ? "project-option-field" : `min-w-0 space-y-3 ${deferred ? "mt-3" : "mt-6 border-t border-line pt-5"}`}`}>
       <legend className="sr-only">再開時に開くアプリ</legend>
       {compact ? (
         <div className="project-option-row">
