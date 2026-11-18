@@ -144,6 +144,7 @@ it("adds apps with optional files, keeps a failed draft, and lets saved targets 
     .mockResolvedValueOnce(preview.appPath)
     .mockResolvedValueOnce(preview.filePath)
     .mockResolvedValueOnce(slack.appPath)
+    .mockResolvedValueOnce(null)
     .mockResolvedValueOnce(null);
   vi.mocked(setProjectAppLaunchTargets)
     .mockRejectedValueOnce("保存できませんでした。")
@@ -169,7 +170,10 @@ it("adds apps with optional files, keeps a failed draft, and lets saved targets 
   await screen.findByRole("button", { name: "Slackを削除" });
   expect(setProjectAppLaunchTargets).toHaveBeenNthCalledWith(3, { ...project, appLaunchTargets: [preview] }, [preview, slack]);
   await user.click(screen.getByRole("button", { name: "Preview（仕様書.pdf）を変更" }));
+  await user.click(screen.getByRole("button", { name: "アプリを選び直す" }));
   await user.click(screen.getByRole("button", { name: "ファイルを選び直す" }));
+  expect(screen.getAllByText("Preview（仕様書.pdf）")).toHaveLength(2);
+  expect(setProjectAppLaunchTargets).toHaveBeenCalledTimes(3);
   await user.click(screen.getByRole("button", { name: "ファイルを解除" }));
   await user.click(screen.getByRole("button", { name: "変更を保存" }));
   await screen.findByRole("button", { name: "Previewを変更" });
@@ -178,7 +182,7 @@ it("adds apps with optional files, keeps a failed draft, and lets saved targets 
   await user.click(screen.getByRole("button", { name: "Slackを削除" }));
   expect(screen.queryByRole("button", { name: "Slackを削除" })).toBeNull();
   expect(vi.mocked(setProjectAppLaunchTargets).mock.lastCall?.[1]).toEqual([{ ...preview, filePath: null }]);
-  expect(vi.mocked(selectProjectLaunchItem).mock.calls.flat()).toEqual(["app", "app", "file", "app", "file"]);
+  expect(vi.mocked(selectProjectLaunchItem).mock.calls.flat()).toEqual(["app", "app", "file", "app", "app", "file"]);
 });
 
 it("keeps the last app on deletion and allows retry after another launch target is saved", async () => {
