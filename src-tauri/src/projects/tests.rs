@@ -107,7 +107,7 @@ fn registration_saves_app_targets_atomically_with_other_options() {
         store.add_with_options(
             "Docs",
             None,
-            Some("https://example.com"),
+            None,
             ProjectIcon::Auto,
             Some("Ctrl+B"),
             vec![
@@ -132,6 +132,66 @@ fn registration_saves_app_targets_atomically_with_other_options() {
     assert_eq!(project.app_launch_targets.len(), 2);
     assert_eq!(project.app_launch_targets[0], target.validated().unwrap());
     assert_eq!(ProjectStore::new(data).list().unwrap(), vec![project]);
+}
+
+#[test]
+fn launch_target_edits_reject_removing_the_last_target() {
+    let root = tempdir().unwrap();
+    let data = root.path().join("data");
+    let store = ProjectStore::new(data.clone());
+    let file = data.join("projects.json");
+    let missing_target = "最後の起動先を外す前に、別のフォルダ・URL・アプリを追加してください。";
+
+    assert!(matches!(
+        store.add("Empty", None, Some(" ")).unwrap_err(),
+        ProjectRegistrationError::Project(message)
+            if message == "フォルダ・URL・アプリのいずれかを設定してください。"
+    ));
+    assert!(!file.exists());
+
+    let folder = store.add("Project", Some(root.path()), None).unwrap();
+    let original = fs::read(&file).unwrap();
+    assert_eq!(
+        store.update(&folder, "Project", None, None).unwrap_err(),
+        missing_target
+    );
+    assert_eq!(fs::read(&file).unwrap(), original);
+
+    let app = test_app(root.path(), "Codex.app", "APPL");
+    let targets = vec![AppLaunchTarget {
+        app_path: app.to_str().unwrap().into(),
+        file_path: None,
+    }];
+    let folder_and_app = store.set_app_launch_targets(&folder, targets).unwrap();
+    let app_only = store
+        .update(&folder_and_app, "企画の壁打ち", None, None)
+        .unwrap();
+    assert!(app_only.path.is_none());
+    assert!(app_only.launch_url.is_none());
+
+    let original = fs::read(&file).unwrap();
+    assert_eq!(
+        store.set_app_launch_targets(&app_only, vec![]).unwrap_err(),
+        missing_target
+    );
+    assert_eq!(fs::read(&file).unwrap(), original);
+
+    let url_and_app = store
+        .set_launch_url(&app_only, Some("https://example.com"))
+        .unwrap();
+    let cleared_url = store.set_launch_url(&url_and_app, None).unwrap();
+    assert_eq!(cleared_url, app_only);
+    let url_and_app = store
+        .set_launch_url(&cleared_url, Some("https://example.com"))
+        .unwrap();
+    let url_only = store.set_app_launch_targets(&url_and_app, vec![]).unwrap();
+    let original = fs::read(&file).unwrap();
+    assert_eq!(
+        store.set_launch_url(&url_only, Some(" ")).unwrap_err(),
+        missing_target
+    );
+    assert_eq!(fs::read(&file).unwrap(), original);
+    assert_eq!(ProjectStore::new(data).list().unwrap(), vec![url_only]);
 }
 
 #[test]

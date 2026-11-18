@@ -1,4 +1,6 @@
-use crate::projects::{AppLaunchTarget, Project, ProjectStore, directory_path};
+use crate::projects::{
+    AppLaunchTarget, Project, ProjectStore, directory_path, validate_launch_targets,
+};
 use crate::settings::{Editor, SettingsStore};
 use serde::Serialize;
 use std::path::Path;
@@ -148,8 +150,13 @@ fn record_history(
 ) -> ResumeReport {
     let resumed = if project.path.is_some() {
         report.editor == Some(LaunchOutcome::Success)
-    } else {
+    } else if report.browser.is_some() {
         report.browser == Some(LaunchOutcome::Success)
+    } else {
+        report
+            .apps
+            .iter()
+            .any(|app| app.outcome == LaunchOutcome::Success)
     };
     if resumed {
         report.history = match store.record_resume(project) {
@@ -212,9 +219,7 @@ fn resume_with_apps(
         .map(|path| directory_path(Path::new(path)))
         .transpose()?;
     let url = normalize_url(project.launch_url.as_deref())?;
-    if path.is_none() && url.is_none() {
-        return Err("フォルダまたは起動URLを設定してください。".into());
-    }
+    validate_launch_targets(path.as_deref(), url.as_deref(), &project.app_launch_targets)?;
     let editor = path.as_deref().map(|path| editor(path).into());
     let browser = url.as_deref().map(|url| browser(url).into());
     let apps = project

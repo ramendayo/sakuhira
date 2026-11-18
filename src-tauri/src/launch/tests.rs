@@ -304,11 +304,7 @@ fn selected_editor_is_invoked_and_named_in_the_report() {
 #[test]
 fn app_targets_continue_after_missing_paths_and_os_rejections() {
     let root = tempdir().unwrap();
-    let app = root.path().join("Preview.app");
-    fs::create_dir_all(app.join("Contents")).unwrap();
-    let mut info = plist::Dictionary::new();
-    info.insert("CFBundlePackageType".into(), "APPL".into());
-    plist::to_file_xml(app.join("Contents/Info.plist"), &info).unwrap();
+    let app = preview_app(root.path());
     let denied = root.path().join("denied.pdf");
     let document = root.path().join("仕様書.pdf");
     fs::write(&denied, "").unwrap();
@@ -375,4 +371,79 @@ fn app_targets_continue_after_missing_paths_and_os_rejections() {
         document.to_str().unwrap()
     );
     assert_eq!(payload["apps"][4]["outcome"]["status"], "success");
+}
+
+fn preview_app(root: &Path) -> std::path::PathBuf {
+    let app = root.join("Preview.app");
+    fs::create_dir_all(app.join("Contents")).unwrap();
+    let mut info = plist::Dictionary::new();
+    info.insert("CFBundlePackageType".into(), "APPL".into());
+    plist::to_file_xml(app.join("Contents/Info.plist"), &info).unwrap();
+    app
+}
+
+#[test]
+fn app_only_resume_opens_apps_and_files_and_records_history_after_any_success() {
+    let root = tempdir().unwrap();
+    let app = preview_app(root.path());
+    let file = root.path().join("企画.pdf");
+    fs::write(&file, "").unwrap();
+    let app_path = app.to_str().unwrap().to_owned();
+    let targets = vec![
+        AppLaunchTarget {
+            app_path: app_path.clone(),
+            file_path: None,
+        },
+        AppLaunchTarget {
+            app_path,
+            file_path: Some(file.to_str().unwrap().into()),
+        },
+    ];
+
+    let data = root.path().join("data");
+    ProjectStore::new(data.clone())
+        .add_with_options(
+            "企画の壁打ち",
+            None,
+            None,
+            Default::default(),
+            None,
+            targets,
+        )
+        .unwrap();
+    let store = ProjectStore::new(data);
+    let project = store.list().unwrap().pop().unwrap();
+    let resume = |open_app: &mut dyn FnMut(&AppLaunchTarget) -> Result<(), String>| {
+        let report = resume_with_apps(
+            &project,
+            Editor::VsCode,
+            |_| panic!("editor must not run"),
+            |_| panic!("browser must not run"),
+            open_app,
+        )
+        .unwrap();
+        record_history(&store, &project, report)
+    };
+
+    let failed = resume(&mut |_| Err("起動できません".into()));
+    assert_eq!(failed.history, ResumeHistory::Skipped);
+    assert_eq!(store.list().unwrap()[0].last_resumed_at, None);
+
+    let mut calls = Vec::new();
+    let resumed = resume(&mut |target| {
+        calls.push(target.clone());
+        if target.file_path.is_none() {
+            return Err("アプリ単体では起動できません".into());
+        }
+        Ok(())
+    });
+    assert_eq!(calls, project.app_launch_targets);
+    assert_eq!(resumed.editor, None);
+    assert_eq!(resumed.browser, None);
+    assert!(resumed.has_errors());
+    assert_eq!(resumed.apps[1].outcome, LaunchOutcome::Success);
+    let ResumeHistory::Saved { timestamp } = resumed.history else {
+        panic!("history was not saved")
+    };
+    assert_eq!(store.list().unwrap()[0].last_resumed_at, Some(timestamp));
 }

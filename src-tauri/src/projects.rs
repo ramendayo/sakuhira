@@ -256,11 +256,24 @@ fn project_name(name: &str) -> Result<String, String> {
     Ok(name.into())
 }
 
-fn validate_launch_target(path: Option<&str>, url: Option<&str>) -> Result<(), String> {
-    if path.is_none() && url.is_none() {
-        return Err("フォルダまたは起動URLを設定してください。".into());
+pub(crate) fn validate_launch_targets(
+    path: Option<&str>,
+    url: Option<&str>,
+    apps: &[AppLaunchTarget],
+) -> Result<(), String> {
+    if path.is_none() && url.is_none() && apps.is_empty() {
+        return Err("フォルダ・URL・アプリのいずれかを設定してください。".into());
     }
     Ok(())
+}
+
+fn validate_remaining_launch_targets(
+    path: Option<&str>,
+    url: Option<&str>,
+    apps: &[AppLaunchTarget],
+) -> Result<(), String> {
+    validate_launch_targets(path, url, apps)
+        .map_err(|_| "最後の起動先を外す前に、別のフォルダ・URL・アプリを追加してください。".into())
 }
 
 fn matching_project(projects: &[Project], expected: &Project) -> Result<usize, String> {
@@ -310,7 +323,11 @@ impl ProjectStore {
         let mut paths = HashSet::new();
         for project in &document.projects {
             let launch_url = crate::launch::normalize_url(project.launch_url.as_deref())?;
-            validate_launch_target(project.path.as_deref(), launch_url.as_deref())?;
+            validate_launch_targets(
+                project.path.as_deref(),
+                launch_url.as_deref(),
+                &project.app_launch_targets,
+            )?;
             validate_notes(&project.notes)?;
             validate_resumed_at(project.last_resumed_at)?;
             // 登録後に削除・移動されたフォルダでも、保存済み情報は読み込む。
@@ -370,7 +387,7 @@ impl ProjectStore {
         let name = project_name(name)?;
         let path = path.map(directory_path).transpose()?;
         let launch_url = crate::launch::normalize_url(launch_url)?;
-        validate_launch_target(path.as_deref(), launch_url.as_deref())?;
+        validate_launch_targets(path.as_deref(), launch_url.as_deref(), &app_launch_targets)?;
         let app_launch_targets = app_launch_targets
             .into_iter()
             .enumerate()
@@ -441,7 +458,11 @@ impl ProjectStore {
             } else {
                 path.map(directory_path).transpose()?
             };
-            validate_launch_target(path.as_deref(), projects[index].launch_url.as_deref())?;
+            validate_remaining_launch_targets(
+                path.as_deref(),
+                projects[index].launch_url.as_deref(),
+                &projects[index].app_launch_targets,
+            )?;
             if projects
                 .iter()
                 .any(|project| path.is_some() && project.id != expected.id && project.path == path)
@@ -483,9 +504,14 @@ impl ProjectStore {
         let url = crate::launch::normalize_url(url)?;
         self.change(|projects| {
             let index = matching_project(projects, expected)?;
-            validate_launch_target(projects[index].path.as_deref(), url.as_deref())?;
-            projects[index].launch_url = url;
-            Ok(projects[index].clone())
+            let project = &mut projects[index];
+            validate_remaining_launch_targets(
+                project.path.as_deref(),
+                url.as_deref(),
+                &project.app_launch_targets,
+            )?;
+            project.launch_url = url;
+            Ok(project.clone())
         })
     }
 
@@ -497,6 +523,11 @@ impl ProjectStore {
         self.change(|projects| {
             let index = matching_project(projects, expected)?;
             let project = &mut projects[index];
+            validate_remaining_launch_targets(
+                project.path.as_deref(),
+                project.launch_url.as_deref(),
+                &targets,
+            )?;
             // 編集していない起動先が移動・削除されていても、他の設定を保存できる。
             project.app_launch_targets = targets
                 .into_iter()
