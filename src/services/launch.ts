@@ -41,19 +41,19 @@ export async function resumeProject(project: Project): Promise<ResumeReport> {
   return invoke<ResumeReport>("resume_project", { project });
 }
 
-function appName(appPath: string): string {
+export function appLaunchTargetName(appPath: string): string {
   return appPath.slice(appPath.lastIndexOf("/") + 1).replace(/\.app$/i, "");
 }
 
 export function projectLaunchLocation(project: Project, compact = false): string | null {
   const location = project.path ?? project.launchUrl;
   if (location) return compact ? null : location;
-  const names = new Set(project.appLaunchTargets?.map(({ appPath }) => appName(appPath)));
+  const names = new Set(project.appLaunchTargets?.map(({ appPath }) => appLaunchTargetName(appPath)));
   return names.size ? [...names].join("、") : null;
 }
 
 export function appLaunchTargetLabel({ appPath, filePath }: AppLaunchTarget): string {
-  const app = appName(appPath);
+  const app = appLaunchTargetName(appPath);
   const file = filePath?.slice(filePath.lastIndexOf("/") + 1);
   return file ? `${app}（${file}）` : app;
 }

@@ -14,6 +14,7 @@ vi.mock("../services/projects", async (importOriginal) => ({
   ...await importOriginal<typeof api>(),
   updateProject: vi.fn(),
   addProject: vi.fn(),
+  selectProjectDirectory: vi.fn(),
 }));
 vi.mock("../services/shortcuts", () => ({
   supportsShortcuts: vi.fn(() => false),
@@ -190,48 +191,89 @@ it("registers a project with only app targets and keeps them for retry", async (
   const onSaved = vi.fn();
   render(<ProjectForm onSaved={onSaved} onCancel={vi.fn()} />);
   await user.type(screen.getByLabelText("プロジェクト名"), saved.name);
-  const disclosure = screen.getByRole("button", { name: "オプション設定（任意）", expanded: false });
-  expect(screen.queryByRole("group", { name: "再開時に開くアプリ" })).toBeNull();
-  expect(screen.getByText("フォルダ・URL・アプリのいずれかを設定してください。")).toBeTruthy();
-  const chooseApps = screen.getByRole("button", { name: "アプリを選ぶ" });
-  chooseApps.focus();
-  await user.keyboard("{Enter}");
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "アプリを追加" }));
-  await user.click(chooseApps);
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "アプリを追加" }));
-  const add = () => user.click(screen.getByRole("button", { name: "アプリを追加" }));
-  const saveTarget = () => user.click(screen.getByRole("button", { name: "起動先を追加" }));
+  const disclosure = screen.getByRole("button", { name: "アイコン・再開ショートカット（任意）", expanded: false });
+  expect(screen.getByText("いずれか1つから登録できます。")).toBeTruthy();
+  const add = () => user.click(screen.getByRole("button", { name: "＋ アプリ" }));
   const register = () => user.click(screen.getByRole("button", { name: "登録する" }));
 
   await add();
+  await user.click(screen.getByRole("button", { name: "Previewを変更" }));
   await user.click(screen.getByRole("button", { name: "ファイルを選択（任意）" }));
-  await user.click(disclosure);
-  await register();
-  expect(disclosure.getAttribute("aria-expanded")).toBe("true");
-  expect(screen.getByRole("alert").textContent).toContain("編集中の起動先");
-  expect(api.addProject).not.toHaveBeenCalled();
-  await saveTarget();
   await add();
-  await saveTarget();
-  await user.click(disclosure);
-  expect(disclosure.getAttribute("aria-expanded")).toBe("false");
-  expect(within(disclosure).getByText("アプリ 2件")).toBeTruthy();
-  expect(screen.queryByRole("group", { name: "再開時に開くアプリ" })).toBeNull();
+  expect(screen.getByText("Preview（仕様書.pdf）")).toBeTruthy();
+  expect(screen.getByText("Slack")).toBeTruthy();
   await register();
 
   expect(api.addProject).toHaveBeenNthCalledWith(1, saved.name, null, "", { appLaunchTargets: [preview, slack] });
-  expect(await screen.findByText("Preview（仕様書.pdf）：起動先のファイルが見つかりません。")).toBeTruthy();
+  const row = within(screen.getByText("Preview（仕様書.pdf）").closest("li")!);
+  expect(row.getByRole("alert").textContent).toBe("起動先のファイルが見つかりません。");
   expect(onSaved).not.toHaveBeenCalled();
-  expect(disclosure.getAttribute("aria-expanded")).toBe("true");
-  expect(screen.getByRole("button", { name: "Preview（仕様書.pdf）を変更" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Slackを削除" })).toBeTruthy();
+  expect(disclosure.getAttribute("aria-expanded")).toBe("false");
   expect((screen.getByLabelText("プロジェクト名") as HTMLInputElement).value).toBe(saved.name);
-  await user.click(screen.getByRole("button", { name: "Preview（仕様書.pdf）を変更" }));
-  await user.click(screen.getByRole("button", { name: "ファイルを選び直す" }));
-  await user.click(screen.getByRole("button", { name: "変更を反映" }));
+  await user.click(row.getByRole("button", { name: "ファイルを選び直す" }));
   await register();
   expect(api.addProject).toHaveBeenNthCalledWith(2, saved.name, null, "", { appLaunchTargets: [correctedPreview, slack] });
   await waitFor(() => expect(onSaved).toHaveBeenCalledWith(saved));
+});
+
+it("registers Codex immediately from the keyboard after an app picker cancellation", async () => {
+  const codex = { appPath: "/Applications/Codex.app", filePath: null };
+  const saved: Project = {
+    id: "codex", name: "Codex", path: null, launchUrl: null,
+    notes: { lastWork: "", nextTask: "", updatedAt: null }, lastResumedAt: null, appLaunchTargets: [codex],
+  };
+  vi.mocked(launch.supportsAppLaunchTargets).mockReturnValue(true);
+  vi.mocked(launch.selectProjectLaunchItem).mockResolvedValueOnce(null).mockResolvedValueOnce(codex.appPath);
+  vi.mocked(api.addProject).mockClear().mockResolvedValueOnce(saved);
+  const user = userEvent.setup();
+  const onSaved = vi.fn();
+  render(<ProjectForm onSaved={onSaved} onCancel={vi.fn()} />);
+  const add = screen.getByRole("button", { name: "＋ アプリ" });
+  expect(document.activeElement).toBe(add);
+  await user.keyboard("{Enter}");
+  expect(screen.queryByRole("list", { name: "起動先" })).toBeNull();
+  expect(document.activeElement).toBe(add);
+  await user.keyboard("{Enter}");
+  expect(screen.getByLabelText<HTMLInputElement>("プロジェクト名").value).toBe("Codex");
+  expect(screen.queryByLabelText("起動URL（任意）")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "登録する" }));
+  expect(api.addProject).toHaveBeenCalledExactlyOnceWith("Codex", null, "", { appLaunchTargets: [codex] });
+  expect(onSaved).toHaveBeenCalledWith(saved);
+});
+
+it("combines app, folder and URL targets and removes rows from the local draft", async () => {
+  const target = { appPath: "/Applications/Codex.app", filePath: null };
+  const saved: Project = {
+    id: "mixed", name: "My workspace", path: "/work/current", launchUrl: "https://example.com/",
+    notes: { lastWork: "", nextTask: "", updatedAt: null }, lastResumedAt: null, appLaunchTargets: [target],
+  };
+  vi.mocked(launch.supportsAppLaunchTargets).mockReturnValue(true);
+  vi.mocked(launch.selectProjectLaunchItem).mockResolvedValueOnce("/Applications/Preview.app").mockResolvedValueOnce(target.appPath);
+  vi.mocked(api.selectProjectDirectory).mockResolvedValueOnce({ path: "/work/old", suggestedName: "Old" })
+    .mockResolvedValueOnce({ path: saved.path!, suggestedName: "Current" });
+  vi.mocked(api.addProject).mockClear().mockResolvedValueOnce(saved);
+  const user = userEvent.setup();
+  render(<ProjectForm onSaved={vi.fn()} onCancel={vi.fn()} />);
+  await user.type(screen.getByLabelText("プロジェクト名"), saved.name);
+  await user.click(screen.getByRole("button", { name: "＋ アプリ" }));
+  await user.click(screen.getByRole("button", { name: "Previewを削除" }));
+  expect(screen.queryByText("Preview")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "＋ アプリ" }));
+  await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
+  await user.click(screen.getByRole("button", { name: "フォルダを削除" }));
+  expect(screen.queryByText("/work/old")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
+  const openUrl = screen.getByRole("button", { name: "＋ URL" });
+  openUrl.focus();
+  await user.keyboard("{Enter}");
+  expect(document.activeElement).toBe(screen.getByLabelText("起動URL（任意）"));
+  await user.type(screen.getByLabelText("起動URL（任意）"), "https://old.example/");
+  await user.click(screen.getByRole("button", { name: "URLを削除" }));
+  expect(document.activeElement).toBe(openUrl);
+  await user.click(openUrl);
+  await user.type(screen.getByLabelText("起動URL（任意）"), saved.launchUrl!);
+  await user.click(screen.getByRole("button", { name: "登録する" }));
+  expect(api.addProject).toHaveBeenCalledExactlyOnceWith(saved.name, saved.path, saved.launchUrl, { appLaunchTargets: [target] });
 });
 
 it("can remove a folder after another launch target has been set", async () => {

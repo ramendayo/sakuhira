@@ -2,11 +2,14 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { addProject, appLaunchTargetRegistrationError, errorMessage, selectProjectDirectory, shortcutRegistrationError, updateProject } from "../services/projects";
 import {
-  appLaunchTargetLabel, hasLaunchTarget, lastLaunchTargetMessage, launchTargetRequiredMessage, supportsAppLaunchTargets,
+  appLaunchTargetName, hasLaunchTarget, lastLaunchTargetMessage, launchTargetRequiredMessage,
+  selectProjectLaunchItem, supportsAppLaunchTargets,
 } from "../services/launch";
 import { supportsShortcuts } from "../services/shortcuts";
 import type { AppLaunchTarget, Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
-import ProjectAppLaunchTargets from "./ProjectAppLaunchTargets";
+import { useSettings } from "../hooks/useSettings";
+import { editorName } from "../types/settings";
+import { ProjectAppLaunchTargetPicker, ProjectAppLaunchTargetRow } from "./ProjectAppLaunchTargetRow";
 import ProjectIcon from "./ProjectIcon";
 import ProjectIconField from "./ProjectIconField";
 import ProjectShortcutField, { shortcutLabel } from "./ProjectShortcutField";
@@ -17,6 +20,12 @@ type ProjectFormProps = {
   onCancel: () => void;
 };
 
+function FolderEditorName() {
+  const { result } = useSettings();
+  if (result.status === "ready") return <p className="text-xs text-muted">{editorName(result.settings.defaultEditor)}で開く</p>;
+  return <p className="text-xs text-muted">{result.status === "loading" ? "エディタ設定を読み込み中…" : "エディタ設定を確認できません。"}</p>;
+}
+
 function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectFormProps) {
   // 入力開始時の値を保持し、編集中に届いた更新で競合検出の基準を変えない。
   const [project] = useState(initialProject);
@@ -24,14 +33,17 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
   const [name, setName] = useState(project?.name ?? "");
   const [path, setPath] = useState(project?.path ?? "");
   const [launchUrl, setLaunchUrl] = useState("");
+  const [urlOpen, setUrlOpen] = useState(false);
+  const appButton = useRef<HTMLButtonElement>(null);
+  const folderButton = useRef<HTMLButtonElement>(null);
+  const urlButton = useRef<HTMLButtonElement>(null);
+  const urlField = useRef<HTMLInputElement>(null);
   const [appLaunchTargets, setAppLaunchTargets] = useState<AppLaunchTarget[]>([]);
-  const [appError, setAppError] = useState<{ index?: number; message: string } | null>(null);
-  const [appDraftOpen, setAppDraftOpen] = useState(false);
-  const [appsBusy, setAppsBusy] = useState(false);
+  const [appError, setAppError] = useState<{ index: number; message: string } | null>(null);
+  const [editingApp, setEditingApp] = useState<number | null>(null);
   const [shortcut, setShortcut] = useState<string | null | undefined>(undefined);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const appOptions = useRef<HTMLDivElement>(null);
-  const focusAppsOnOpen = useRef(false);
+  const pickerTrigger = useRef<HTMLButtonElement | null>(null);
   const [shortcutError, setShortcutError] = useState<string | null>(null);
   const selectedShortcut = shortcut === undefined ? project?.shortcut ?? null : shortcut;
   const canSetShortcut = supportsShortcuts();
@@ -56,42 +68,25 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     setShortcutError(null);
   }, []);
 
-  const focusAppControls = useCallback(() => {
-    const group = appOptions.current;
-    (group?.querySelector<HTMLButtonElement>("button:not(:disabled)") ?? group)?.focus();
-  }, []);
-
   useEffect(() => {
-    if (optionsOpen && focusAppsOnOpen.current) {
-      focusAppsOnOpen.current = false;
-      focusAppControls();
+    if (!pending && pickerTrigger.current) {
+      pickerTrigger.current.focus();
+      pickerTrigger.current = null;
     }
-  }, [focusAppControls, optionsOpen]);
+  }, [pending]);
 
-  function openAppOptions() {
-    if (optionsOpen) {
-      focusAppControls();
-    } else {
-      focusAppsOnOpen.current = true;
-      setOptionsOpen(true);
-    }
+  function openUrl() {
+    if (urlOpen) urlField.current?.focus();
+    else setUrlOpen(true);
   }
 
-  function changeIconMode(custom: boolean) {
-    if (custom) setIconShape((shape) => shape ?? defaultIconShape);
-    setCustomIcon(custom);
-  }
-
-  async function chooseDirectory() {
-    setError(null);
+  async function pick(trigger: HTMLButtonElement, operation: () => Promise<void>) {
+    if (pending) return;
+    pickerTrigger.current = trigger;
     setPending("picking");
+    setError(null);
     try {
-      const selected = await selectProjectDirectory();
-      if (selected) {
-        setTargetError(null);
-        setPath(selected.path);
-        setName((current) => current.trim() ? current : selected.suggestedName);
-      }
+      await operation();
     } catch (error) {
       setError(errorMessage(error));
     } finally {
@@ -99,14 +94,47 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     }
   }
 
+  function chooseDirectory(trigger: HTMLButtonElement) {
+    void pick(trigger, async () => {
+      const selected = await selectProjectDirectory();
+      if (selected) {
+        setTargetError(null);
+        setPath(selected.path);
+        setName((current) => current.trim() ? current : selected.suggestedName);
+      }
+    });
+  }
+
+  function chooseAppItem(trigger: HTMLButtonElement, kind: "app" | "file", index?: number) {
+    void pick(trigger, async () => {
+      const selected = await selectProjectLaunchItem(kind);
+      if (selected === null) return;
+      setAppError(null);
+      setTargetError(null);
+      if (index === undefined) {
+        setAppLaunchTargets((targets) => [...targets, { appPath: selected, filePath: null }]);
+        setName((current) => current.trim() ? current : appLaunchTargetName(selected));
+      } else {
+        updateApp(index, (target) => kind === "app"
+          ? { ...target, appPath: selected }
+          : { ...target, filePath: selected });
+      }
+    });
+  }
+
+  function updateApp(index: number, change: (target: AppLaunchTarget) => AppLaunchTarget) {
+    setAppError(null);
+    setAppLaunchTargets((targets) => targets.map((target, row) => row === index ? change(target) : target));
+  }
+
+  function changeIconMode(custom: boolean) {
+    if (custom) setIconShape((shape) => shape ?? defaultIconShape);
+    setCustomIcon(custom);
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending || appsBusy) return;
-    if (appDraftOpen) {
-      setOptionsOpen(true);
-      setAppError({ message: "編集中の起動先を確定するか、キャンセルしてください。" });
-      return;
-    }
+    if (pending) return;
     if (!name.trim()) {
       setError("プロジェクト名を入力してください。");
       return;
@@ -140,7 +168,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
         setOptionsOpen(true);
         setShortcutError(shortcutFailure);
       } else if (appFailure) {
-        setOptionsOpen(true);
+        setEditingApp(appFailure.index);
         setAppError(appFailure);
       } else {
         setError(errorMessage(error));
@@ -165,8 +193,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     onChange={changeShortcut}
     saveError={shortcutError}
   />;
-  const showOptionsSummary = !optionsOpen && (customIcon || selectedShortcut !== null || appLaunchTargets.length > 0);
-  const failedTarget = appError?.index === undefined ? undefined : appLaunchTargets[appError.index];
+  const showOptionsSummary = !optionsOpen && (customIcon || selectedShortcut !== null);
 
   const actions = (
     <div className="flex flex-wrap justify-end gap-3">
@@ -181,28 +208,94 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     <form
       onSubmit={submit}
       aria-labelledby={`${id}-heading`}
-      aria-busy={pending !== null || appsBusy}
+      aria-busy={pending !== null}
       className="mb-8 panel"
     >
       <h2 id={`${id}-heading`} className="section-title">{project ? "プロジェクトを編集" : "プロジェクトを登録"}</h2>
-      <p className="mt-2 text-sm leading-6 text-muted">
-        プロジェクト名と起動先を設定してください。
-      </p>
-      <fieldset disabled={pending !== null || appsBusy} className="mt-5 space-y-5 disabled:opacity-60">
+      <fieldset disabled={pending !== null} className="mt-5 space-y-5 disabled:opacity-60">
+        {!project && (
+          <section aria-labelledby={`${id}-targets`} className="space-y-3">
+            <h3 id={`${id}-targets`} className="text-sm font-medium text-ink">再開時に開くもの</h3>
+            <p className="text-sm text-muted">いずれか1つから登録できます。</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" ref={appButton} className="button-secondary" autoFocus={canChooseApps} disabled={!canChooseApps} onClick={(event) => chooseAppItem(event.currentTarget, "app")}>＋ アプリ</button>
+              <button type="button" ref={folderButton} className="button-secondary" autoFocus={!canChooseApps} onClick={(event) => chooseDirectory(event.currentTarget)}>＋ フォルダ</button>
+              <button type="button" ref={urlButton} className="button-secondary" onClick={openUrl}>＋ URL</button>
+            </div>
+            {(appLaunchTargets.length > 0 || previewPath || urlOpen) && (
+              <ul aria-label="起動先" className="divide-y divide-line rounded-lg border border-line">
+                {appLaunchTargets.map((target, index) => (
+                  <ProjectAppLaunchTargetRow
+                    key={index}
+                    target={target}
+                    disabled={pending !== null}
+                    editorOpen={editingApp === index}
+                    onEdit={() => setEditingApp((current) => current === index ? null : index)}
+                    onRemove={() => {
+                      setAppLaunchTargets((targets) => targets.filter((_, row) => row !== index));
+                      setEditingApp(null);
+                      setAppError(null);
+                      appButton.current?.focus();
+                    }}
+                  >
+                    {editingApp === index && (
+                      <ProjectAppLaunchTargetPicker
+                        target={target}
+                        onChoose={(kind, trigger) => chooseAppItem(trigger, kind, index)}
+                        onClearFile={() => updateApp(index, (item) => ({ ...item, filePath: null }))}
+                      />
+                    )}
+                    {appError?.index === index && <p role="alert" className="break-words text-sm text-danger">{appError.message}</p>}
+                  </ProjectAppLaunchTargetRow>
+                ))}
+                {previewPath && (
+                  <li className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="break-all text-sm">{path}</p>
+                      <FolderEditorName />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className="button-quiet" aria-label="フォルダを変更" onClick={(event) => chooseDirectory(event.currentTarget)}>変更</button>
+                      <button type="button" className="button-quiet" aria-label="フォルダを削除" onClick={() => {
+                        setPath("");
+                        folderButton.current?.focus();
+                      }}>削除</button>
+                    </div>
+                  </li>
+                )}
+                {urlOpen && (
+                  <li className="flex flex-wrap items-end gap-2 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <label htmlFor={`${id}-launch-url`} className="field-label">起動URL（任意）</label>
+                      <input id={`${id}-launch-url`} ref={urlField} autoFocus type="url" value={launchUrl}
+                        onChange={(event) => { setLaunchUrl(event.target.value); setTargetError(null); }}
+                        placeholder="http://localhost:3000" className="field" />
+                    </div>
+                    <button type="button" className="button-quiet" aria-label="URLを削除" onClick={() => {
+                      setLaunchUrl("");
+                      setUrlOpen(false);
+                      urlButton.current?.focus();
+                    }}>削除</button>
+                  </li>
+                )}
+              </ul>
+            )}
+          </section>
+        )}
         <div>
           <label htmlFor={`${id}-name`} className="field-label">プロジェクト名</label>
           <input
             id={`${id}-name`}
             value={name}
             onChange={(event) => setName(event.target.value)}
-            autoFocus
+            autoFocus={Boolean(project)}
             required
             maxLength={100}
             placeholder="例：sakuhira"
             className="field"
           />
         </div>
-        <div>
+        {project && <div>
           <label htmlFor={`${id}-path`} className="field-label">フォルダ</label>
           <div className="flex flex-wrap gap-3">
             <input
@@ -212,25 +305,13 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
               placeholder="フォルダを選択、または絶対パスを入力"
               className="field flex-[1_1_260px]"
             />
-            <button type="button" onClick={chooseDirectory} className="button-secondary">
+            <button type="button" onClick={(event) => chooseDirectory(event.currentTarget)} className="button-secondary">
               {pending === "picking" ? "選択中…" : "フォルダを選択"}
             </button>
           </div>
           <p className="mt-2 text-xs leading-6 text-muted">設定したフォルダは再開時にエディタで開きます。フォルダ内のファイルは変更されません。</p>
-        </div>
-        {!project && <div>
-          <label htmlFor={`${id}-launch-url`} className="field-label">起動URL（任意）</label>
-          <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => { setLaunchUrl(event.target.value); setTargetError(null); }} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="field" />
-          <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-muted">HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
         </div>}
-        {(!project || targetError) && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <p role={targetError ? "alert" : undefined} className={`text-xs leading-6 ${targetError ? "text-danger" : "text-muted"}`}>
-              {targetError ?? launchTargetRequiredMessage}
-            </p>
-            {canChooseApps && <button type="button" className="button-quiet" aria-controls={`${id}-app-options`} onClick={openAppOptions}>アプリを選ぶ</button>}
-          </div>
-        )}
+        {targetError && <p role="alert" className="text-sm text-danger">{targetError}</p>}
         {project && <>{iconField}{shortcutField}</>}
         {project ? actions : (
           <div className="space-y-3">
@@ -244,7 +325,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
                 onClick={() => setOptionsOpen((open) => !open)}
                 className="button-quiet w-full flex-wrap justify-start px-3 py-2 text-left text-ink"
               >
-                <span id={`${id}-optional-label`}>オプション設定（任意）</span>
+                <span id={`${id}-optional-label`}>アイコン・再開ショートカット（任意）</span>
                 {showOptionsSummary && (
                   <span id={`${id}-optional-summary`} className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
                     {customIcon && <>
@@ -252,7 +333,6 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
                       <ProjectIcon path={previewPath} appearance={appearance} compact />
                     </>}
                     {selectedShortcut && <kbd className="text-xs text-muted">{shortcutLabel(selectedShortcut)}</kbd>}
-                    {appLaunchTargets.length > 0 && <span className="text-xs text-muted">アプリ {appLaunchTargets.length}件</span>}
                   </span>
                 )}
                 <span aria-hidden="true" className={`size-2 shrink-0 border-b border-r border-current ${showOptionsSummary ? "" : "ml-auto"} ${optionsOpen ? "rotate-[225deg]" : "rotate-45"}`} />
@@ -260,25 +340,6 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
               <div id={`${id}-optional-settings`} hidden={!optionsOpen} className="divide-y divide-line border-t border-line px-3">
                 <div className="py-3">{iconField}</div>
                 {canSetShortcut && <div className="py-3">{optionsOpen && shortcutField}</div>}
-                {canChooseApps && (
-                  <div id={`${id}-app-options`} ref={appOptions} tabIndex={-1} className="py-3">
-                    <ProjectAppLaunchTargets
-                      targets={appLaunchTargets}
-                      disabled={pending !== null || appsBusy}
-                      onBusyChange={setAppsBusy}
-                      onChange={(targets) => { setAppLaunchTargets(targets); setAppError(null); setTargetError(null); }}
-                      onDraftChange={(editing) => {
-                        setAppDraftOpen(editing);
-                        if (!editing) setAppError((current) => current?.index === undefined ? null : current);
-                      }}
-                      compact
-                      deferred
-                    />
-                    {appError && <p role="alert" className="mt-2 break-words text-sm text-danger">
-                      {failedTarget && `${appLaunchTargetLabel(failedTarget)}：`}{appError.message}
-                    </p>}
-                  </div>
-                )}
               </div>
             </div>
             {actions}
