@@ -29,7 +29,7 @@ it("shows a compact branch and change count and allows refreshing it", async () 
 it("does not request Git status for URL-only projects, including after changing from a folder", async () => {
   vi.mocked(getGitStatus).mockResolvedValue(clean);
   const { rerender } = render(<ProjectGitStatus project={{ ...project, path: null, launchUrl: "https://example.com/" }} />);
-  expect(screen.getByText("URLのみのプロジェクトにはGit情報がありません。")).toBeTruthy();
+  expect(screen.getByText("フォルダが未設定のため、Git情報はありません。")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Gitを更新" })).toBeNull();
   expect(getGitStatus).not.toHaveBeenCalled();
   rerender(<ProjectGitStatus project={project} />);

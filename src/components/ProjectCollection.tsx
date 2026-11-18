@@ -5,6 +5,7 @@ import LastResumedAt from "./LastResumedAt";
 import ProjectGitStatus from "./ProjectGitStatus";
 import { ProjectNotesPreview } from "./ProjectNotes";
 import ResumeProject from "./ResumeProject";
+import { projectLaunchLocation } from "../services/launch";
 import type { Project } from "../types/project";
 import type { ProjectView } from "../types/settings";
 
@@ -22,6 +23,11 @@ type Props = {
 };
 
 const noPins: ReadonlySet<string> = new Set();
+
+function ProjectLocation({ project, compact }: { project: Project; compact: boolean }) {
+  const location = projectLaunchLocation(project, compact);
+  return location && <p className="item-path font-mono text-xs text-muted" title={location}>{location}</p>;
+}
 
 export default function ProjectCollection({
   projects, view, onSelect, onResumed, manual = false, moveDisabled = false, onMove,
@@ -118,7 +124,7 @@ export default function ProjectCollection({
         <ProjectIcon path={project.path} appearance={project.icon} compact={small || !cards} />
         <div className="item-name-path">
           <h3 className="project-title" aria-label={project.name}><button type="button" aria-label={`${project.name}の詳細を開く`} title={project.name} onClick={() => onSelect(project.id)} className="project-name-button">{project.name}</button></h3>
-          {!small && <p className="item-path font-mono text-xs text-muted" title={project.path ?? project.launchUrl ?? undefined}>{project.path ?? project.launchUrl}</p>}
+          <ProjectLocation project={project} compact={small} />
         </div>
         {onTogglePin && <button
           type="button"

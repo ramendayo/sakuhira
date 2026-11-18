@@ -7,7 +7,7 @@ function headLabel(head: GitHead): string {
 }
 
 function ProjectGitStatus({ project, compact = false }: { project: Project; compact?: boolean }) {
-  if (project.path === null) return <section aria-label="Gitの状態" className={compact ? "git-compact" : "git-status"}><p className="text-xs leading-6 text-muted">{compact ? "Git対象外（URLのみ）" : "URLのみのプロジェクトにはGit情報がありません。"}</p></section>;
+  if (project.path === null) return <section aria-label="Gitの状態" className={compact ? "git-compact" : "git-status"}><p className="text-xs leading-6 text-muted">{compact ? "Git対象外（フォルダ未設定）" : "フォルダが未設定のため、Git情報はありません。"}</p></section>;
   return <FolderGitStatus projectId={project.id} projectName={project.name} path={project.path} compact={compact} />;
 }
 

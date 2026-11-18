@@ -45,7 +45,7 @@ function ResumeAction({ project, onResumed }: ResumeProjectProps) {
       <div className="launch-results mt-3 space-y-2 break-words text-xs leading-6">
         {error && <p role="alert" className="text-danger">{error}</p>}
         {report && <>
-          {report.editor ? <Outcome name={report.editorName} result={report.editor} /> : <p className="text-muted">URLのみのため、エディタは開きませんでした。</p>}
+          {report.editor ? <Outcome name={report.editorName} result={report.editor} /> : <p className="text-muted">フォルダ未設定のため、エディタは開きませんでした。</p>}
           {report.browser ? <Outcome name="ブラウザ" result={report.browser} /> : <p role="status" className="text-muted">URL未設定のため、ブラウザは開きませんでした。</p>}
           {report.apps?.map(({ target, outcome }, index) => (
             <Outcome key={index} name={appLaunchTargetLabel(target)} result={outcome} />

@@ -104,7 +104,7 @@ function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, 
               </div>
               <div>
                 <dt className="text-sm text-muted">フォルダ</dt>
-                <dd className="mt-2 break-all font-mono text-sm leading-6">{project.path ?? "未設定（URLのみ・ブラウザで再開）"}</dd>
+                <dd className="mt-2 break-all font-mono text-sm leading-6">{project.path ?? "未設定"}</dd>
               </div>
               <div>
                 <dt className="text-sm text-muted">アイコン</dt>

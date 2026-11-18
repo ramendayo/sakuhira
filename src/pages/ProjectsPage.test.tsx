@@ -220,8 +220,8 @@ describe("project registration", () => {
     expect(screen.getByText(web.launchUrl!)).toBeTruthy();
     await user.type(screen.getByRole("searchbox"), "REENTRY");
     await user.click(screen.getByRole("button", { name: "Reentryの詳細を開く" }));
-    expect(screen.getByText("未設定（URLのみ・ブラウザで再開）")).toBeTruthy();
-    expect(screen.getByText("URLのみのプロジェクトにはGit情報がありません。")).toBeTruthy();
+    expect(screen.getByText("フォルダ").nextElementSibling?.textContent).toBe("未設定");
+    expect(screen.getByText("フォルダが未設定のため、Git情報はありません。")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
     await screen.findByText("ブラウザ：起動要求を送信しました。");
     expect(resumeProject).toHaveBeenCalledWith(web);
@@ -232,6 +232,38 @@ describe("project registration", () => {
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
     await screen.findByText("変更を保存しました。");
     expect(api.updateProject).toHaveBeenCalledWith({ ...web, lastResumedAt: 3000 }, "Web Docs", null, { mode: "auto" });
+  });
+
+  it("shows saved app and file names and resumes an app-only project from the list and details", async () => {
+    const app = { appPath: "/Applications/Codex.app", filePath: null };
+    const document = { appPath: "/System/Applications/Preview.app", filePath: "/work/企画.pdf" };
+    const appOnly: Project = {
+      ...project, name: "企画の壁打ち", path: null, appLaunchTargets: [app, document], shortcut: "Control+KeyK",
+    };
+    const timestamp = 3000;
+    vi.mocked(api.listProjects).mockResolvedValue([appOnly]);
+    vi.mocked(resumeProject).mockResolvedValue({
+      editorName: "VS Code", editor: null, browser: null,
+      apps: [{ target: app, outcome: { status: "success" } }, { target: document, outcome: { status: "success" } }],
+      history: { status: "saved", timestamp },
+    });
+
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByText("Codex、Preview")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "企画の壁打ちを再開" }));
+    expect(await screen.findByText("Codex：起動要求を送信しました。")).toBeTruthy();
+    expect(resumeProject).toHaveBeenNthCalledWith(1, appOnly);
+
+    await user.click(screen.getByRole("button", { name: "企画の壁打ちの詳細を開く" }));
+    const settings = within(screen.getByRole("region", { name: "起動設定" }));
+    expect(settings.getByText("Codex")).toBeTruthy();
+    expect(settings.getByText("Preview（企画.pdf）")).toBeTruthy();
+    expect(settings.getByText("プロジェクトフォルダが未設定のため、エディタは開きません。")).toBeTruthy();
+    expect(screen.getByText("フォルダが未設定のため、Git情報はありません。")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "企画の壁打ちを再開" }));
+    expect(await screen.findByText("Preview（企画.pdf）：起動要求を送信しました。")).toBeTruthy();
+    expect(resumeProject).toHaveBeenNthCalledWith(2, { ...appOnly, lastResumedAt: timestamp });
   });
 
   it("requires a name and at least one launch target before registration", async () => {

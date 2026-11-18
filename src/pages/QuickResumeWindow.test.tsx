@@ -48,6 +48,31 @@ it("focuses an empty search and starts on the most recently resumed project each
   expect(screen.getByRole("option", { name: /開発ツール/, selected: true })).toBeTruthy();
 });
 
+it("shows an app-only project's launch app and invokes the shared resume command", async () => {
+  vi.stubGlobal("isTauri", true);
+  const target = { appPath: "/Applications/Codex.app", filePath: null };
+  const project: Project = { ...pinned, name: "企画の壁打ち", launchUrl: null, appLaunchTargets: [target] };
+  const resume = vi.fn((_args: unknown): ResumeReport => ({
+    editorName: "VS Code", editor: null, browser: null,
+    apps: [{ target, outcome: { status: "success" } }], history: { status: "saved", timestamp: 3000 },
+  }));
+  mockIPC((command, args) => {
+    switch (command) {
+      case "get_settings": return { theme: "light", defaultEditor: "vsCode", projectOrder: { sort: "recent", manualIds: [] } };
+      case "list_projects": return [project, latest];
+      case "resume_project": return resume(args);
+      default: return undefined;
+    }
+  }, { shouldMockEvents: true });
+
+  const user = userEvent.setup();
+  render(<QuickResumeWindow />);
+  expect(await screen.findByRole("option", { name: /企画の壁打ち.*Codex/ })).toBeTruthy();
+  await user.type(screen.getByRole("combobox"), "企画");
+  await user.keyboard("{Enter}");
+  expect(resume).toHaveBeenCalledExactlyOnceWith({ project });
+});
+
 it("leaves IME confirmation and an empty result alone", async () => {
   const user = userEvent.setup();
   const onResume = vi.fn();

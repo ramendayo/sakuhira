@@ -2,7 +2,7 @@ import { useSettings } from "../hooks/useSettings";
 import { editorName } from "../types/settings";
 import { useId, useState } from "react";
 import type { FormEvent } from "react";
-import { hasLaunchTarget, lastLaunchTargetMessage, setProjectAppLaunchTargets, setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";
+import { appLaunchTargetLabel, hasLaunchTarget, lastLaunchTargetMessage, setProjectAppLaunchTargets, setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";
 import { errorMessage } from "../services/projects";
 import type { AppLaunchTarget, Project } from "../types/project";
 import ProjectAppLaunchTargets from "./ProjectAppLaunchTargets";
@@ -74,12 +74,20 @@ function ProjectLaunchSettings({ project, onSaved }: { project: Project; onSaved
         {error && <p role="alert" className="mt-4 break-words text-sm leading-6 text-danger">{error}</p>}
         <p role="status" className="notice mt-3">{notice}</p>
       </form>
-      {supportsAppLaunchTargets() && <ProjectAppLaunchTargets
-        targets={baseline.appLaunchTargets ?? []}
-        disabled={pending || appsBusy}
-        onBusyChange={setAppsBusy}
-        onChange={saveApps}
-      />}
+      {supportsAppLaunchTargets() ? (
+        <ProjectAppLaunchTargets
+          targets={baseline.appLaunchTargets ?? []}
+          disabled={pending || appsBusy}
+          onBusyChange={setAppsBusy}
+          onChange={saveApps}
+        />
+      ) : Boolean(baseline.appLaunchTargets?.length) && (
+        <ul aria-label="再開時に開くアプリ" className="mt-6 space-y-2 border-t border-line pt-5 text-sm text-ink">
+          {baseline.appLaunchTargets?.map((target, index) => (
+            <li key={index} className="break-words">{appLaunchTargetLabel(target)}</li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

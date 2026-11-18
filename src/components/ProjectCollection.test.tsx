@@ -9,7 +9,7 @@ import type { ProjectView } from "../types/settings";
 import type { ResumeReport } from "../types/launch";
 
 vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
-vi.mock("../services/launch", () => ({ resumeProject: vi.fn() }));
+vi.mock("../services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../services/launch")>(), resumeProject: vi.fn() }));
 const project: Project = { id: "id", name: "長いプロジェクト名".repeat(10), path: "/projects/" + "long-path/".repeat(20), launchUrl: null, lastResumedAt: 3000, notes: { lastWork: "前回の作業メモ", nextTask: "次の作業メモ", updatedAt: null } };
 const views: ProjectView[] = [{ layout: "cards", cardSize: "small" }, { layout: "cards", cardSize: "standard" }, { layout: "cards", cardSize: "large" }, { layout: "list", cardSize: "standard" }];
 beforeEach(() => vi.resetAllMocks());
@@ -57,7 +57,17 @@ it("handles missing notes and URL-only projects without requesting Git", () => {
   render(<ProjectCollection projects={[{ ...project, path: null, launchUrl: "https://example.com/", notes: { lastWork: "", nextTask: "", updatedAt: null } }]} view={views[1]} onSelect={vi.fn()} onResumed={vi.fn()} />);
   expect(screen.getByText("作業メモはまだありません。")).toBeTruthy();
   expect(screen.getByText("https://example.com/")).toBeTruthy();
-  expect(screen.getByText("Git対象外（URLのみ）")).toBeTruthy();
+  expect(screen.getByText("Git対象外（フォルダ未設定）")).toBeTruthy();
+  expect(getGitStatus).not.toHaveBeenCalled();
+});
+
+it.each([views[0], views[3]])("shows app names without requesting Git in compact $layout", (view) => {
+  const apps = [{ appPath: "/Applications/Codex.app", filePath: null },
+    { appPath: "/System/Applications/Preview.app", filePath: "/work/企画.pdf" },
+    { appPath: "/System/Applications/Preview.app", filePath: "/work/資料.pdf" }];
+  const appOnly = { ...project, path: null, appLaunchTargets: apps };
+  render(<ProjectCollection projects={[appOnly]} view={view} onSelect={vi.fn()} onResumed={vi.fn()} />);
+  expect(screen.getByText("Codex、Preview").getAttribute("title")).toBe("Codex、Preview");
   expect(getGitStatus).not.toHaveBeenCalled();
 });
 

@@ -7,7 +7,7 @@ import SettingsProvider from "../components/SettingsProvider";
 import { useAppearance } from "../hooks/useAppearance";
 import { useProjects } from "../hooks/useProjects";
 import { useSettings } from "../hooks/useSettings";
-import { resumeErrorMessages, resumeProject } from "../services/launch";
+import { projectLaunchLocation, resumeErrorMessages, resumeProject } from "../services/launch";
 import { errorMessage } from "../services/projects";
 import type { Project } from "../types/project";
 import { quickResumeCandidates } from "../utils/projectOrder";
@@ -114,7 +114,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
         <ul id={`${id}-results`} role="listbox" aria-label="再開候補" className="space-y-1" hidden={!selected}>
           {candidates.map((project, index) => {
             const active = index === selectedIndex;
-            const location = project.path ?? project.launchUrl;
+            const location = projectLaunchLocation(project);
             return (
               <li
                 key={project.id}
@@ -130,7 +130,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
                 <ProjectIcon path={project.path} appearance={project.icon} compact />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold" title={project.name}>{project.name}</p>
-                  <p className="truncate font-mono text-xs text-muted" title={location ?? undefined}>{location}</p>
+                  {location && <p className="truncate font-mono text-xs text-muted" title={location}>{location}</p>}
                 </div>
               </li>
             );

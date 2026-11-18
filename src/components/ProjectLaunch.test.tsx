@@ -37,7 +37,7 @@ it("shows browser-only results and does not load editor settings for URL-only pr
   expect(setProjectLaunchUrl).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "Reentryを再開" }));
   expect(await screen.findByText("ブラウザ：起動要求を送信しました。")).toBeTruthy();
-  expect(screen.getByText("URLのみのため、エディタは開きませんでした。")).toBeTruthy();
+  expect(screen.getByText("フォルダ未設定のため、エディタは開きませんでした。")).toBeTruthy();
   expect(onResumed).toHaveBeenCalledWith(project.id, 3000);
   expect(screen.getByRole("alert").textContent).toBe(lastLaunchTargetMessage);
 });
