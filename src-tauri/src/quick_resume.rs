@@ -2,7 +2,10 @@ use crate::{
     launch::{self, ResumeHistory, ResumeReport},
     projects::Project,
 };
-use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication, NSWorkspace};
+use objc2_app_kit::{
+    NSApplicationActivationOptions, NSRunningApplication, NSWindow, NSWindowCollectionBehavior,
+    NSWorkspace,
+};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
@@ -78,6 +81,8 @@ fn open(app: &AppHandle) -> tauri::Result<()> {
             .focused(false)
             .build()?
     };
+    // Configure the window before show() can make it key and trigger a Space switch.
+    move_to_active_space(&window)?;
     let already_focused = window.is_focused()?;
     {
         let mut presentation = state
@@ -95,6 +100,19 @@ fn open(app: &AppHandle) -> tauri::Result<()> {
     }
     window.show()?;
     window.set_focus()
+}
+
+fn move_to_active_space(window: &WebviewWindow) -> tauri::Result<()> {
+    // SAFETY: open() runs on the AppKit main thread and the handle is the NSWindow
+    // owned by this live WebviewWindow.
+    let native_window = unsafe { &*window.ns_window()?.cast::<NSWindow>() };
+    let current = native_window.collectionBehavior();
+    let behavior = (current - NSWindowCollectionBehavior::CanJoinAllSpaces)
+        | NSWindowCollectionBehavior::MoveToActiveSpace;
+    if behavior != current {
+        native_window.setCollectionBehavior(behavior);
+    }
+    Ok(())
 }
 
 pub fn focus_changed(window: &WebviewWindow, focused: bool) -> tauri::Result<()> {
