@@ -4,7 +4,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ProjectLaunchSettings from "./ProjectLaunchSettings";
 import ResumeProject from "./ResumeProject";
-import { resumeProject, selectProjectLaunchItem, setProjectAppLaunchTargets, setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";
+import { lastLaunchTargetMessage, resumeProject, selectProjectLaunchItem, setProjectAppLaunchTargets, setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";
 import { getSettings } from "../services/settings";
 import type { Project } from "../types/project";
 import type { ResumeReport } from "../types/launch";
@@ -17,8 +17,8 @@ const success: ResumeReport = { history: { status: "skipped" }, editorName: "VS 
 beforeEach(() => vi.resetAllMocks());
 afterEach(cleanup);
 
-function Harness() {
-  const [current, setCurrent] = useState(project);
+function Harness({ initialProject = project }: { initialProject?: Project }) {
+  const [current, setCurrent] = useState(initialProject);
   return <><ProjectLaunchSettings project={current} onSaved={setCurrent} /><ResumeProject project={current} /></>;
 }
 
@@ -30,8 +30,8 @@ it("shows browser-only results and does not load editor settings for URL-only pr
   const user = userEvent.setup();
   render(<><ProjectLaunchSettings project={web} onSaved={vi.fn()} /><ResumeProject project={web} onResumed={onResumed} /></>);
   expect(getSettings).not.toHaveBeenCalled();
-  const url = screen.getByLabelText("起動URL（必須）") as HTMLInputElement;
-  expect(url.required).toBe(true);
+  const url = screen.getByLabelText("起動URL（任意）") as HTMLInputElement;
+  expect(url.required).toBe(false);
   await user.clear(url);
   await user.click(screen.getByRole("button", { name: "起動設定を保存" }));
   expect(setProjectLaunchUrl).not.toHaveBeenCalled();
@@ -39,7 +39,7 @@ it("shows browser-only results and does not load editor settings for URL-only pr
   expect(await screen.findByText("ブラウザ：起動要求を送信しました。")).toBeTruthy();
   expect(screen.getByText("URLのみのため、エディタは開きませんでした。")).toBeTruthy();
   expect(onResumed).toHaveBeenCalledWith(project.id, 3000);
-  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByRole("alert").textContent).toBe(lastLaunchTargetMessage);
 });
 
 it("shows launch success alongside a history storage error without reporting a saved timestamp", async () => {
@@ -179,4 +179,37 @@ it("adds apps with optional files, keeps a failed draft, and lets saved targets 
   expect(screen.queryByRole("button", { name: "Slackを削除" })).toBeNull();
   expect(vi.mocked(setProjectAppLaunchTargets).mock.lastCall?.[1]).toEqual([{ ...preview, filePath: null }]);
   expect(vi.mocked(selectProjectLaunchItem).mock.calls.flat()).toEqual(["app", "app", "file", "app", "file"]);
+});
+
+it("keeps the last app on deletion and allows retry after another launch target is saved", async () => {
+  const app = { appPath: "/Applications/Codex.app", filePath: null };
+  const appOnly = { ...project, path: null, appLaunchTargets: [app] };
+  const withUrl = { ...appOnly, launchUrl: "https://example.com/" };
+  const urlOnly = { ...withUrl, appLaunchTargets: [] };
+  vi.mocked(supportsAppLaunchTargets).mockReturnValue(true);
+  vi.mocked(setProjectLaunchUrl).mockResolvedValueOnce(withUrl).mockResolvedValueOnce(appOnly).mockResolvedValueOnce(withUrl);
+  vi.mocked(setProjectAppLaunchTargets).mockResolvedValueOnce(urlOnly);
+  const user = userEvent.setup();
+  render(<Harness initialProject={appOnly} />);
+  const deleteApp = () => user.click(screen.getByRole("button", { name: "Codexを削除" }));
+  const saveUrl = () => user.click(screen.getByRole("button", { name: "起動設定を保存" }));
+
+  await deleteApp();
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent", lastLaunchTargetMessage);
+  expect(setProjectAppLaunchTargets).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Codexを削除" })).toBeTruthy();
+
+  const url = screen.getByLabelText("起動URL（任意）");
+  await user.type(url, withUrl.launchUrl);
+  await saveUrl();
+  expect(setProjectLaunchUrl).toHaveBeenLastCalledWith(appOnly, withUrl.launchUrl);
+  await user.clear(url);
+  await saveUrl();
+  expect(setProjectLaunchUrl).toHaveBeenLastCalledWith(withUrl, "");
+  await user.type(url, withUrl.launchUrl);
+  await saveUrl();
+  expect(setProjectLaunchUrl).toHaveBeenLastCalledWith(appOnly, withUrl.launchUrl);
+  await deleteApp();
+  expect(setProjectAppLaunchTargets).toHaveBeenCalledExactlyOnceWith(withUrl, []);
+  expect(screen.queryByRole("button", { name: "Codexを削除" })).toBeNull();
 });

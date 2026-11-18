@@ -170,12 +170,12 @@ it("previews independent icon choices and keeps the draft after a failed save", 
   expect(api.updateProject).toHaveBeenLastCalledWith(updated, updated.name, null, { mode: "auto" });
 });
 
-it("registers app and file targets with the project and keeps them for retry", async () => {
+it("registers a project with only app targets and keeps them for retry", async () => {
   const preview = { appPath: "/System/Applications/Preview.app", filePath: "/work/仕様書.pdf" };
   const slack = { appPath: "/Applications/Slack.app", filePath: null };
   const correctedPreview = { ...preview, filePath: "/work/新しい仕様書.pdf" };
   const saved: Project = {
-    id: "docs", name: "Docs", path: null, launchUrl: "https://example.com/",
+    id: "docs", name: "Docs", path: null, launchUrl: null,
     appLaunchTargets: [correctedPreview, slack], lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null },
   };
   vi.mocked(launch.supportsAppLaunchTargets).mockReturnValue(true);
@@ -190,9 +190,15 @@ it("registers app and file targets with the project and keeps them for retry", a
   const onSaved = vi.fn();
   render(<ProjectForm onSaved={onSaved} onCancel={vi.fn()} />);
   await user.type(screen.getByLabelText("プロジェクト名"), saved.name);
-  await user.type(screen.getByLabelText("起動URL（任意）"), saved.launchUrl!);
   const disclosure = screen.getByRole("button", { name: "オプション設定（任意）", expanded: false });
-  await user.click(disclosure);
+  expect(screen.queryByRole("group", { name: "再開時に開くアプリ" })).toBeNull();
+  expect(screen.getByText("フォルダ・URL・アプリのいずれかを設定してください。")).toBeTruthy();
+  const chooseApps = screen.getByRole("button", { name: "アプリを選ぶ" });
+  chooseApps.focus();
+  await user.keyboard("{Enter}");
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "アプリを追加" }));
+  await user.click(chooseApps);
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "アプリを追加" }));
   const add = () => user.click(screen.getByRole("button", { name: "アプリを追加" }));
   const saveTarget = () => user.click(screen.getByRole("button", { name: "起動先を追加" }));
   const register = () => user.click(screen.getByRole("button", { name: "登録する" }));
@@ -213,7 +219,7 @@ it("registers app and file targets with the project and keeps them for retry", a
   expect(screen.queryByRole("group", { name: "再開時に開くアプリ" })).toBeNull();
   await register();
 
-  expect(api.addProject).toHaveBeenNthCalledWith(1, saved.name, null, saved.launchUrl, { appLaunchTargets: [preview, slack] });
+  expect(api.addProject).toHaveBeenNthCalledWith(1, saved.name, null, "", { appLaunchTargets: [preview, slack] });
   expect(await screen.findByText("Preview（仕様書.pdf）：起動先のファイルが見つかりません。")).toBeTruthy();
   expect(onSaved).not.toHaveBeenCalled();
   expect(disclosure.getAttribute("aria-expanded")).toBe("true");
@@ -224,8 +230,31 @@ it("registers app and file targets with the project and keeps them for retry", a
   await user.click(screen.getByRole("button", { name: "ファイルを選び直す" }));
   await user.click(screen.getByRole("button", { name: "変更を反映" }));
   await register();
-  expect(api.addProject).toHaveBeenNthCalledWith(2, saved.name, null, saved.launchUrl, { appLaunchTargets: [correctedPreview, slack] });
+  expect(api.addProject).toHaveBeenNthCalledWith(2, saved.name, null, "", { appLaunchTargets: [correctedPreview, slack] });
   await waitFor(() => expect(onSaved).toHaveBeenCalledWith(saved));
+});
+
+it("can remove a folder after another launch target has been set", async () => {
+  const folder: Project = {
+    id: "edit-targets", name: "Docs", path: "/work/Docs", launchUrl: null,
+    notes: { lastWork: "", nextTask: "", updatedAt: null }, lastResumedAt: null,
+  };
+  const withApp = { ...folder, appLaunchTargets: [{ appPath: "/Applications/Codex.app", filePath: null }] };
+  const saved = { ...withApp, path: null };
+  vi.mocked(api.updateProject).mockClear().mockResolvedValueOnce(saved);
+  const user = userEvent.setup();
+  const onSaved = vi.fn();
+  const { rerender } = render(<ProjectForm key="folder-only" project={folder} onSaved={onSaved} onCancel={vi.fn()} />);
+  await user.clear(screen.getByLabelText("フォルダ"));
+  await user.click(screen.getByRole("button", { name: "変更を保存" }));
+  expect(screen.getByRole("alert").textContent).toBe(launch.lastLaunchTargetMessage);
+  expect(api.updateProject).not.toHaveBeenCalled();
+
+  rerender(<ProjectForm key="with-app" project={withApp} onSaved={onSaved} onCancel={vi.fn()} />);
+  await user.clear(screen.getByLabelText("フォルダ"));
+  await user.click(screen.getByRole("button", { name: "変更を保存" }));
+  expect(api.updateProject).toHaveBeenCalledExactlyOnceWith(withApp, withApp.name, null, { mode: "auto" });
+  expect(onSaved).toHaveBeenCalledWith(saved);
 });
 
 it("opens the compact icon editor with the keyboard and selects a custom shape", async () => {

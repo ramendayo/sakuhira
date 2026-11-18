@@ -2,9 +2,9 @@ import { useSettings } from "../hooks/useSettings";
 import { editorName } from "../types/settings";
 import { useId, useState } from "react";
 import type { FormEvent } from "react";
-import { setProjectAppLaunchTargets, setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";
+import { hasLaunchTarget, lastLaunchTargetMessage, setProjectAppLaunchTargets, setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";
 import { errorMessage } from "../services/projects";
-import type { Project } from "../types/project";
+import type { AppLaunchTarget, Project } from "../types/project";
 import ProjectAppLaunchTargets from "./ProjectAppLaunchTargets";
 
 function EditorSetting() {
@@ -30,12 +30,23 @@ function ProjectLaunchSettings({ project, onSaved }: { project: Project; onSaved
     onSaved(updated);
   }
 
+  async function saveApps(targets: AppLaunchTarget[]) {
+    if (!hasLaunchTarget(baseline.path, baseline.launchUrl, targets)) {
+      throw new Error(lastLaunchTargetMessage);
+    }
+    commit(await setProjectAppLaunchTargets(baseline, targets));
+  }
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending || appsBusy) return;
+    setNotice("");
+    if (!hasLaunchTarget(baseline.path, url, baseline.appLaunchTargets)) {
+      setError(lastLaunchTargetMessage);
+      return;
+    }
     setPending(true);
     setError(null);
-    setNotice("");
     try {
       const updated = await setProjectLaunchUrl(baseline, url);
       commit(updated);
@@ -54,9 +65,9 @@ function ProjectLaunchSettings({ project, onSaved }: { project: Project; onSaved
       {project.path ? <EditorSetting /> : <p className="mt-4 text-sm text-ink">プロジェクトフォルダが未設定のため、エディタは開きません。</p>}
       <form onSubmit={save}>
         <fieldset disabled={pending || appsBusy} className="mt-5 disabled:opacity-60">
-          <label htmlFor={`${id}-url`} className="field-label">{project.path ? "起動URL（任意）" : "起動URL（必須）"}</label>
-          <input id={`${id}-url`} type="url" required={!project.path} value={url} onChange={(event) => setUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-hint`} className="field" />
-          <p id={`${id}-hint`} className="mt-2 text-xs leading-6 text-muted">{project.path ? "HTTP/HTTPSのURLを既定ブラウザで開きます。空欄で保存すると、このURLは開きません。" : "HTTP/HTTPSのURLを既定ブラウザで開きます。URLを解除するには、先にフォルダを設定してください。"}</p>
+          <label htmlFor={`${id}-url`} className="field-label">起動URL（任意）</label>
+          <input id={`${id}-url`} type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-hint`} className="field" />
+          <p id={`${id}-hint`} className="mt-2 text-xs leading-6 text-muted">HTTP/HTTPSのURLを既定ブラウザで開きます。削除するには、空欄にして保存します。</p>
           <p className="mt-1 text-xs leading-6 text-muted">再開には保存済みの設定を使用します。</p>
           <button type="submit" className="mt-4 button-secondary">{pending ? "保存中…" : "起動設定を保存"}</button>
         </fieldset>
@@ -67,7 +78,7 @@ function ProjectLaunchSettings({ project, onSaved }: { project: Project; onSaved
         targets={baseline.appLaunchTargets ?? []}
         disabled={pending || appsBusy}
         onBusyChange={setAppsBusy}
-        onChange={async (targets) => commit(await setProjectAppLaunchTargets(baseline, targets))}
+        onChange={saveApps}
       />}
     </section>
   );

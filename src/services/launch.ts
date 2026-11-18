@@ -11,6 +11,17 @@ export async function setProjectLaunchUrl(project: Project, url: string): Promis
   return invoke<Project>("set_project_launch_url", { project, url: url.trim() || null });
 }
 
+export const launchTargetRequiredMessage = "フォルダ・URL・アプリのいずれかを設定してください。";
+export const lastLaunchTargetMessage = "最後の起動先を外す前に、別のフォルダ・URL・アプリを追加してください。";
+
+export function hasLaunchTarget(
+  path: string | null,
+  url: string | null,
+  apps?: readonly AppLaunchTarget[],
+): boolean {
+  return Boolean(path?.trim() || url?.trim() || apps?.length);
+}
+
 export function supportsAppLaunchTargets() {
   return isTauri() && /Mac/.test(navigator.platform);
 }

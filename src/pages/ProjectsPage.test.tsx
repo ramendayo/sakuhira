@@ -242,7 +242,7 @@ describe("project registration", () => {
     await user.type(screen.getByLabelText("プロジェクト名"), "Example");
     await user.clear(screen.getByLabelText("起動URL（任意）"));
     await user.click(screen.getByRole("button", { name: "登録する" }));
-    expect((await screen.findByRole("alert")).textContent).toContain("フォルダまたは起動URL");
+    expect((await screen.findByRole("alert")).textContent).toContain("フォルダ・URL・アプリのいずれか");
     expect(api.addProject).not.toHaveBeenCalled();
   });
 

@@ -1,7 +1,9 @@
-import { useCallback, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { addProject, appLaunchTargetRegistrationError, errorMessage, selectProjectDirectory, shortcutRegistrationError, updateProject } from "../services/projects";
-import { appLaunchTargetLabel, supportsAppLaunchTargets } from "../services/launch";
+import {
+  appLaunchTargetLabel, hasLaunchTarget, lastLaunchTargetMessage, launchTargetRequiredMessage, supportsAppLaunchTargets,
+} from "../services/launch";
 import { supportsShortcuts } from "../services/shortcuts";
 import type { AppLaunchTarget, Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
 import ProjectAppLaunchTargets from "./ProjectAppLaunchTargets";
@@ -28,9 +30,12 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
   const [appsBusy, setAppsBusy] = useState(false);
   const [shortcut, setShortcut] = useState<string | null | undefined>(undefined);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const appOptions = useRef<HTMLDivElement>(null);
+  const focusAppsOnOpen = useRef(false);
   const [shortcutError, setShortcutError] = useState<string | null>(null);
   const selectedShortcut = shortcut === undefined ? project?.shortcut ?? null : shortcut;
   const canSetShortcut = supportsShortcuts();
+  const canChooseApps = !project && supportsAppLaunchTargets();
   const previewPath = path.trim() || null;
   const savedCustomIcon = project?.icon?.mode === "custom" ? project.icon : undefined;
   const [customIcon, setCustomIcon] = useState(Boolean(savedCustomIcon));
@@ -43,12 +48,34 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     ? { mode: "custom", shape: iconShape ?? defaultIconShape, color: iconColor }
     : { mode: "auto" };
   const [error, setError] = useState<string | null>(null);
+  const [targetError, setTargetError] = useState<string | null>(null);
   const [pending, setPending] = useState<"picking" | "saving" | null>(null);
 
   const changeShortcut = useCallback((key: string | null) => {
     setShortcut(key);
     setShortcutError(null);
   }, []);
+
+  const focusAppControls = useCallback(() => {
+    const group = appOptions.current;
+    (group?.querySelector<HTMLButtonElement>("button:not(:disabled)") ?? group)?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (optionsOpen && focusAppsOnOpen.current) {
+      focusAppsOnOpen.current = false;
+      focusAppControls();
+    }
+  }, [focusAppControls, optionsOpen]);
+
+  function openAppOptions() {
+    if (optionsOpen) {
+      focusAppControls();
+    } else {
+      focusAppsOnOpen.current = true;
+      setOptionsOpen(true);
+    }
+  }
 
   function changeIconMode(custom: boolean) {
     if (custom) setIconShape((shape) => shape ?? defaultIconShape);
@@ -61,6 +88,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     try {
       const selected = await selectProjectDirectory();
       if (selected) {
+        setTargetError(null);
         setPath(selected.path);
         setName((current) => current.trim() ? current : selected.suggestedName);
       }
@@ -83,10 +111,14 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
       setError("プロジェクト名を入力してください。");
       return;
     }
-    if (!path && !(project ? project.launchUrl : launchUrl.trim())) {
-      setError("フォルダまたは起動URLを設定してください。");
+    const configuredUrl = project ? project.launchUrl : launchUrl;
+    const configuredApps = project ? project.appLaunchTargets : appLaunchTargets;
+    if (!hasLaunchTarget(path, configuredUrl, configuredApps)) {
+      setError(null);
+      setTargetError(project ? lastLaunchTargetMessage : launchTargetRequiredMessage);
       return;
     }
+    setTargetError(null);
     setError(null);
     setShortcutError(null);
     setAppError(null);
@@ -98,8 +130,8 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
         ...(appLaunchTargets.length > 0 && { appLaunchTargets }),
       };
       const saved = project
-        ? await updateProject(project, name.trim(), path || null, appearance, ...(shortcut === undefined ? [] : [{ shortcut }]))
-        : await addProject(name.trim(), path || null, launchUrl, ...(hasOptions ? [registrationOptions] : []));
+        ? await updateProject(project, name.trim(), previewPath ? path : null, appearance, ...(shortcut === undefined ? [] : [{ shortcut }]))
+        : await addProject(name.trim(), previewPath ? path : null, launchUrl, ...(hasOptions ? [registrationOptions] : []));
       onSaved(saved);
     } catch (error) {
       const appFailure = !project ? appLaunchTargetRegistrationError(error) : null;
@@ -154,7 +186,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
     >
       <h2 id={`${id}-heading`} className="section-title">{project ? "プロジェクトを編集" : "プロジェクトを登録"}</h2>
       <p className="mt-2 text-sm leading-6 text-muted">
-        名前を入力し、フォルダまたは起動URLを設定してください。
+        プロジェクト名と起動先を設定してください。
       </p>
       <fieldset disabled={pending !== null || appsBusy} className="mt-5 space-y-5 disabled:opacity-60">
         <div>
@@ -176,7 +208,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
             <input
               id={`${id}-path`}
               value={path}
-              onChange={(event) => setPath(event.target.value)}
+              onChange={(event) => { setPath(event.target.value); setTargetError(null); }}
               placeholder="フォルダを選択、または絶対パスを入力"
               className="field flex-[1_1_260px]"
             />
@@ -184,13 +216,21 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
               {pending === "picking" ? "選択中…" : "フォルダを選択"}
             </button>
           </div>
-          <p className="mt-2 text-xs leading-6 text-muted">起動URLを設定する場合は空欄にできます。フォルダなしではエディタを開きません。フォルダ内のファイルは変更されません。</p>
+          <p className="mt-2 text-xs leading-6 text-muted">設定したフォルダは再開時にエディタで開きます。フォルダ内のファイルは変更されません。</p>
         </div>
         {!project && <div>
           <label htmlFor={`${id}-launch-url`} className="field-label">起動URL（任意）</label>
-          <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => setLaunchUrl(event.target.value)} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="field" />
-          <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-muted">フォルダがない場合は必須です。HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
+          <input id={`${id}-launch-url`} type="url" value={launchUrl} onChange={(event) => { setLaunchUrl(event.target.value); setTargetError(null); }} placeholder="http://localhost:3000" aria-describedby={`${id}-launch-url-help`} className="field" />
+          <p id={`${id}-launch-url-help`} className="mt-2 text-xs leading-6 text-muted">HTTP/HTTPSのURLを再開時にブラウザで開きます。後から詳細画面で変更できます。</p>
         </div>}
+        {(!project || targetError) && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p role={targetError ? "alert" : undefined} className={`text-xs leading-6 ${targetError ? "text-danger" : "text-muted"}`}>
+              {targetError ?? launchTargetRequiredMessage}
+            </p>
+            {canChooseApps && <button type="button" className="button-quiet" aria-controls={`${id}-app-options`} onClick={openAppOptions}>アプリを選ぶ</button>}
+          </div>
+        )}
         {project && <>{iconField}{shortcutField}</>}
         {project ? actions : (
           <div className="space-y-3">
@@ -220,13 +260,13 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
               <div id={`${id}-optional-settings`} hidden={!optionsOpen} className="divide-y divide-line border-t border-line px-3">
                 <div className="py-3">{iconField}</div>
                 {canSetShortcut && <div className="py-3">{optionsOpen && shortcutField}</div>}
-                {supportsAppLaunchTargets() && (
-                  <div className="py-3">
+                {canChooseApps && (
+                  <div id={`${id}-app-options`} ref={appOptions} tabIndex={-1} className="py-3">
                     <ProjectAppLaunchTargets
                       targets={appLaunchTargets}
                       disabled={pending !== null || appsBusy}
                       onBusyChange={setAppsBusy}
-                      onChange={(targets) => { setAppLaunchTargets(targets); setAppError(null); }}
+                      onChange={(targets) => { setAppLaunchTargets(targets); setAppError(null); setTargetError(null); }}
                       onDraftChange={(editing) => {
                         setAppDraftOpen(editing);
                         if (!editing) setAppError((current) => current?.index === undefined ? null : current);
