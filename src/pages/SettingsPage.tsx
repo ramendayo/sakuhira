@@ -57,36 +57,42 @@ function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload:
   }
 
   return (<>
-    <form onSubmit={save} aria-label="アプリ設定" aria-busy={pending} className="mt-8 max-w-2xl panel">
-      <h2 className="section-title">開発環境</h2>
-      <fieldset disabled={pending || shortcutPending} className="mt-5 space-y-5 disabled:opacity-60">
-        <div>
-          <label htmlFor="default-editor" className="field-label">デフォルトエディタ</label>
-          <select id="default-editor" value={editor} onChange={(event) => { setEditor(event.target.value as Editor); setNotice(""); }} className="field">
-            <option value="vsCode">VS Code</option><option value="cursor">Cursor</option>
-          </select>
-          <p className="mt-3 text-sm leading-7 text-muted">macOSにインストール済みのアプリを開きます。選択だけでは起動しません。</p>
-          <p className="mt-2 text-xs leading-6 text-muted">起動URLは各プロジェクトの詳細で設定できます。</p>
-        </div>
-        <div className="border-t border-line pt-5">
-          <h2 className="section-title mb-4">外観</h2>
-          <label htmlFor="display-theme" className="field-label">表示テーマ</label>
-          <select id="display-theme" value={theme} onChange={(event) => { setTheme(event.target.value as ThemePreference); setNotice(""); }} className="field">
-            <option value="light">ライト</option>
-            <option value="dark">ダーク</option>
-            <option value="system">OSに合わせる</option>
-          </select>
-          <p className="mt-3 text-sm leading-7 text-muted">「OSに合わせる」では、OSのライト・ダーク設定の変更にも追従します。</p>
-          <p className="mt-2 text-xs leading-6 text-muted">表示テーマは保存後に反映されます。エディタは次の再開から反映されます。</p>
-        </div>
-        <div className="flex flex-wrap gap-3">
+    <form onSubmit={save} aria-label="アプリ設定" aria-busy={pending} className="settings-panel mt-8 max-w-2xl panel">
+      <fieldset disabled={pending || shortcutPending} className="min-w-0 space-y-5 disabled:opacity-60">
+        <section aria-labelledby="appearance-settings" className="settings-section">
+          <h2 id="appearance-settings" className="section-title">外観</h2>
+          <div className="settings-row">
+            <div>
+              <label htmlFor="display-theme" className="settings-row-label">表示テーマ</label>
+              <p id="display-theme-help" className="settings-row-description">保存すると反映されます。「OSに合わせる」はシステムの外観に追従します。</p>
+            </div>
+            <select id="display-theme" aria-describedby="display-theme-help" value={theme} onChange={(event) => { setTheme(event.target.value as ThemePreference); setNotice(""); }} className="field settings-select">
+              <option value="light">ライト</option>
+              <option value="dark">ダーク</option>
+              <option value="system">OSに合わせる</option>
+            </select>
+          </div>
+        </section>
+        <section aria-labelledby="resume-settings" className="settings-section">
+          <h2 id="resume-settings" className="section-title">プロジェクトの再開</h2>
+          <div className="settings-row">
+            <div>
+              <label htmlFor="default-editor" className="settings-row-label">フォルダを開くエディタ</label>
+              <p id="default-editor-help" className="settings-row-description">保存後、次にプロジェクトを再開したときに使います。</p>
+            </div>
+            <select id="default-editor" aria-describedby="default-editor-help" value={editor} onChange={(event) => { setEditor(event.target.value as Editor); setNotice(""); }} className="field settings-select">
+              <option value="vsCode">VS Code</option>
+              <option value="cursor">Cursor</option>
+            </select>
+          </div>
+        </section>
+        <div className="settings-form-actions flex flex-wrap gap-3">
           <button type="submit" className="button-primary">{pending ? "保存中…" : "設定を保存"}</button>
           <button type="button" onClick={reload} className="button-secondary">設定を再読み込み</button>
         </div>
       </fieldset>
       {error && <p role="alert" className="mt-4 break-words text-sm leading-6 text-danger">{error}</p>}
       <p role="status" className="notice mt-4">{notice}</p>
-      <p className="mt-3 text-xs leading-6 text-muted">再読み込みや画面移動で、未保存の選択は破棄されます。</p>
     </form>
     {supportsShortcuts() && (
       <QuickResumeSettings

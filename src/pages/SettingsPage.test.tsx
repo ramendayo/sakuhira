@@ -151,10 +151,12 @@ it("moves keyboard focus to the page heading when navigating, including a failed
 
   screen.getByRole("link", { name: "設定" }).focus();
   await user.keyboard("{Enter}");
-  await screen.findByLabelText("デフォルトエディタ");
+  await screen.findByLabelText("フォルダを開くエディタ");
   expect(document.activeElement).toBe(screen.getByRole("heading", { name: "設定", level: 1 }));
   await user.tab();
-  expect(document.activeElement).toBe(screen.getByLabelText("デフォルトエディタ"));
+  expect(document.activeElement).toBe(screen.getByLabelText("表示テーマ"));
+  await user.tab();
+  expect(document.activeElement).toBe(screen.getByLabelText("フォルダを開くエディタ"));
 
   screen.getByRole("link", { name: "プロジェクト" }).focus();
   await user.keyboard("{Enter}");
@@ -166,13 +168,16 @@ it("saves a default editor, reloads it on return, and shows it in project detail
   const user = userEvent.setup();
   render(<App />);
   await user.click(screen.getByRole("link", { name: "設定" }));
-  const select = await screen.findByLabelText("デフォルトエディタ");
+  const select = await screen.findByLabelText("フォルダを開くエディタ");
   expect((select as HTMLSelectElement).value).toBe("vsCode");
   expect(screen.getByRole("link", { name: "設定" }).getAttribute("aria-current")).toBe("page");
   await user.selectOptions(select, "cursor");
   expect(saveSettings).not.toHaveBeenCalled();
   expect(resumeProject).not.toHaveBeenCalled();
-  await user.click(screen.getByRole("button", { name: "設定を保存" }));
+  select.focus();
+  await user.tab();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "設定を保存" }));
+  await user.keyboard("{Enter}");
   await screen.findByText("設定を保存しました。");
   expect(saveSettings).toHaveBeenCalledWith({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" }, { projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" });
   await user.click(screen.getByRole("link", { name: "プロジェクト" }));
@@ -181,7 +186,7 @@ it("saves a default editor, reloads it on return, and shows it in project detail
   await user.click(screen.getByRole("button", { name: "Exampleを再開" }));
   expect(await screen.findByText("Cursor：起動要求を送信しました。")).toBeTruthy();
   await user.click(screen.getByRole("link", { name: "設定" }));
-  expect((await screen.findByLabelText("デフォルトエディタ") as HTMLSelectElement).value).toBe("cursor");
+  expect((await screen.findByLabelText("フォルダを開くエディタ") as HTMLSelectElement).value).toBe("cursor");
 });
 
 it("reports settings load errors without showing fallback values, and supports retry", async () => {
@@ -190,10 +195,10 @@ it("reports settings load errors without showing fallback values, and supports r
   render(<App />);
   await user.click(screen.getByRole("link", { name: "設定" }));
   expect((await screen.findByRole("alert")).textContent).toBe("アプリ設定が壊れています");
-  expect(screen.queryByLabelText("デフォルトエディタ")).toBeNull();
+  expect(screen.queryByLabelText("フォルダを開くエディタ")).toBeNull();
   expect(saveSettings).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "設定を再読み込み" }));
-  expect(await screen.findByLabelText("デフォルトエディタ")).toBeTruthy();
+  expect(await screen.findByLabelText("フォルダを開くエディタ")).toBeTruthy();
 });
 
 it("retains failed selections, prevents duplicate saves, and updates the conflict baseline after success", async () => {
@@ -202,17 +207,17 @@ it("retains failed selections, prevents duplicate saves, and updates the conflic
   const user = userEvent.setup();
   render(<App />);
   await user.click(screen.getByRole("link", { name: "設定" }));
-  await user.selectOptions(await screen.findByLabelText("デフォルトエディタ"), "cursor");
+  await user.selectOptions(await screen.findByLabelText("フォルダを開くエディタ"), "cursor");
   await user.click(screen.getByRole("button", { name: "設定を保存" }));
   expect((await screen.findByRole("alert")).textContent).toBe("設定の保存に失敗しました");
-  expect((screen.getByLabelText("デフォルトエディタ") as HTMLSelectElement).value).toBe("cursor");
+  expect((screen.getByLabelText("フォルダを開くエディタ") as HTMLSelectElement).value).toBe("cursor");
   await user.click(screen.getByRole("button", { name: "設定を保存" }));
   await user.click(screen.getByRole("button", { name: "保存中…" }));
   expect(saveSettings).toHaveBeenCalledTimes(2);
   expect(screen.getByRole("button", { name: "設定を再読み込み" }).matches(":disabled")).toBe(true);
   finish({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" });
   await screen.findByText("設定を保存しました。");
-  await user.selectOptions(screen.getByLabelText("デフォルトエディタ"), "vsCode");
+  await user.selectOptions(screen.getByLabelText("フォルダを開くエディタ"), "vsCode");
   await user.click(screen.getByRole("button", { name: "設定を保存" }));
   await waitFor(() => expect(saveSettings).toHaveBeenLastCalledWith({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" }, { projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" }));
 });
@@ -221,10 +226,10 @@ it("discards unsaved selections when reloading and navigating away", async () =>
   const user = userEvent.setup();
   render(<App />);
   await user.click(screen.getByRole("link", { name: "設定" }));
-  await user.selectOptions(await screen.findByLabelText("デフォルトエディタ"), "cursor");
+  await user.selectOptions(await screen.findByLabelText("フォルダを開くエディタ"), "cursor");
   await user.click(screen.getByRole("button", { name: "設定を再読み込み" }));
-  expect((await screen.findByLabelText("デフォルトエディタ") as HTMLSelectElement).value).toBe("vsCode");
-  await user.selectOptions(screen.getByLabelText("デフォルトエディタ"), "cursor");
+  expect((await screen.findByLabelText("フォルダを開くエディタ") as HTMLSelectElement).value).toBe("vsCode");
+  await user.selectOptions(screen.getByLabelText("フォルダを開くエディタ"), "cursor");
   await user.click(screen.getByRole("link", { name: "プロジェクト" }));
   await user.click(await screen.findByRole("button", { name: "Exampleの詳細を開く" }));
   expect(await screen.findByText("エディタ：VS Code（アプリ設定）")).toBeTruthy();

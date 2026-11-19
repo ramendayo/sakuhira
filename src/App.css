@@ -325,6 +325,31 @@
     border-color: var(--ui-accent);
     outline-offset: 2px;
   }
+  .settings-panel {
+    container: settings-panel / inline-size;
+  }
+  .settings-section + .settings-section,
+  .settings-form-actions {
+    @apply border-t border-line pt-5;
+  }
+  .settings-row {
+    @apply mt-3 grid min-w-0 gap-x-6 gap-y-2;
+  }
+  .settings-row-label {
+    @apply text-sm font-medium text-ink;
+  }
+  .settings-row-description {
+    @apply mt-1 text-xs leading-6 text-muted;
+  }
+  .settings-select {
+    min-block-size: 2.75rem;
+  }
+  @container settings-panel (min-width: 32rem) {
+    .settings-row {
+      grid-template-columns: minmax(0, 1fr) 16.25rem;
+      align-items: center;
+    }
+  }
   .project-option-field {
     @apply flex min-w-0 flex-col gap-3;
   }
