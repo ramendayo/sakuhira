@@ -342,7 +342,12 @@
     @apply mt-1 text-xs leading-6 text-muted;
   }
   .settings-select {
+    block-size: 2.75rem;
+    padding-block: 0;
+  }
+  .settings-shortcut-button {
     min-block-size: 2.75rem;
+    padding-inline: calc(var(--ui-space-unit) * 2.5);
   }
   @container settings-panel (min-width: 32rem) {
     .settings-row {

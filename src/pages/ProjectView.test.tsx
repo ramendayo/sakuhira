@@ -2,10 +2,16 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
-import { getSettings, saveSettings } from "../services/settings";
+import { getSettings, saveSettings, saveSettingsWithShortcut } from "../services/settings";
 import type { Settings } from "../types/settings";
 
-vi.mock("../services/settings", () => ({ getSettings: vi.fn(), saveSettings: vi.fn(), applyTheme: vi.fn(async () => {}) }));
+vi.mock("../services/settings", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../services/settings")>(),
+  getSettings: vi.fn(),
+  saveSettings: vi.fn(),
+  saveSettingsWithShortcut: vi.fn(),
+  applyTheme: vi.fn(async () => {}),
+}));
 vi.mock("../services/projects", async (importOriginal) => ({ ...await importOriginal<typeof import("../services/projects")>(), listProjects: vi.fn(async () => [{ id: "id", name: "Example", path: "/project", launchUrl: null, lastResumedAt: null, notes: { lastWork: "Work", nextTask: "Next", updatedAt: null } }]) }));
 vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
 
@@ -14,7 +20,12 @@ beforeEach(() => {
   vi.resetAllMocks();
   stored = { defaultEditor: "cursor", theme: "dark", projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" } };
   vi.mocked(getSettings).mockImplementation(async () => structuredClone(stored));
-  vi.mocked(saveSettings).mockImplementation(async (_expected, settings) => { stored = structuredClone(settings); return structuredClone(stored); });
+  const persist: typeof saveSettings = async (_expected, settings) => {
+    stored = structuredClone(settings);
+    return structuredClone(stored);
+  };
+  vi.mocked(saveSettings).mockImplementation(persist);
+  vi.mocked(saveSettingsWithShortcut).mockImplementation(persist);
 });
 afterEach(cleanup);
 

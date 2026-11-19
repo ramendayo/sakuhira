@@ -15,6 +15,20 @@ export async function saveSettings(expected: Settings, settings: Settings): Prom
   return invoke<Settings>("save_settings", { expected, settings });
 }
 
+export async function saveSettingsWithShortcut(expected: Settings, settings: Settings): Promise<Settings> {
+  requireDesktop();
+  return invoke<Settings>("save_settings_with_shortcut", { expected, settings });
+}
+
+export function quickResumeSaveError(error: unknown): string | null {
+  if (typeof error === "object" && error !== null &&
+    "field" in error && error.field === "quickResumeShortcut" &&
+    "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return null;
+}
+
 export async function applyTheme(): Promise<void> {
   if (isTauri()) await invoke<void>("apply_theme");
 }

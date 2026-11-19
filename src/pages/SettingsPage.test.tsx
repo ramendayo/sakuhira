@@ -2,14 +2,19 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
-import { getSettings, saveSettings } from "../services/settings";
+import { getSettings, saveSettingsWithShortcut } from "../services/settings";
 import { resumeProject } from "../services/launch";
 import * as shortcuts from "../services/shortcuts";
 import { editorName } from "../types/settings";
 import type { Settings } from "../types/settings";
 import type { Project } from "../types/project";
 
-vi.mock("../services/settings", () => ({ applyTheme: vi.fn(async () => {}), getSettings: vi.fn(), saveSettings: vi.fn() }));
+vi.mock("../services/settings", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../services/settings")>(),
+  applyTheme: vi.fn(async () => {}),
+  getSettings: vi.fn(),
+  saveSettingsWithShortcut: vi.fn(),
+}));
 vi.mock("../services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../services/launch")>(), resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 vi.mock("../services/projects", async (importOriginal) => ({
   ...await importOriginal<typeof import("../services/projects")>(),
@@ -24,19 +29,20 @@ vi.mock("../services/shortcuts", () => ({
   setShortcutCapture: vi.fn(),
   readShortcutIssues: vi.fn(),
   readQuickResumeShortcutIssue: vi.fn(),
-  setQuickResumeShortcut: vi.fn(),
 }));
 let stored: Settings;
 beforeEach(() => {
   vi.resetAllMocks();
   stored = { projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" };
   vi.mocked(getSettings).mockImplementation(async () => ({ ...stored }));
-  vi.mocked(saveSettings).mockImplementation(async (_expected, settings) => { stored = { ...settings }; return { ...stored }; });
+  vi.mocked(saveSettingsWithShortcut).mockImplementation(async (_expected, settings) => { stored = { ...settings }; return { ...stored }; });
   vi.mocked(resumeProject).mockImplementation(async () => ({ history: { status: "skipped" }, editorName: editorName(stored.defaultEditor), editor: { status: "success" }, browser: null }));
 });
 afterEach(cleanup);
 
-it("configures quick resume, retains the previous key on failure, and clears a restored key", async () => {
+it("saves all settings together, keeps drafts on a shortcut failure, and clears a saved key", async () => {
+  const initial = { ...stored, quickResumeShortcut: "Control+KeyJ" };
+  stored = initial;
   vi.mocked(shortcuts.supportsShortcuts).mockReturnValue(true);
   vi.mocked(shortcuts.onShortcutResume).mockResolvedValue(() => {});
   vi.mocked(shortcuts.onShortcutsRestored).mockResolvedValue(() => {});
@@ -44,60 +50,79 @@ it("configures quick resume, retains the previous key on failure, and clears a r
   vi.mocked(shortcuts.setShortcutCapture).mockResolvedValue(undefined);
   vi.mocked(shortcuts.readShortcutIssues).mockResolvedValue([]);
   vi.mocked(shortcuts.readQuickResumeShortcutIssue).mockResolvedValue(null);
-  vi.mocked(shortcuts.setQuickResumeShortcut).mockImplementation(async (expected, shortcut) => {
+  vi.mocked(saveSettingsWithShortcut).mockImplementation(async (expected, draft) => {
     expect(expected).toEqual(stored);
-    if (shortcut === "Control+KeyK") throw "このショートカットは「Example」に割り当てられています。";
-    if (shortcut === "Control+KeyL") throw "OSにショートカットを登録できません。";
-    stored = { ...expected, quickResumeShortcut: shortcut ?? undefined };
-    return stored;
+    const reasons: Record<string, string> = {
+      "Control+KeyK": "このショートカットは「Example」に割り当てられています。",
+      "Control+KeyL": "OSにショートカットを登録できません。",
+    };
+    const message = draft.quickResumeShortcut && reasons[draft.quickResumeShortcut];
+    if (message) throw { field: "quickResumeShortcut", message };
+    stored = { ...draft };
+    return { ...stored };
   });
 
   const user = userEvent.setup();
   const { unmount } = render(<App />);
   await user.click(screen.getByRole("link", { name: "設定" }));
-  const quick = within(await screen.findByRole("form", { name: "クイック再開" }));
+  const quick = within(await screen.findByRole("region", { name: "ショートカット" }));
   expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
     "外観", "プロジェクトの再開", "ショートカット",
   ]);
-  expect(quick.getByText("未設定")).toBeTruthy();
-  const save = quick.getByRole("button", { name: "ショートカットを保存" });
-  expect(save.matches(":disabled")).toBe(true);
+  expect(quick.getByText("⌃ + J")).toBeTruthy();
+  const save = screen.getByRole("button", { name: "設定を保存" });
+  const theme = screen.getByRole<HTMLSelectElement>("combobox", { name: "表示テーマ" });
+  const editor = screen.getByRole<HTMLSelectElement>("combobox", { name: "フォルダを開くエディタ" });
+  await user.selectOptions(theme, "dark");
+  await user.selectOptions(editor, "cursor");
 
   async function capture(letter: string) {
-    await user.click(quick.getByRole("button", { name: "キーを入力" }));
+    quick.getByRole("button", { name: "変更" }).focus();
+    await user.keyboard("{Enter}");
     await quick.findByRole("button", { name: "キーを入力してください" });
     await user.keyboard(`{Control>}${letter}{/Control}`);
   }
-  await capture("j");
-  await user.tab();
-  expect(document.activeElement).toBe(quick.getByRole("button", { name: "ショートカットを解除" }));
-  await user.tab();
-  expect(document.activeElement).toBe(save);
-  await user.keyboard("{Enter}");
-  expect(await quick.findByText("ショートカットを保存しました。")).toBeTruthy();
-  expect(stored.quickResumeShortcut).toBe("Control+KeyJ");
 
   await capture("k");
+  expect(saveSettingsWithShortcut).not.toHaveBeenCalled();
   await user.click(save);
   expect((await quick.findByRole("alert")).textContent).toContain("Example");
+  expect(document.activeElement).toBe(quick.getByRole("button", { name: "変更" }));
   expect(quick.getByText("⌃ + J")).toBeTruthy();
   expect(quick.getByText("⌃ + K")).toBeTruthy();
-  expect(stored.quickResumeShortcut).toBe("Control+KeyJ");
+  expect(stored).toEqual(initial);
+  expect(theme.value).toBe("dark");
+  expect(editor.value).toBe("cursor");
+  expect(document.documentElement.dataset.theme).toBe("light");
 
   await capture("l");
   await user.click(save);
   expect((await quick.findByRole("alert")).textContent).toContain("OSにショートカットを登録できません");
-  expect(stored.quickResumeShortcut).toBe("Control+KeyJ");
-  expect(saveSettings).not.toHaveBeenCalled();
+  expect(stored).toEqual(initial);
+
+  await capture("m");
+  await user.tab();
+  expect(document.activeElement).toBe(quick.getByRole("button", { name: "解除" }));
+  await user.tab();
+  expect(document.activeElement).toBe(save);
+  await user.keyboard("{Enter}");
+  await screen.findByText("設定を保存しました。");
+  expect(stored).toEqual({ ...initial, theme: "dark", defaultEditor: "cursor", quickResumeShortcut: "Control+KeyM" });
+  expect(document.documentElement.dataset.theme).toBe("dark");
 
   unmount();
   render(<App />);
   await user.click(screen.getByRole("link", { name: "設定" }));
-  const restored = within(await screen.findByRole("form", { name: "クイック再開" }));
-  expect(restored.getByText("⌃ + J")).toBeTruthy();
-  await user.click(restored.getByRole("button", { name: "ショートカットを解除" }));
-  await user.click(restored.getByRole("button", { name: "ショートカットを保存" }));
-  expect(await restored.findByText("ショートカットを解除しました。")).toBeTruthy();
+  const restored = within(await screen.findByRole("region", { name: "ショートカット" }));
+  expect(restored.getByText("⌃ + M")).toBeTruthy();
+  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "表示テーマ" }).value).toBe("dark");
+  expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "フォルダを開くエディタ" }).value).toBe("cursor");
+  await user.click(restored.getByRole("button", { name: "解除" }));
+  expect(restored.getByText("未設定")).toBeTruthy();
+  expect(document.activeElement).toBe(restored.getByRole("button", { name: "キーを入力" }));
+  expect(stored.quickResumeShortcut).toBe("Control+KeyM");
+  await user.click(screen.getByRole("button", { name: "設定を保存" }));
+  await screen.findByText("設定を保存しました。");
   expect(stored.quickResumeShortcut).toBeUndefined();
 });
 
@@ -116,15 +141,19 @@ it("reports a restore failure even when restoration finishes after opening setti
   const user = userEvent.setup();
   render(<App />);
   await user.click(screen.getByRole("link", { name: "設定" }));
-  const quick = within(await screen.findByRole("form", { name: "クイック再開" }));
+  const quick = within(await screen.findByRole("region", { name: "ショートカット" }));
   await waitFor(() => expect(shortcuts.readQuickResumeShortcutIssue).toHaveBeenCalledTimes(1));
   act(() => notifyRestored());
   expect((await quick.findByRole("alert")).textContent).toBe(reason);
-  expect(quick.getByRole("button", { name: "ショートカットを保存" }).matches(":disabled")).toBe(false);
+  vi.mocked(shortcuts.readQuickResumeShortcutIssue).mockResolvedValueOnce(null);
+  await user.click(screen.getByRole("button", { name: "設定を保存" }));
+  await screen.findByText("設定を保存しました。");
+  await waitFor(() => expect(quick.queryByRole("alert")).toBeNull());
+  expect(saveSettingsWithShortcut).toHaveBeenCalledWith(stored, stored);
 });
 
 it("applies themes only after a successful save and retains the saved choice across navigation", async () => {
-  vi.mocked(saveSettings).mockRejectedValueOnce("保存できません").mockImplementation(async (_expected, settings) => { stored = { ...settings }; return { ...stored }; });
+  vi.mocked(saveSettingsWithShortcut).mockRejectedValueOnce("保存できません").mockImplementation(async (_expected, settings) => { stored = { ...settings }; return { ...stored }; });
   const user = userEvent.setup();
   render(<App />);
   await user.click(screen.getByRole("link", { name: "設定" }));
@@ -139,7 +168,7 @@ it("applies themes only after a successful save and retains the saved choice acr
   await user.click(screen.getByRole("button", { name: "設定を保存" }));
   await screen.findByText("設定を保存しました。");
   expect(document.documentElement.dataset.theme).toBe("dark");
-  expect(saveSettings).toHaveBeenLastCalledWith({ defaultEditor: "vsCode", theme: "light", projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" } }, { defaultEditor: "vsCode", theme: "dark", projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" } });
+  expect(saveSettingsWithShortcut).toHaveBeenLastCalledWith({ defaultEditor: "vsCode", theme: "light", projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" } }, { defaultEditor: "vsCode", theme: "dark", projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" } });
   await user.selectOptions(select, "light");
   await user.click(screen.getByRole("link", { name: "プロジェクト" }));
   expect(document.documentElement.dataset.theme).toBe("dark");
@@ -179,14 +208,14 @@ it("saves a default editor, reloads it on return, and shows it in project detail
   expect((select as HTMLSelectElement).value).toBe("vsCode");
   expect(screen.getByRole("link", { name: "設定" }).getAttribute("aria-current")).toBe("page");
   await user.selectOptions(select, "cursor");
-  expect(saveSettings).not.toHaveBeenCalled();
+  expect(saveSettingsWithShortcut).not.toHaveBeenCalled();
   expect(resumeProject).not.toHaveBeenCalled();
   select.focus();
   await user.tab();
   expect(document.activeElement).toBe(screen.getByRole("button", { name: "設定を保存" }));
   await user.keyboard("{Enter}");
   await screen.findByText("設定を保存しました。");
-  expect(saveSettings).toHaveBeenCalledWith({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" }, { projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" });
+  expect(saveSettingsWithShortcut).toHaveBeenCalledWith({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" }, { projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" });
   await user.click(screen.getByRole("link", { name: "プロジェクト" }));
   await user.click(await screen.findByRole("button", { name: "Exampleの詳細を開く" }));
   expect(await screen.findByText("エディタ：Cursor（アプリ設定）")).toBeTruthy();
@@ -203,14 +232,14 @@ it("reports settings load errors without showing fallback values, and supports r
   await user.click(screen.getByRole("link", { name: "設定" }));
   expect((await screen.findByRole("alert")).textContent).toBe("アプリ設定が壊れています");
   expect(screen.queryByLabelText("フォルダを開くエディタ")).toBeNull();
-  expect(saveSettings).not.toHaveBeenCalled();
+  expect(saveSettingsWithShortcut).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "設定を再読み込み" }));
   expect(await screen.findByLabelText("フォルダを開くエディタ")).toBeTruthy();
 });
 
 it("retains failed selections, prevents duplicate saves, and updates the conflict baseline after success", async () => {
   let finish!: (settings: Settings) => void;
-  vi.mocked(saveSettings).mockRejectedValueOnce("設定の保存に失敗しました").mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  vi.mocked(saveSettingsWithShortcut).mockRejectedValueOnce("設定の保存に失敗しました").mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
   const user = userEvent.setup();
   render(<App />);
   await user.click(screen.getByRole("link", { name: "設定" }));
@@ -220,13 +249,13 @@ it("retains failed selections, prevents duplicate saves, and updates the conflic
   expect((screen.getByLabelText("フォルダを開くエディタ") as HTMLSelectElement).value).toBe("cursor");
   await user.click(screen.getByRole("button", { name: "設定を保存" }));
   await user.click(screen.getByRole("button", { name: "保存中…" }));
-  expect(saveSettings).toHaveBeenCalledTimes(2);
+  expect(saveSettingsWithShortcut).toHaveBeenCalledTimes(2);
   expect(screen.getByRole("button", { name: "設定を再読み込み" }).matches(":disabled")).toBe(true);
   finish({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" });
   await screen.findByText("設定を保存しました。");
   await user.selectOptions(screen.getByLabelText("フォルダを開くエディタ"), "vsCode");
   await user.click(screen.getByRole("button", { name: "設定を保存" }));
-  await waitFor(() => expect(saveSettings).toHaveBeenLastCalledWith({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" }, { projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" }));
+  await waitFor(() => expect(saveSettingsWithShortcut).toHaveBeenLastCalledWith({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "cursor" }, { projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" }));
 });
 
 it("discards unsaved selections when reloading and navigating away", async () => {
@@ -240,5 +269,5 @@ it("discards unsaved selections when reloading and navigating away", async () =>
   await user.click(screen.getByRole("link", { name: "プロジェクト" }));
   await user.click(await screen.findByRole("button", { name: "Exampleの詳細を開く" }));
   expect(await screen.findByText("エディタ：VS Code（アプリ設定）")).toBeTruthy();
-  expect(saveSettings).not.toHaveBeenCalled();
+  expect(saveSettingsWithShortcut).not.toHaveBeenCalled();
 });

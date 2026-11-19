@@ -2,12 +2,18 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
-import { getSettings, saveSettings } from "../services/settings";
+import { getSettings, saveSettings, saveSettingsWithShortcut } from "../services/settings";
 import * as projectsApi from "../services/projects";
 import type { Settings } from "../types/settings";
 import type { Project } from "../types/project";
 
-vi.mock("../services/settings", () => ({ getSettings: vi.fn(), saveSettings: vi.fn(), applyTheme: vi.fn(async () => {}) }));
+vi.mock("../services/settings", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../services/settings")>(),
+  getSettings: vi.fn(),
+  saveSettings: vi.fn(),
+  saveSettingsWithShortcut: vi.fn(),
+  applyTheme: vi.fn(async () => {}),
+}));
 vi.mock("../services/projects", async (original) => ({ ...await original<typeof projectsApi>(), listProjects: vi.fn(), addProject: vi.fn(), removeProject: vi.fn() }));
 vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
 let stored: Settings;
@@ -21,7 +27,12 @@ beforeEach(() => {
   vi.resetAllMocks();
   stored = { defaultEditor: "cursor", theme: "dark", projectView: { layout: "cards", cardSize: "standard" }, projectOrder: { sort: "recent", manualIds: [] } };
   vi.mocked(getSettings).mockImplementation(async () => structuredClone(stored));
-  vi.mocked(saveSettings).mockImplementation(async (_expected, settings) => { stored = structuredClone(settings); return structuredClone(stored); });
+  const persist: typeof saveSettings = async (_expected, settings) => {
+    stored = structuredClone(settings);
+    return structuredClone(stored);
+  };
+  vi.mocked(saveSettings).mockImplementation(persist);
+  vi.mocked(saveSettingsWithShortcut).mockImplementation(persist);
   vi.mocked(projectsApi.listProjects).mockResolvedValue(fixtures);
 });
 afterEach(cleanup);

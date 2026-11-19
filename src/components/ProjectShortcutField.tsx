@@ -106,7 +106,11 @@ export default function ProjectShortcutField({ shortcut, onChange, saveError, le
   }
 
   const clearShortcut = shortcut && (
-    <button type="button" className="button-quiet" onClick={() => { setError(null); onChange(null); }}>ショートカットを解除</button>
+    <button type="button" className={embedded ? "button-secondary settings-shortcut-button" : "button-quiet"} onClick={() => {
+      setError(null);
+      onChange(null);
+      if (embedded) captureButton.current?.focus();
+    }}>{embedded ? "解除" : "ショートカットを解除"}</button>
   );
 
   return (
@@ -114,10 +118,10 @@ export default function ProjectShortcutField({ shortcut, onChange, saveError, le
       <legend className={compact || embedded ? "sr-only" : "px-1 text-sm font-medium"}>{legend}</legend>
       <div className={compact ? "project-option-row" : undefined}>
         {compact && <span aria-hidden="true" className="text-sm font-medium text-ink">{legend}</span>}
-        <div className={compact ? "project-option-actions" : "flex flex-wrap items-center gap-3"}>
-          <span aria-live="polite" className="text-sm">{shortcut ? <kbd>{shortcutLabel(shortcut)}</kbd> : "未設定"}</span>
+        <div className={compact ? "project-option-actions" : embedded ? "flex flex-wrap items-center justify-end gap-2" : "flex flex-wrap items-center gap-3"}>
+          <span aria-live="polite" className={embedded ? "mr-auto text-sm" : "text-sm"}>{shortcut ? <kbd>{shortcutLabel(shortcut)}</kbd> : "未設定"}</span>
           {compact && clearShortcut}
-          <button ref={captureButton} type="button" className="button-secondary" aria-pressed={capturing}
+          <button ref={captureButton} type="button" className={embedded ? "button-secondary settings-shortcut-button" : "button-secondary"} aria-pressed={capturing}
             aria-describedby={showGuide ? [id, feedbackId].filter(Boolean).join(" ") : feedbackId}
             onBlur={stop} onKeyDown={captureKey} onClick={(event) => {
               if (capturing) { stop(); return; }
@@ -126,7 +130,7 @@ export default function ProjectShortcutField({ shortcut, onChange, saveError, le
               active.current = true;
               setCapturing(true);
             }}>
-            {capturing ? (ready ? "キーを入力してください" : "入力を準備中…") : "キーを入力"}
+            {capturing ? (ready ? "キーを入力してください" : "入力を準備中…") : embedded && shortcut ? "変更" : "キーを入力"}
           </button>
           {!compact && clearShortcut}
         </div>

@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useSettings } from "../hooks/useSettings";
 import QuickResumeSettings from "../components/QuickResumeSettings";
-import { saveSettings } from "../services/settings";
+import { quickResumeSaveError, saveSettingsWithShortcut } from "../services/settings";
 import { supportsShortcuts } from "../services/shortcuts";
 import { errorMessage } from "../services/projects";
 import type { Editor, Settings, ThemePreference } from "../types/settings";
@@ -32,25 +32,38 @@ function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload:
   const [editor, setEditor] = useState(initial.defaultEditor);
   const [theme, setTheme] = useState(initial.theme);
   const [pending, setPending] = useState(false);
-  const [shortcutPending, setShortcutPending] = useState(false);
+  const [shortcut, setShortcut] = useState(initial.quickResumeShortcut ?? null);
+  const [shortcutError, setShortcutError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
 
+  const changeShortcut = useCallback((value: string | null) => {
+    setShortcut(value);
+    setShortcutError(null);
+    setNotice("");
+  }, []);
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending || shortcutPending) return;
+    if (pending) return;
     setPending(true);
     setError(null);
+    setShortcutError(null);
     setNotice("");
     try {
-      const saved = await saveSettings(baseline, { ...baseline, defaultEditor: editor, theme });
+      const saved = await saveSettingsWithShortcut(baseline, {
+        ...baseline, defaultEditor: editor, theme, quickResumeShortcut: shortcut ?? undefined,
+      });
       setBaseline(saved);
       setEditor(saved.defaultEditor);
       setTheme(saved.theme);
+      setShortcut(saved.quickResumeShortcut ?? null);
       onSaved(saved);
       setNotice("設定を保存しました。");
     } catch (error) {
-      setError(errorMessage(error));
+      const shortcutFailure = quickResumeSaveError(error);
+      if (shortcutFailure && supportsShortcuts()) setShortcutError(shortcutFailure);
+      else setError(shortcutFailure ?? errorMessage(error));
     } finally {
       setPending(false);
     }
@@ -59,7 +72,7 @@ function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload:
   return (
     <div className="settings-panel mt-8 max-w-2xl panel">
       <form onSubmit={save} aria-label="アプリ設定" aria-busy={pending}>
-        <fieldset disabled={pending || shortcutPending} className="min-w-0 space-y-5 disabled:opacity-60">
+        <fieldset disabled={pending} className="min-w-0 space-y-5 disabled:opacity-60">
           <section aria-labelledby="appearance-settings" className="settings-section">
             <h2 id="appearance-settings" className="section-title">外観</h2>
             <div className="settings-row">
@@ -87,6 +100,14 @@ function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload:
               </select>
             </div>
           </section>
+          {supportsShortcuts() && (
+            <QuickResumeSettings
+              settings={baseline}
+              shortcut={shortcut}
+              saveError={shortcutError}
+              onChange={changeShortcut}
+            />
+          )}
           <div className="settings-form-actions flex flex-wrap gap-3">
             <button type="submit" className="button-primary">{pending ? "保存中…" : "設定を保存"}</button>
             <button type="button" onClick={reload} className="button-secondary">設定を再読み込み</button>
@@ -95,14 +116,6 @@ function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload:
         {error && <p role="alert" className="mt-4 break-words text-sm leading-6 text-danger">{error}</p>}
         <p role="status" className="notice mt-4">{notice}</p>
       </form>
-      {supportsShortcuts() && (
-        <QuickResumeSettings
-          settings={baseline}
-          busy={pending || shortcutPending}
-          onBusy={setShortcutPending}
-          onSaved={(saved) => { setBaseline(saved); onSaved(saved); }}
-        />
-      )}
     </div>
   );
 }
