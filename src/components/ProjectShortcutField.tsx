@@ -14,9 +14,10 @@ type Props = {
   saveError?: string | null;
   legend?: string;
   compact?: boolean;
+  embedded?: boolean;
 };
 
-export default function ProjectShortcutField({ shortcut, onChange, saveError, legend = "グローバルショートカット", compact }: Props) {
+export default function ProjectShortcutField({ shortcut, onChange, saveError, legend = "グローバルショートカット", compact, embedded }: Props) {
   const id = useId();
   const [capturing, setCapturing] = useState(false);
   const [ready, setReady] = useState(false);
@@ -24,7 +25,7 @@ export default function ProjectShortcutField({ shortcut, onChange, saveError, le
   const active = useRef(false);
   const captureButton = useRef<HTMLButtonElement>(null);
   const feedback = error ?? saveError;
-  const showGuide = !compact || capturing;
+  const showGuide = (!compact && !embedded) || capturing;
   const feedbackId = feedback ? `${id}-error` : undefined;
 
   useEffect(() => {
@@ -109,8 +110,8 @@ export default function ProjectShortcutField({ shortcut, onChange, saveError, le
   );
 
   return (
-    <fieldset aria-describedby={feedbackId} className={compact ? "project-option-field" : "space-y-3 rounded-xl border border-line p-4"}>
-      <legend className={compact ? "sr-only" : "px-1 text-sm font-medium"}>{legend}</legend>
+    <fieldset aria-describedby={feedbackId} className={compact || embedded ? "project-option-field" : "space-y-3 rounded-xl border border-line p-4"}>
+      <legend className={compact || embedded ? "sr-only" : "px-1 text-sm font-medium"}>{legend}</legend>
       <div className={compact ? "project-option-row" : undefined}>
         {compact && <span aria-hidden="true" className="text-sm font-medium text-ink">{legend}</span>}
         <div className={compact ? "project-option-actions" : "flex flex-wrap items-center gap-3"}>

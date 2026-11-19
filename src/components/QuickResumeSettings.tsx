@@ -77,25 +77,31 @@ export default function QuickResumeSettings({ settings, busy, onBusy, onSaved }:
   }
 
   return (
-    <form aria-labelledby="quick-resume-settings" aria-busy={saving} onSubmit={save} className="mt-6 max-w-2xl panel">
-      <h2 id="quick-resume-settings" className="section-title">クイック再開</h2>
-      <p className="mt-2 text-sm text-muted">ショートカットを押すと、別のアプリからでもプロジェクトを検索して再開できます。</p>
-      <fieldset disabled={busy} className="mt-5 space-y-4 disabled:opacity-60">
-        <ProjectShortcutField
-          legend="クイック再開ショートカット"
-          shortcut={shortcut}
-          onChange={changeShortcut}
-          saveError={saveError}
-        />
-        {draft !== undefined && shortcut !== saved && (
-          <p className="text-xs text-muted">保存済みの割り当て：{saved ? <kbd>{shortcutLabel(saved)}</kbd> : "未設定"}</p>
-        )}
-        {issue && <p role="alert" className="break-words text-sm text-danger">{issue}</p>}
-        <button type="submit" className="button-primary" disabled={shortcut === saved && !(saved && issue)}>
-          {saving ? "保存中…" : "ショートカットを保存"}
-        </button>
-      </fieldset>
-      <p role="status" className="notice mt-3">{notice}</p>
+    <form aria-labelledby="quick-resume-settings" aria-busy={saving} onSubmit={save} className="settings-form-actions mt-5">
+      <h2 className="section-title">ショートカット</h2>
+      <div className="settings-row">
+        <div className="self-start">
+          <h3 id="quick-resume-settings" className="settings-row-label">クイック再開</h3>
+          <p className="settings-row-description">別のアプリを使っているときも、キーを押してプロジェクトを検索・再開できます。</p>
+        </div>
+        <fieldset disabled={busy} className="min-w-0 space-y-3 disabled:opacity-60">
+          <ProjectShortcutField
+            legend="クイック再開ショートカット"
+            shortcut={shortcut}
+            onChange={changeShortcut}
+            saveError={saveError}
+            embedded
+          />
+          {draft !== undefined && shortcut !== saved && (
+            <p className="text-xs text-muted">保存済みの割り当て：{saved ? <kbd>{shortcutLabel(saved)}</kbd> : "未設定"}</p>
+          )}
+          {issue && <p role="alert" className="break-words text-sm text-danger">{issue}</p>}
+          <button type="submit" className="button-primary" disabled={shortcut === saved && !(saved && issue)}>
+            {saving ? "保存中…" : "ショートカットを保存"}
+          </button>
+          <p role="status" className="notice">{notice}</p>
+        </fieldset>
+      </div>
     </form>
   );
 }

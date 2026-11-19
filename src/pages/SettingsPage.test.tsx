@@ -56,6 +56,9 @@ it("configures quick resume, retains the previous key on failure, and clears a r
   const { unmount } = render(<App />);
   await user.click(screen.getByRole("link", { name: "設定" }));
   const quick = within(await screen.findByRole("form", { name: "クイック再開" }));
+  expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
+    "外観", "プロジェクトの再開", "ショートカット",
+  ]);
   expect(quick.getByText("未設定")).toBeTruthy();
   const save = quick.getByRole("button", { name: "ショートカットを保存" });
   expect(save.matches(":disabled")).toBe(true);
@@ -66,7 +69,11 @@ it("configures quick resume, retains the previous key on failure, and clears a r
     await user.keyboard(`{Control>}${letter}{/Control}`);
   }
   await capture("j");
-  await user.click(save);
+  await user.tab();
+  expect(document.activeElement).toBe(quick.getByRole("button", { name: "ショートカットを解除" }));
+  await user.tab();
+  expect(document.activeElement).toBe(save);
+  await user.keyboard("{Enter}");
   expect(await quick.findByText("ショートカットを保存しました。")).toBeTruthy();
   expect(stored.quickResumeShortcut).toBe("Control+KeyJ");
 
