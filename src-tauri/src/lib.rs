@@ -48,6 +48,7 @@ pub fn run() {
             commands::list_projects,
             commands::get_settings,
             commands::save_settings,
+            commands::save_settings_with_shortcut,
             commands::apply_theme,
             commands::set_project_notes,
             commands::open_note_link,

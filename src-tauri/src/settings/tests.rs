@@ -30,8 +30,12 @@ fn quick_resume_shortcut_round_trips_and_can_only_be_changed_by_its_own_save() {
     let root = tempdir().unwrap();
     let store = SettingsStore::new(root.path().to_owned());
     let original = store.load().unwrap();
+    let with_shortcut = |settings: &Settings, shortcut: Option<&str>| Settings {
+        quick_resume_shortcut: shortcut.map(str::to_owned),
+        ..settings.clone()
+    };
     let registered = store
-        .save_quick_resume_shortcut(&original, Some("Ctrl+Shift+K"))
+        .save_with_registered_shortcut(&original, with_shortcut(&original, Some("Ctrl+Shift+K")))
         .unwrap();
     assert_eq!(
         registered.quick_resume_shortcut.as_deref(),
@@ -50,14 +54,20 @@ fn quick_resume_shortcut_round_trips_and_can_only_be_changed_by_its_own_save() {
         registered.quick_resume_shortcut
     );
     assert!(store.save(&updated, original).is_err());
-    assert!(store.save_quick_resume_shortcut(&registered, None).is_err());
     assert!(
         store
-            .save_quick_resume_shortcut(&updated, Some("Cmd+Q"))
+            .save_with_registered_shortcut(&registered, with_shortcut(&registered, None))
+            .is_err()
+    );
+    assert!(
+        store
+            .save_with_registered_shortcut(&updated, with_shortcut(&updated, Some("Cmd+Q")))
             .is_err()
     );
     assert_eq!(store.load().unwrap(), updated);
-    let cleared = store.save_quick_resume_shortcut(&updated, None).unwrap();
+    let cleared = store
+        .save_with_registered_shortcut(&updated, with_shortcut(&updated, None))
+        .unwrap();
     assert_eq!(cleared.quick_resume_shortcut, None);
     assert_eq!(cleared.theme, ThemePreference::Dark);
     assert_eq!(

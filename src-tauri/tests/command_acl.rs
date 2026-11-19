@@ -46,6 +46,7 @@ fn application_command_acl_restricts_calls_by_window() {
         ("set_quick_resume_shortcut", true, false),
         ("get_quick_resume_shortcut_error", true, false),
         ("save_settings", true, false),
+        ("save_settings_with_shortcut", true, false),
         ("unlisted_command", false, false),
     ] {
         for (window, allowed) in [(&main, main_allowed), (&quick_resume, quick_resume_allowed)] {

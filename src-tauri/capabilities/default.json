@@ -11,6 +11,7 @@
     "allow-list-projects",
     "allow-get-settings",
     "allow-save-settings",
+    "allow-save-settings-with-shortcut",
     "allow-apply-theme",
     "allow-set-project-notes",
     "allow-open-note-link",

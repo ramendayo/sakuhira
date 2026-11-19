@@ -3,6 +3,7 @@ fn main() {
         "list_projects",
         "get_settings",
         "save_settings",
+        "save_settings_with_shortcut",
         "apply_theme",
         "set_project_notes",
         "open_note_link",

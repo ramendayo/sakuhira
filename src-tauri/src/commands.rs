@@ -357,6 +357,43 @@ pub fn save_settings(
 }
 
 #[tauri::command]
+pub async fn save_settings_with_shortcut(
+    app: tauri::AppHandle,
+    expected: crate::settings::Settings,
+    settings: crate::settings::Settings,
+) -> Result<crate::settings::Settings, crate::settings::SettingsSaveError> {
+    use crate::settings::SettingsSaveError;
+
+    #[cfg(target_os = "macos")]
+    {
+        tauri::async_runtime::spawn_blocking(move || {
+            if settings.quick_resume_shortcut == expected.quick_resume_shortcut
+                && crate::shortcuts::quick_resume_error(&app).is_none()
+            {
+                return app
+                    .state::<crate::settings::SettingsStore>()
+                    .save(&expected, settings)
+                    .map_err(SettingsSaveError::Settings);
+            }
+            crate::shortcuts::save_with_quick_resume(&app, &expected, settings)
+        })
+        .await
+        .map_err(|error| SettingsSaveError::Settings(format!("設定を保存できません: {error}")))?
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        if settings.quick_resume_shortcut != expected.quick_resume_shortcut {
+            return Err(SettingsSaveError::shortcut(
+                "グローバルショートカットはmacOSのみ対応しています。".into(),
+            ));
+        }
+        app.state::<crate::settings::SettingsStore>()
+            .save(&expected, settings)
+            .map_err(SettingsSaveError::Settings)
+    }
+}
+
+#[tauri::command]
 pub async fn set_quick_resume_shortcut(
     app: tauri::AppHandle,
     expected: crate::settings::Settings,
@@ -365,7 +402,12 @@ pub async fn set_quick_resume_shortcut(
     #[cfg(target_os = "macos")]
     {
         tauri::async_runtime::spawn_blocking(move || {
-            crate::shortcuts::set_quick_resume(&app, &expected, shortcut.as_deref())
+            let settings = crate::settings::Settings {
+                quick_resume_shortcut: shortcut,
+                ..expected.clone()
+            };
+            crate::shortcuts::save_with_quick_resume(&app, &expected, settings)
+                .map_err(crate::settings::SettingsSaveError::message)
         })
         .await
         .map_err(|error| format!("クイック再開のショートカットを更新できません: {error}"))?

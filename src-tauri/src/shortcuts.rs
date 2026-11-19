@@ -113,15 +113,56 @@ fn check_quick_resume_conflict(assigned: Option<&str>, key: &str) -> Result<(), 
     Ok(())
 }
 
+#[cfg(any(target_os = "macos", test))]
+fn persist_quick_resume_settings(
+    mut settings: crate::settings::Settings,
+    old_key: Option<&str>,
+    projects: &[crate::projects::Project],
+    register: impl FnOnce(&str) -> Result<(), String>,
+    save: impl FnOnce(crate::settings::Settings) -> Result<crate::settings::Settings, String>,
+    unregister: impl FnOnce(&str) -> Result<(), String>,
+) -> Result<crate::settings::Settings, crate::settings::SettingsSaveError> {
+    use crate::{projects::checked_shortcut, settings::SettingsSaveError};
+
+    settings.quick_resume_shortcut = settings
+        .quick_resume_shortcut
+        .as_deref()
+        .map(|key| checked_shortcut(projects, None, key))
+        .transpose()
+        .map_err(SettingsSaveError::shortcut)?;
+    let normalized = settings.quick_resume_shortcut.clone();
+    let new_registration = normalized.as_deref().filter(|key| Some(*key) != old_key);
+    register_then_save(
+        || {
+            new_registration
+                .map_or(Ok(()), register)
+                .map_err(SettingsSaveError::shortcut)
+        },
+        || save(settings).map_err(SettingsSaveError::Settings),
+        |save_error| {
+            if let Some(key) = new_registration
+                && let Err(reason) = unregister(key)
+            {
+                let message = save_error.message();
+                return SettingsSaveError::Settings(format!(
+                    "{message} 新しいショートカットの解除にも失敗しました。sakuhiraを終了してから再試行してください。{reason}"
+                ));
+            }
+            save_error
+        },
+    )
+}
+
 #[cfg(target_os = "macos")]
 mod runtime {
     use super::{
-        check_quick_resume_conflict, normalize_shortcut, register_then_save, transition_pressed,
+        check_quick_resume_conflict, normalize_shortcut, persist_quick_resume_settings,
+        register_then_save, transition_pressed,
     };
     use crate::{
         launch,
         projects::{Project, ProjectRegistrationError, ProjectStore, checked_shortcut},
-        settings::{Settings, SettingsStore},
+        settings::{Settings, SettingsSaveError, SettingsStore},
     };
     use std::{
         collections::{HashMap, HashSet},
@@ -315,38 +356,33 @@ mod runtime {
         Ok(())
     }
 
-    pub fn set_quick_resume(
+    pub fn save_with_quick_resume(
         app: &AppHandle,
         expected: &Settings,
-        shortcut: Option<&str>,
-    ) -> Result<Settings, String> {
+        settings: Settings,
+    ) -> Result<Settings, SettingsSaveError> {
         let runtime = app.state::<ShortcutRuntime>();
-        let _operation = runtime
-            .operation
-            .lock()
-            .map_err(|_| "ショートカット処理を開始できません。")?;
+        let _operation = runtime.operation.lock().map_err(|_| {
+            SettingsSaveError::shortcut("ショートカット処理を開始できません。".into())
+        })?;
         let store = app.state::<SettingsStore>();
-        let normalized = shortcut
-            .map(|key| checked_shortcut(&app.state::<ProjectStore>().list()?, None, key))
-            .transpose()?;
         let old_key = active_quick_resume_key(&runtime);
-        let new_registration = normalized
-            .as_deref()
-            .filter(|key| Some(*key) != old_key.as_deref());
-        let saved = register_then_save(
-            || new_registration.map_or(Ok(()), |key| register_key(app, key)),
-            || store.save_quick_resume_shortcut(expected, normalized.as_deref()),
-            |save_error| {
-                if let Some(key) = new_registration
-                    && let Err(reason) = rollback_key(app, key)
-                {
-                    return format!(
-                        "{save_error} 新しいショートカットの解除にも失敗しました。sakuhiraを終了してから再試行してください。{reason}"
-                    );
-                }
-                save_error
-            },
+        let projects = if settings.quick_resume_shortcut.is_some() {
+            app.state::<ProjectStore>()
+                .list()
+                .map_err(SettingsSaveError::Settings)?
+        } else {
+            Vec::new()
+        };
+        let saved = persist_quick_resume_settings(
+            settings,
+            old_key.as_deref(),
+            &projects,
+            |key| register_key(app, key),
+            |settings| store.save_with_registered_shortcut(expected, settings),
+            |key| rollback_key(app, key),
         )?;
+        let normalized = &saved.quick_resume_shortcut;
 
         replace_quick_resume_key(&runtime, normalized.clone());
         if let Some(key) = old_key.filter(|key| Some(key) != normalized.as_ref())
@@ -591,7 +627,7 @@ mod runtime {
 #[cfg(target_os = "macos")]
 pub use runtime::{
     ShortcutRuntime, errors, on_shortcut, quick_resume_error, register_new_project, remove,
-    restore, set, set_capture, set_quick_resume, set_with_save, unregister_all,
+    restore, save_with_quick_resume, set, set_capture, set_with_save, unregister_all,
 };
 
 #[cfg(test)]
@@ -630,28 +666,185 @@ mod tests {
         let store = SettingsStore::new(directory.path().to_owned());
         let old_key = "Control+KeyJ";
         let new_key = "Control+KeyK";
+        let initial = store.load().unwrap();
         let expected = store
-            .save_quick_resume_shortcut(&store.load().unwrap(), Some(old_key))
+            .save_with_registered_shortcut(
+                &initial,
+                crate::settings::Settings {
+                    quick_resume_shortcut: Some(old_key.into()),
+                    ..initial.clone()
+                },
+            )
             .unwrap();
         let mut changed = expected.clone();
         changed.theme = ThemePreference::Dark;
         let current = store.save(&expected, changed).unwrap();
-        let registered = RefCell::new(HashSet::from([old_key]));
+        let registered = RefCell::new(HashSet::from([old_key.to_owned()]));
+        let draft = crate::settings::Settings {
+            quick_resume_shortcut: Some(new_key.into()),
+            default_editor: crate::settings::Editor::Cursor,
+            ..expected.clone()
+        };
 
-        let result = super::register_then_save(
-            || {
-                registered.borrow_mut().insert(new_key);
+        let result = super::persist_quick_resume_settings(
+            draft,
+            Some(old_key),
+            &[],
+            |key| {
+                registered.borrow_mut().insert(key.to_owned());
                 Ok(())
             },
-            || store.save_quick_resume_shortcut(&expected, Some(new_key)),
-            |error| {
-                registered.borrow_mut().remove(new_key);
-                error
+            |settings| store.save_with_registered_shortcut(&expected, settings),
+            |key| {
+                registered.borrow_mut().remove(key);
+                Ok(())
             },
         );
-        assert!(result.is_err());
-        assert_eq!(*registered.borrow(), HashSet::from([old_key]));
+        assert!(matches!(
+            result,
+            Err(crate::settings::SettingsSaveError::Settings(_))
+        ));
+        assert_eq!(*registered.borrow(), HashSet::from([old_key.to_owned()]));
         assert_eq!(store.load().unwrap(), current);
+    }
+
+    #[test]
+    fn a_write_failure_rolls_back_a_new_registration() {
+        use crate::settings::{Editor, Settings, SettingsSaveError, ThemePreference};
+        use std::cell::Cell;
+
+        let registered = Cell::new(false);
+        let draft = Settings {
+            theme: ThemePreference::Dark,
+            default_editor: Editor::Cursor,
+            quick_resume_shortcut: Some("Ctrl+K".into()),
+            ..Settings::default()
+        };
+        let result = super::persist_quick_resume_settings(
+            draft,
+            Some("Control+KeyJ"),
+            &[],
+            |key| {
+                assert_eq!(key, "Control+KeyK");
+                registered.set(true);
+                Ok(())
+            },
+            |settings| {
+                assert!(registered.get());
+                assert_eq!(settings.theme, ThemePreference::Dark);
+                assert_eq!(settings.default_editor, Editor::Cursor);
+                assert_eq!(
+                    settings.quick_resume_shortcut.as_deref(),
+                    Some("Control+KeyK")
+                );
+                Err("保存データを書き込めません。".into())
+            },
+            |key| {
+                assert_eq!(key, "Control+KeyK");
+                registered.set(false);
+                Ok(())
+            },
+        );
+        assert!(
+            matches!(result, Err(SettingsSaveError::Settings(message)) if message == "保存データを書き込めません。")
+        );
+        assert!(!registered.get());
+    }
+
+    #[test]
+    fn combined_save_keeps_values_on_conflict_and_can_retry_and_clear() {
+        use crate::{
+            projects::{ProjectIcon, ProjectStore},
+            settings::{Editor, Settings, SettingsSaveError, SettingsStore, ThemePreference},
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let store = SettingsStore::new(directory.path().to_owned());
+        let expected = store.load().unwrap();
+        let projects = ProjectStore::new(directory.path().to_owned());
+        let project = projects
+            .add_with_options(
+                "Docs",
+                None,
+                Some("https://example.com"),
+                ProjectIcon::Auto,
+                Some("Ctrl+J"),
+                vec![],
+            )
+            .unwrap();
+        let draft = |key: Option<&str>| Settings {
+            theme: ThemePreference::Dark,
+            default_editor: Editor::Cursor,
+            quick_resume_shortcut: key.map(str::to_owned),
+            ..expected.clone()
+        };
+        let conflict = super::persist_quick_resume_settings(
+            draft(Some("Ctrl+J")),
+            None,
+            &[project],
+            |_| panic!("must check project conflicts before registering"),
+            |settings| store.save_with_registered_shortcut(&expected, settings),
+            |_| panic!("no key was registered"),
+        )
+        .unwrap_err();
+        let error = serde_json::to_value(conflict).unwrap();
+        assert_eq!(error["field"], "quickResumeShortcut");
+        assert!(error["message"].as_str().unwrap().contains("Docs"));
+        assert_eq!(store.load().unwrap(), expected);
+
+        let denied = super::persist_quick_resume_settings(
+            draft(Some("Ctrl+K")),
+            None,
+            &[],
+            |_| Err("OSがキーを予約しています。".into()),
+            |settings| store.save_with_registered_shortcut(&expected, settings),
+            |_| panic!("no key was registered"),
+        )
+        .unwrap_err();
+        assert!(matches!(denied, SettingsSaveError::Shortcut { .. }));
+        assert_eq!(store.load().unwrap(), expected);
+
+        let saved = super::persist_quick_resume_settings(
+            draft(Some("Ctrl+L")),
+            None,
+            &[],
+            |key| {
+                assert_eq!(key, "Control+KeyL");
+                Ok(())
+            },
+            |settings| store.save_with_registered_shortcut(&expected, settings),
+            |_| panic!("registration should not be rolled back"),
+        )
+        .unwrap();
+        assert_eq!(saved, draft(Some("Control+KeyL")));
+        let reopened = SettingsStore::new(directory.path().to_owned());
+        assert_eq!(reopened.load().unwrap(), saved);
+
+        // A key saved on disk can be retried when it was not restored in the OS.
+        let retried = super::persist_quick_resume_settings(
+            saved.clone(),
+            None,
+            &[],
+            |key| {
+                assert_eq!(key, "Control+KeyL");
+                Ok(())
+            },
+            |settings| reopened.save_with_registered_shortcut(&saved, settings),
+            |_| panic!("registration should not be rolled back"),
+        )
+        .unwrap();
+        assert_eq!(retried, saved);
+
+        let cleared = super::persist_quick_resume_settings(
+            draft(None),
+            Some("Control+KeyL"),
+            &[],
+            |_| panic!("no new key to register"),
+            |settings| reopened.save_with_registered_shortcut(&saved, settings),
+            |_| panic!("successful saves never roll back"),
+        )
+        .unwrap();
+        assert_eq!(cleared, draft(None));
+        assert_eq!(reopened.load().unwrap(), cleared);
     }
 
     #[test]

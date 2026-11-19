@@ -1,6 +1,31 @@
 use serde::{Deserialize, Serialize};
 use std::{fs, io::ErrorKind, path::PathBuf};
 
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum SettingsSaveError {
+    Settings(String),
+    Shortcut {
+        field: &'static str,
+        message: String,
+    },
+}
+
+impl SettingsSaveError {
+    pub(crate) fn shortcut(message: String) -> Self {
+        Self::Shortcut {
+            field: "quickResumeShortcut",
+            message,
+        }
+    }
+
+    pub(crate) fn message(self) -> String {
+        match self {
+            Self::Settings(message) | Self::Shortcut { message, .. } => message,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum Editor {
@@ -150,13 +175,14 @@ impl SettingsStore {
     }
 
     #[cfg(any(target_os = "macos", test))]
-    pub fn save_quick_resume_shortcut(
+    pub(crate) fn save_with_registered_shortcut(
         &self,
         expected: &Settings,
-        shortcut: Option<&str>,
+        mut settings: Settings,
     ) -> Result<Settings, String> {
-        let mut settings = expected.clone();
-        settings.quick_resume_shortcut = shortcut
+        settings.quick_resume_shortcut = settings
+            .quick_resume_shortcut
+            .as_deref()
             .map(crate::shortcuts::normalize_shortcut)
             .transpose()?;
         self.save_if_current(expected, settings)
