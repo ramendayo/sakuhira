@@ -325,6 +325,37 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
             placeholder="例：sakuhira"
             className="field"
           />
+          {!project && (
+            <div className="mt-4">
+              <button
+                type="button"
+                aria-expanded={optionsOpen}
+                aria-controls={`${id}-optional-settings`}
+                aria-labelledby={`${id}-optional-label`}
+                aria-describedby={showOptionsSummary ? `${id}-optional-summary` : undefined}
+                onClick={() => setOptionsOpen((open) => !open)}
+                className="button-quiet max-w-full justify-start px-0 py-1 text-left hover:bg-transparent"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span aria-hidden="true" className={`ml-0.5 size-2 shrink-0 border-b border-r border-current ${optionsOpen ? "rotate-45" : "-rotate-45"}`} />
+                  <span id={`${id}-optional-label`}>アイコン・再開ショートカット（任意）</span>
+                </span>
+                {showOptionsSummary && (
+                  <span id={`${id}-optional-summary`} className="flex shrink-0 items-center gap-2">
+                    {customIcon && <>
+                      <span className="sr-only">カスタムアイコン設定済み</span>
+                      <ProjectIcon path={previewPath} appearance={appearance} compact />
+                    </>}
+                    {selectedShortcut && <kbd className="text-xs text-muted">{shortcutLabel(selectedShortcut)}</kbd>}
+                  </span>
+                )}
+              </button>
+              <div id={`${id}-optional-settings`} hidden={!optionsOpen} className="mt-1 divide-y divide-line">
+                <div className="py-3">{iconField}</div>
+                {canSetShortcut && <div className="py-3">{optionsOpen && shortcutField}</div>}
+              </div>
+            </div>
+          )}
         </div>
         {project && <div>
           <label htmlFor={`${id}-path`} className="field-label">フォルダ</label>
@@ -344,38 +375,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
         </div>}
         {targetError && <p role="alert" className="text-sm text-danger">{targetError}</p>}
         {project && <>{iconField}{shortcutField}</>}
-        {project ? actions : (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-line">
-              <button
-                type="button"
-                aria-expanded={optionsOpen}
-                aria-controls={`${id}-optional-settings`}
-                aria-labelledby={`${id}-optional-label`}
-                aria-describedby={showOptionsSummary ? `${id}-optional-summary` : undefined}
-                onClick={() => setOptionsOpen((open) => !open)}
-                className="button-quiet w-full flex-wrap justify-start px-3 py-2 text-left text-ink"
-              >
-                <span id={`${id}-optional-label`}>アイコン・再開ショートカット（任意）</span>
-                {showOptionsSummary && (
-                  <span id={`${id}-optional-summary`} className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
-                    {customIcon && <>
-                      <span className="sr-only">カスタムアイコン設定済み</span>
-                      <ProjectIcon path={previewPath} appearance={appearance} compact />
-                    </>}
-                    {selectedShortcut && <kbd className="text-xs text-muted">{shortcutLabel(selectedShortcut)}</kbd>}
-                  </span>
-                )}
-                <span aria-hidden="true" className={`size-2 shrink-0 border-b border-r border-current ${showOptionsSummary ? "" : "ml-auto"} ${optionsOpen ? "rotate-[225deg]" : "rotate-45"}`} />
-              </button>
-              <div id={`${id}-optional-settings`} hidden={!optionsOpen} className="divide-y divide-line border-t border-line px-3">
-                <div className="py-3">{iconField}</div>
-                {canSetShortcut && <div className="py-3">{optionsOpen && shortcutField}</div>}
-              </div>
-            </div>
-            {actions}
-          </div>
-        )}
+        {actions}
       </fieldset>
       {error && <p role="alert" className="mt-4 break-words text-sm leading-6 text-danger">{error}</p>}
     </form>

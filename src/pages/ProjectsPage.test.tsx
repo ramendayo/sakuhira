@@ -381,8 +381,12 @@ describe("project registration", () => {
     await user.type(urlField, url);
 
     const disclosure = screen.getByRole("button", { name: "アイコン・再開ショートカット（任意）", expanded: false });
-    disclosure.focus();
+    expect(disclosure.getAttribute("aria-describedby")).toBeNull();
+    name.focus();
+    await user.tab();
+    expect(document.activeElement).toBe(disclosure);
     await user.keyboard("{Enter}");
+    expect(disclosure.getAttribute("aria-expanded")).toBe("true");
     await user.click(screen.getByRole("button", { name: "アイコンを変更" }));
     await user.click(screen.getByRole("radio", { name: "カスタム" }));
     expect(screen.getByRole("radio", { name: "フォルダ", checked: true })).toBeTruthy();
@@ -401,6 +405,15 @@ describe("project registration", () => {
     expect(disclosure.querySelector('[data-icon-color="blue"] svg')).toBeTruthy();
     expect(within(disclosure).getByText("⌃ + J")).toBeTruthy();
     expect(screen.queryByRole("group", { name: "アイコン" })).toBeNull();
+
+    await user.keyboard("{Enter}");
+    expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+    expect(disclosure.getAttribute("aria-describedby")).toBeNull();
+    expect(screen.getByRole("radio", { name: "コード", checked: true })).toBeTruthy();
+    expect(screen.getByRole<HTMLSelectElement>("combobox", { name: "背景色" }).value).toBe("blue");
+    expect(within(screen.getByRole("group", { name: "再開ショートカット" })).getByText("⌃ + J")).toBeTruthy();
+    await user.keyboard(" ");
+    expect(disclosure.getAttribute("aria-expanded")).toBe("false");
 
     const submit = screen.getByRole("button", { name: "登録する" });
     await user.click(submit);
