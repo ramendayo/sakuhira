@@ -2,8 +2,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
-import type { ResumeReport } from "../types/launch";
-import type { Project } from "../types/project";
+import type { ResumeReport } from "../features/projects/types/launch";
+import type { Project } from "../features/projects/types/project";
 import QuickResumeWindow, { QuickResumeSearch } from "./QuickResumeWindow";
 
 const pinned: Project = {

@@ -4,11 +4,11 @@ import userEvent from "@testing-library/user-event";
 import ProjectForm from "./ProjectForm";
 import ProjectAppLaunchTargets from "./ProjectAppLaunchTargets";
 import ProjectIconField from "./ProjectIconField";
-import ProjectShortcutField from "./ProjectShortcutField";
+import ProjectShortcutField from "../../../components/ProjectShortcutField";
 import * as launch from "../services/launch";
 import * as api from "../services/projects";
-import * as shortcuts from "../services/shortcuts";
-import { SettingsContext } from "../hooks/useSettings";
+import * as shortcuts from "../../../services/shortcuts";
+import { SettingsContext } from "../../../hooks/useSettings";
 import type { Project } from "../types/project";
 
 vi.mock("../services/projects", async (importOriginal) => ({
@@ -17,7 +17,7 @@ vi.mock("../services/projects", async (importOriginal) => ({
   addProject: vi.fn(),
   selectProjectDirectory: vi.fn(),
 }));
-vi.mock("../services/shortcuts", () => ({
+vi.mock("../../../services/shortcuts", () => ({
   supportsShortcuts: vi.fn(() => false),
   onCapturedShortcut: vi.fn(),
   setShortcutCapture: vi.fn(),

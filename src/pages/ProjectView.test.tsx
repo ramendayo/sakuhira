@@ -12,8 +12,8 @@ vi.mock("../services/settings", async (importOriginal) => ({
   saveSettingsWithShortcut: vi.fn(),
   applyTheme: vi.fn(async () => {}),
 }));
-vi.mock("../services/projects", async (importOriginal) => ({ ...await importOriginal<typeof import("../services/projects")>(), listProjects: vi.fn(async () => [{ id: "id", name: "Example", path: "/project", launchUrl: null, lastResumedAt: null, notes: { lastWork: "Work", nextTask: "Next", updatedAt: null } }]) }));
-vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
+vi.mock("../features/projects/services/projects", async (importOriginal) => ({ ...await importOriginal<typeof import("../features/projects/services/projects")>(), listProjects: vi.fn(async () => [{ id: "id", name: "Example", path: "/project", launchUrl: null, lastResumedAt: null, notes: { lastWork: "Work", nextTask: "Next", updatedAt: null } }]) }));
+vi.mock("../features/projects/services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
 
 let stored: Settings;
 beforeEach(() => {

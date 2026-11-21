@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { errorMessage } from "../services/projects";
+import { errorMessage } from "../features/projects/services/projects";
 import { onCapturedShortcut, setShortcutCapture } from "../services/shortcuts";
 
 export function shortcutLabel(shortcut: string) {

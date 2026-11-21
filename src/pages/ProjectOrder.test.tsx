@@ -3,9 +3,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { getSettings, saveSettings, saveSettingsWithShortcut } from "../services/settings";
-import * as projectsApi from "../services/projects";
+import * as projectsApi from "../features/projects/services/projects";
 import type { Settings } from "../types/settings";
-import type { Project } from "../types/project";
+import type { Project } from "../features/projects/types/project";
 
 vi.mock("../services/settings", async (importOriginal) => ({
   ...await importOriginal<typeof import("../services/settings")>(),
@@ -14,8 +14,8 @@ vi.mock("../services/settings", async (importOriginal) => ({
   saveSettingsWithShortcut: vi.fn(),
   applyTheme: vi.fn(async () => {}),
 }));
-vi.mock("../services/projects", async (original) => ({ ...await original<typeof projectsApi>(), listProjects: vi.fn(), addProject: vi.fn(), removeProject: vi.fn() }));
-vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
+vi.mock("../features/projects/services/projects", async (original) => ({ ...await original<typeof projectsApi>(), listProjects: vi.fn(), addProject: vi.fn(), removeProject: vi.fn() }));
+vi.mock("../features/projects/services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
 let stored: Settings;
 const fixture = (id: string, name: string, lastResumedAt: number | null = null): Project => ({ id, name, lastResumedAt, path: null, launchUrl: "https://example.com/", notes: { lastWork: "", nextTask: "", updatedAt: null } });
 const fixtures = [fixture("a", "アプリ10", 20), fixture("b", "アプリ2", 30), fixture("c", "サイト")];

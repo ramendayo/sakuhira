@@ -1,5 +1,5 @@
-import { useSettings } from "../hooks/useSettings";
-import { editorName } from "../types/settings";
+import { useSettings } from "../../../hooks/useSettings";
+import { editorName } from "../../../types/settings";
 import { useId, useState } from "react";
 import type { FormEvent } from "react";
 import { appLaunchTargetLabel, hasLaunchTarget, lastLaunchTargetMessage, setProjectAppLaunchTargets, setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";

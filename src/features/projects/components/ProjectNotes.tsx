@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from "react";
-import LocalDateTime from "./LocalDateTime";
+import LocalDateTime from "../../../components/LocalDateTime";
 import NoteMarkdown from "./NoteMarkdown";
 import type { FormEvent, Ref } from "react";
 import { setProjectNotes } from "../services/notes";

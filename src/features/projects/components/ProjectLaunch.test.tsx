@@ -5,12 +5,12 @@ import userEvent from "@testing-library/user-event";
 import ProjectLaunchSettings from "./ProjectLaunchSettings";
 import ResumeProject from "./ResumeProject";
 import { lastLaunchTargetMessage, resumeProject, selectProjectLaunchItem, setProjectAppLaunchTargets, setProjectLaunchUrl, supportsAppLaunchTargets } from "../services/launch";
-import { getSettings } from "../services/settings";
+import { getSettings } from "../../../services/settings";
 import type { Project } from "../types/project";
 import type { ResumeReport } from "../types/launch";
 
 vi.mock("../services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../services/launch")>(), resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn(), selectProjectLaunchItem: vi.fn(), setProjectAppLaunchTargets: vi.fn(), supportsAppLaunchTargets: vi.fn(() => false) }));
-vi.mock("../services/settings", () => ({ getSettings: vi.fn(async () => ({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" })) }));
+vi.mock("../../../services/settings", () => ({ getSettings: vi.fn(async () => ({ projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" })) }));
 
 const project: Project = { id: "id", name: "Reentry", path: "/projects/Reentry", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 const success: ResumeReport = { history: { status: "skipped" }, editorName: "VS Code", editor: { status: "success" }, browser: null };

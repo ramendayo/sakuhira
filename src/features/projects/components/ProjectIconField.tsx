@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { projectIconColorLabels, projectIconShapeLabels } from "../types/project";
 import type { ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
-import Icon from "./Icon";
+import Icon from "../../../components/Icon";
 import ProjectIcon from "./ProjectIcon";
 
 const iconShapes = Object.keys(projectIconShapeLabels) as ProjectIconShape[];

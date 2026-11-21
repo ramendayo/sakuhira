@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import Icon from "./Icon";
+import Icon from "../../../components/Icon";
 import ProjectIcon from "./ProjectIcon";
 import LastResumedAt from "./LastResumedAt";
 import ProjectGitStatus from "./ProjectGitStatus";
@@ -7,7 +7,7 @@ import { ProjectNotesPreview } from "./ProjectNotes";
 import ResumeProject from "./ResumeProject";
 import { projectLaunchLocation } from "../services/launch";
 import type { Project } from "../types/project";
-import type { ProjectView } from "../types/settings";
+import type { ProjectView } from "../../../types/settings";
 
 type Props = {
   projects: Project[];

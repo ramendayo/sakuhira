@@ -1,4 +1,4 @@
-import Icon from "./Icon";
+import Icon from "../../../components/Icon";
 import type { ProjectIcon as IconAppearance } from "../types/project";
 
 type Props = {

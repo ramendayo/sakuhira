@@ -1,7 +1,7 @@
-import Icon from "./Icon";
+import Icon from "../../../components/Icon";
 import { useEffect, useRef } from "react";
-import { projectSortLabels } from "../types/settings";
-import type { ProjectSort, ProjectView } from "../types/settings";
+import { projectSortLabels } from "../../../types/settings";
+import type { ProjectSort, ProjectView } from "../../../types/settings";
 
 type Props = {
   view: ProjectView;

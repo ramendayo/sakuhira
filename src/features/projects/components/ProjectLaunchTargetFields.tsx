@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ComponentProps } from "react";
-import { useSettings } from "../hooks/useSettings";
+import { useSettings } from "../../../hooks/useSettings";
 import { appLaunchTargetName, selectProjectLaunchItem, supportsAppLaunchTargets } from "../services/launch";
 import { errorMessage, selectProjectDirectory } from "../services/projects";
 import type { AppLaunchTarget } from "../types/project";
-import { editorName } from "../types/settings";
-import Icon from "./Icon";
+import { editorName } from "../../../types/settings";
+import Icon from "../../../components/Icon";
 import { ProjectAppLaunchTargetPicker, ProjectAppLaunchTargetRow } from "./ProjectAppLaunchTargetRow";
 
 type LaunchTargetButtonProps = ComponentProps<"button"> & {

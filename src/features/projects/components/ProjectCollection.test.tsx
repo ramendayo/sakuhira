@@ -5,7 +5,7 @@ import ProjectCollection from "./ProjectCollection";
 import { getGitStatus } from "../services/git";
 import { resumeProject } from "../services/launch";
 import type { Project } from "../types/project";
-import type { ProjectView } from "../types/settings";
+import type { ProjectView } from "../../../types/settings";
 import type { ResumeReport } from "../types/launch";
 
 vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));

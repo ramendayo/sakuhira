@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Icon from "./Icon";
+import Icon from "../../../components/Icon";
 import { appLaunchTargetLabel, resumeProject } from "../services/launch";
 import { errorMessage } from "../services/projects";
 import type { Project } from "../types/project";

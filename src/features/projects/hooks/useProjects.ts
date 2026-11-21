@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage, listProjects } from "../services/projects";
-import { onShortcutResume, supportsShortcuts } from "../services/shortcuts";
+import { onShortcutResume, supportsShortcuts } from "../../../services/shortcuts";
 import type { Project } from "../types/project";
 
 function keepLatestResume(project: Project, timestamp?: number | null): Project {

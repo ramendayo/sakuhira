@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage } from "../services/projects";
-import { onShortcutsRestored, readShortcutIssues, supportsShortcuts } from "../services/shortcuts";
-import type { ShortcutIssue } from "../services/shortcuts";
+import { onShortcutsRestored, readShortcutIssues, supportsShortcuts } from "../../../services/shortcuts";
+import type { ShortcutIssue } from "../../../services/shortcuts";
 
 export function useShortcutIssues() {
   const [issues, setIssues] = useState<ShortcutIssue[]>([]);

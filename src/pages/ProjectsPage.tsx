@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import Icon from "../components/Icon";
-import ProjectCollection from "../components/ProjectCollection";
-import ProjectViewControls from "../components/ProjectViewControls";
-import { useProjectPresentation } from "../hooks/useProjectPresentation";
+import ProjectCollection from "../features/projects/components/ProjectCollection";
+import ProjectViewControls from "../features/projects/components/ProjectViewControls";
+import { useProjectPresentation } from "../features/projects/hooks/useProjectPresentation";
 import ProjectDetails from "./ProjectDetails";
-import ProjectForm from "../components/ProjectForm";
-import { useProjects } from "../hooks/useProjects";
-import { useShortcutIssues } from "../hooks/useShortcutIssues";
-import { moveProject, normalizeManualIds, orderedProjects } from "../utils/projectOrder";
+import ProjectForm from "../features/projects/components/ProjectForm";
+import { useProjects } from "../features/projects/hooks/useProjects";
+import { useShortcutIssues } from "../features/projects/hooks/useShortcutIssues";
+import { moveProject, normalizeManualIds, orderedProjects } from "../features/projects/utils/projectOrder";
 import { projectSortLabels } from "../types/settings";
-import type { Project } from "../types/project";
+import type { Project } from "../features/projects/types/project";
 
 type ProjectsPageProps = {
   selectedId: string | null;

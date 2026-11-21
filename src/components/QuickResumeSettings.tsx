@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { errorMessage } from "../services/projects";
+import { errorMessage } from "../features/projects/services/projects";
 import { onShortcutsRestored, readQuickResumeShortcutIssue } from "../services/shortcuts";
 import type { Settings } from "../types/settings";
 import ProjectShortcutField, { shortcutLabel } from "./ProjectShortcutField";

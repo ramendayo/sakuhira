@@ -1,4 +1,4 @@
-import type { ProjectIconShape } from "../types/project";
+import type { ProjectIconShape } from "../features/projects/types/project";
 
 type IconName = ProjectIconShape | "projects" | "list" | "settings" | "play" | "plus" | "search" | "pin";
 

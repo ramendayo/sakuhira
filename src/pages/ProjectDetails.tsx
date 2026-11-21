@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import ProjectNotes from "../components/ProjectNotes";
-import ResumeProject from "../components/ResumeProject";
-import LastResumedAt from "../components/LastResumedAt";
-import ProjectLaunchSettings from "../components/ProjectLaunchSettings";
-import ProjectGitStatus from "../components/ProjectGitStatus";
-import ProjectForm from "../components/ProjectForm";
-import ProjectIcon from "../components/ProjectIcon";
+import ProjectNotes from "../features/projects/components/ProjectNotes";
+import ResumeProject from "../features/projects/components/ResumeProject";
+import LastResumedAt from "../features/projects/components/LastResumedAt";
+import ProjectLaunchSettings from "../features/projects/components/ProjectLaunchSettings";
+import ProjectGitStatus from "../features/projects/components/ProjectGitStatus";
+import ProjectForm from "../features/projects/components/ProjectForm";
+import ProjectIcon from "../features/projects/components/ProjectIcon";
 import { shortcutLabel } from "../components/ProjectShortcutField";
-import { errorMessage, removeProject } from "../services/projects";
-import { projectIconColorLabels, projectIconShapeLabels } from "../types/project";
-import type { Project } from "../types/project";
+import { errorMessage, removeProject } from "../features/projects/services/projects";
+import { projectIconColorLabels, projectIconShapeLabels } from "../features/projects/types/project";
+import type { Project } from "../features/projects/types/project";
 
 type ProjectDetailsProps = {
   project: Project;

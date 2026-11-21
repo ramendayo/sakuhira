@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
-import * as api from "../services/projects";
+import * as api from "../features/projects/services/projects";
 import * as shortcuts from "../services/shortcuts";
-import { setProjectNotes } from "../services/notes";
-import { resumeProject } from "../services/launch";
-import type { Project } from "../types/project";
+import { setProjectNotes } from "../features/projects/services/notes";
+import { resumeProject } from "../features/projects/services/launch";
+import type { Project } from "../features/projects/types/project";
 
-vi.mock("../services/projects", async (importOriginal) => ({
+vi.mock("../features/projects/services/projects", async (importOriginal) => ({
   ...await importOriginal<typeof api>(),
   listProjects: vi.fn(),
   addProject: vi.fn(),
@@ -17,12 +17,12 @@ vi.mock("../services/projects", async (importOriginal) => ({
   selectProjectDirectory: vi.fn(),
 }));
 
-vi.mock("../services/git", () => ({
+vi.mock("../features/projects/services/git", () => ({
   getGitStatus: vi.fn(async () => ({ kind: "notRepository" })),
 }));
 
-vi.mock("../services/notes", () => ({ setProjectNotes: vi.fn() }));
-vi.mock("../services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../services/launch")>(), resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
+vi.mock("../features/projects/services/notes", () => ({ setProjectNotes: vi.fn() }));
+vi.mock("../features/projects/services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../features/projects/services/launch")>(), resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 vi.mock("../services/shortcuts", () => ({
   supportsShortcuts: vi.fn(() => false),
   onShortcutsRestored: vi.fn(),

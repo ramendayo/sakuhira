@@ -1,5 +1,5 @@
 import type { Project } from "../types/project";
-import type { ProjectOrder } from "../types/settings";
+import type { ProjectOrder } from "../../../types/settings";
 
 const nameCollator = new Intl.Collator("ja", { numeric: true, sensitivity: "base" });
 

@@ -1,6 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { ResumeReport } from "../types/launch";
+import type { ResumeReport } from "../features/projects/types/launch";
 import type { Settings } from "../types/settings";
 
 export type ShortcutIssue = { projectId: string; reason: string };

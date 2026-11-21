@@ -4,7 +4,7 @@ import { useSettings } from "../hooks/useSettings";
 import QuickResumeSettings from "../components/QuickResumeSettings";
 import { quickResumeSaveError, saveSettingsWithShortcut } from "../services/settings";
 import { supportsShortcuts } from "../services/shortcuts";
-import { errorMessage } from "../services/projects";
+import { errorMessage } from "../features/projects/services/projects";
 import type { Editor, Settings, ThemePreference } from "../types/settings";
 
 function SettingsPage() {

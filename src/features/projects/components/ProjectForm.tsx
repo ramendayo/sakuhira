@@ -2,12 +2,12 @@ import { useCallback, useId, useState } from "react";
 import type { FormEvent } from "react";
 import { addProject, appLaunchTargetRegistrationError, errorMessage, shortcutRegistrationError, updateProject } from "../services/projects";
 import { hasLaunchTarget, lastLaunchTargetMessage, launchTargetRequiredMessage } from "../services/launch";
-import { supportsShortcuts } from "../services/shortcuts";
+import { supportsShortcuts } from "../../../services/shortcuts";
 import type { AppLaunchTarget, Project, ProjectIcon as IconAppearance, ProjectIconColor, ProjectIconShape } from "../types/project";
 import ProjectLaunchTargetFields from "./ProjectLaunchTargetFields";
 import ProjectIcon from "./ProjectIcon";
 import ProjectIconField from "./ProjectIconField";
-import ProjectShortcutField, { shortcutLabel } from "./ProjectShortcutField";
+import ProjectShortcutField, { shortcutLabel } from "../../../components/ProjectShortcutField";
 
 type ProjectFormProps = {
   project?: Project;

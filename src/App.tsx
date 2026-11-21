@@ -7,7 +7,7 @@ import SettingsPage from "./pages/SettingsPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import SettingsProvider from "./components/SettingsProvider";
 import { useAppearance } from "./hooks/useAppearance";
-import { resumeErrorMessages } from "./services/launch";
+import { resumeErrorMessages } from "./features/projects/services/launch";
 import { onShortcutLaunchFailure } from "./services/shortcuts";
 
 function App() {

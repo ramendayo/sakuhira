@@ -2,15 +2,15 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import Icon from "../components/Icon";
-import ProjectIcon from "../components/ProjectIcon";
+import ProjectIcon from "../features/projects/components/ProjectIcon";
 import SettingsProvider from "../components/SettingsProvider";
 import { useAppearance } from "../hooks/useAppearance";
-import { useProjects } from "../hooks/useProjects";
+import { useProjects } from "../features/projects/hooks/useProjects";
 import { useSettings } from "../hooks/useSettings";
-import { projectLaunchLocation, resumeErrorMessages, resumeProject } from "../services/launch";
-import { errorMessage } from "../services/projects";
-import type { Project } from "../types/project";
-import { quickResumeCandidates } from "../utils/projectOrder";
+import { projectLaunchLocation, resumeErrorMessages, resumeProject } from "../features/projects/services/launch";
+import { errorMessage } from "../features/projects/services/projects";
+import type { Project } from "../features/projects/types/project";
+import { quickResumeCandidates } from "../features/projects/utils/projectOrder";
 
 type PendingAction = "resume" | "openMainWindow";
 

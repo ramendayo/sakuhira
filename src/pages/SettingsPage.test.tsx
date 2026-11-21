@@ -3,11 +3,11 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { getSettings, saveSettingsWithShortcut } from "../services/settings";
-import { resumeProject } from "../services/launch";
+import { resumeProject } from "../features/projects/services/launch";
 import * as shortcuts from "../services/shortcuts";
 import { editorName } from "../types/settings";
 import type { Settings } from "../types/settings";
-import type { Project } from "../types/project";
+import type { Project } from "../features/projects/types/project";
 
 vi.mock("../services/settings", async (importOriginal) => ({
   ...await importOriginal<typeof import("../services/settings")>(),
@@ -15,12 +15,12 @@ vi.mock("../services/settings", async (importOriginal) => ({
   getSettings: vi.fn(),
   saveSettingsWithShortcut: vi.fn(),
 }));
-vi.mock("../services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../services/launch")>(), resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
-vi.mock("../services/projects", async (importOriginal) => ({
-  ...await importOriginal<typeof import("../services/projects")>(),
+vi.mock("../features/projects/services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../features/projects/services/launch")>(), resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
+vi.mock("../features/projects/services/projects", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../features/projects/services/projects")>(),
   listProjects: vi.fn(async () => [{ id: "id", name: "Example", path: "/project", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } } satisfies Project]),
 }));
-vi.mock("../services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
+vi.mock("../features/projects/services/git", () => ({ getGitStatus: vi.fn(async () => ({ kind: "notRepository" })) }));
 vi.mock("../services/shortcuts", () => ({
   supportsShortcuts: vi.fn(() => false),
   onShortcutResume: vi.fn(),
@@ -178,7 +178,7 @@ it("applies themes only after a successful save and retains the saved choice acr
 });
 
 it("moves keyboard focus to the page heading when navigating, including a failed project load", async () => {
-  const { listProjects } = await import("../services/projects");
+  const { listProjects } = await import("../features/projects/services/projects");
   vi.mocked(listProjects).mockRejectedValueOnce("プロジェクトを読み込めません");
   const user = userEvent.setup();
   render(<App />);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { moveProject, normalizeManualIds, orderedProjects, quickResumeCandidates } from "./projectOrder";
 import type { Project } from "../types/project";
-import type { ProjectSort } from "../types/settings";
+import type { ProjectSort } from "../../../types/settings";
 
 const project = (id: string, name: string, lastResumedAt: number | null = null): Project => ({ id, name, path: `/work/${name}`, launchUrl: null, lastResumedAt, notes: { lastWork: "", nextTask: "", updatedAt: null } });
 const projects = [project("a", "アプリ10", 20), project("b", "アプリ2", 30), project("c", "あいう", 20), project("d", "未再開")];

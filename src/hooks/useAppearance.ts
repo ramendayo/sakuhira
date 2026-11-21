@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { useSettings } from "./useSettings";
 import { applyTheme } from "../services/settings";
-import { errorMessage } from "../services/projects";
+import { errorMessage } from "../features/projects/services/projects";
 import type { ThemePreference } from "../types/settings";
 
 export function useAppearance() {

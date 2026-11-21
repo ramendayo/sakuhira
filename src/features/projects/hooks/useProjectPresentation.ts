@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
-import { useSettings } from "./useSettings";
-import { getSettings, saveSettings } from "../services/settings";
+import { useSettings } from "../../../hooks/useSettings";
+import { getSettings, saveSettings } from "../../../services/settings";
 import { errorMessage } from "../services/projects";
-import { defaultProjectOrder, defaultProjectView } from "../types/settings";
-import type { ProjectOrder, ProjectView, Settings } from "../types/settings";
+import { defaultProjectOrder, defaultProjectView } from "../../../types/settings";
+import type { ProjectOrder, ProjectView, Settings } from "../../../types/settings";
 
 type Preferences = Partial<Pick<Settings, "projectView" | "projectOrder">>;
 

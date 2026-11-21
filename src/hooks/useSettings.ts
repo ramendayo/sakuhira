@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { getSettings } from "../services/settings";
-import { errorMessage } from "../services/projects";
+import { errorMessage } from "../features/projects/services/projects";
 import type { Settings } from "../types/settings";
 
 type Result = { status: "loading" } | { status: "ready"; settings: Settings } | { status: "error"; message: string };
