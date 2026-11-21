@@ -139,7 +139,7 @@ it("prepends new registrations to manual placement in automatic mode and removes
   const user = userEvent.setup(); render(<App />); await ready();
   await user.click(screen.getByRole("button", { name: "プロジェクトを追加" }));
   await user.type(screen.getByRole("textbox", { name: "プロジェクト名" }), added.name);
-  await user.click(screen.getByRole("button", { name: "＋ URL" }));
+  await user.click(screen.getByRole("button", { name: "URL" }));
   await user.type(screen.getByRole("textbox", { name: /起動URL/ }), added.launchUrl!);
   await user.click(screen.getByRole("button", { name: "登録する" }));
   await waitFor(() => expect(stored.projectOrder.manualIds).toEqual(["new", "a", "c", "b"]));

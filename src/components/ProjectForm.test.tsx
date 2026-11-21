@@ -8,6 +8,7 @@ import ProjectShortcutField from "./ProjectShortcutField";
 import * as launch from "../services/launch";
 import * as api from "../services/projects";
 import * as shortcuts from "../services/shortcuts";
+import { SettingsContext } from "../hooks/useSettings";
 import type { Project } from "../types/project";
 
 vi.mock("../services/projects", async (importOriginal) => ({
@@ -193,7 +194,7 @@ it("registers a project with only app targets and keeps them for retry", async (
   await user.type(screen.getByLabelText("プロジェクト名"), saved.name);
   const disclosure = screen.getByRole("button", { name: "アイコン・再開ショートカット（任意）", expanded: false });
   expect(screen.getByText("いずれか1つから登録できます。")).toBeTruthy();
-  const add = () => user.click(screen.getByRole("button", { name: "＋ アプリ" }));
+  const add = () => user.click(screen.getByRole("button", { name: "アプリ" }));
   const register = () => user.click(screen.getByRole("button", { name: "登録する" }));
 
   await add();
@@ -228,7 +229,7 @@ it("registers Codex immediately from the keyboard after an app picker cancellati
   const user = userEvent.setup();
   const onSaved = vi.fn();
   render(<ProjectForm onSaved={onSaved} onCancel={vi.fn()} />);
-  const add = screen.getByRole("button", { name: "＋ アプリ" });
+  const add = screen.getByRole("button", { name: "アプリ" });
   expect(document.activeElement).toBe(add);
   await user.keyboard("{Enter}");
   expect(screen.queryByRole("list", { name: "起動先" })).toBeNull();
@@ -253,17 +254,41 @@ it("combines app, folder and URL targets and removes rows from the local draft",
     .mockResolvedValueOnce({ path: saved.path!, suggestedName: "Current" });
   vi.mocked(api.addProject).mockClear().mockResolvedValueOnce(saved);
   const user = userEvent.setup();
-  render(<ProjectForm onSaved={vi.fn()} onCancel={vi.fn()} />);
+  render(
+    <SettingsContext.Provider value={{
+      result: { status: "ready", settings: {
+        defaultEditor: "cursor", theme: "light", projectView: { layout: "cards", cardSize: "standard" },
+        projectOrder: { sort: "recent", manualIds: [] },
+      } },
+      reload: vi.fn(),
+      replace: vi.fn(),
+    }}>
+      <ProjectForm onSaved={vi.fn()} onCancel={vi.fn()} />
+    </SettingsContext.Provider>,
+  );
+  const targets = within(screen.getByRole("region", { name: "再開時に開くもの" }));
+  for (const [name, description] of [
+    ["アプリ", "選んだアプリを開く"],
+    ["作業フォルダ", "フォルダをエディタで開く"],
+    ["URL", "Webページをブラウザで開く"],
+  ]) {
+    expect(targets.getByRole("button", { name, description })).toBeTruthy();
+  }
   await user.type(screen.getByLabelText("プロジェクト名"), saved.name);
-  await user.click(screen.getByRole("button", { name: "＋ アプリ" }));
+  await user.click(screen.getByRole("button", { name: "アプリ" }));
   await user.click(screen.getByRole("button", { name: "Previewを削除" }));
   expect(screen.queryByText("Preview")).toBeNull();
-  await user.click(screen.getByRole("button", { name: "＋ アプリ" }));
-  await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
+  await user.click(screen.getByRole("button", { name: "アプリ" }));
+  await user.click(screen.getByRole("button", { name: "作業フォルダ" }));
   await user.click(screen.getByRole("button", { name: "フォルダを削除" }));
   expect(screen.queryByText("/work/old")).toBeNull();
-  await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
-  const openUrl = screen.getByRole("button", { name: "＋ URL" });
+  const folder = targets.getByRole("button", { name: "作業フォルダ" });
+  expect(document.activeElement).toBe(folder);
+  await user.keyboard("{Enter}");
+  const selected = within(targets.getByRole("list", { name: "起動先" }));
+  expect(selected.getByText("current を Cursorで開く")).toBeTruthy();
+  expect(selected.getByText(saved.path!)).toBeTruthy();
+  const openUrl = screen.getByRole("button", { name: "URL" });
   openUrl.focus();
   await user.keyboard("{Enter}");
   expect(document.activeElement).toBe(screen.getByLabelText("起動URL（任意）"));

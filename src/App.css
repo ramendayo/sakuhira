@@ -355,6 +355,20 @@
       align-items: center;
     }
   }
+  .project-launch-targets {
+    container: project-launch-targets / inline-size;
+  }
+  .launch-target-buttons {
+    @apply grid grid-cols-1 gap-2;
+  }
+  .launch-target-button {
+    @apply min-w-0 justify-start text-left;
+  }
+  @container project-launch-targets (min-width: 34rem) {
+    .launch-target-buttons {
+      @apply grid-cols-3;
+    }
+  }
   .project-option-field {
     @apply flex min-w-0 flex-col gap-3;
   }

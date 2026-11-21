@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { ComponentProps, FormEvent } from "react";
 import { addProject, appLaunchTargetRegistrationError, errorMessage, selectProjectDirectory, shortcutRegistrationError, updateProject } from "../services/projects";
 import {
   appLaunchTargetName, hasLaunchTarget, lastLaunchTargetMessage, launchTargetRequiredMessage,
@@ -10,6 +10,7 @@ import type { AppLaunchTarget, Project, ProjectIcon as IconAppearance, ProjectIc
 import { useSettings } from "../hooks/useSettings";
 import { editorName } from "../types/settings";
 import { ProjectAppLaunchTargetPicker, ProjectAppLaunchTargetRow } from "./ProjectAppLaunchTargetRow";
+import Icon from "./Icon";
 import ProjectIcon from "./ProjectIcon";
 import ProjectIconField from "./ProjectIconField";
 import ProjectShortcutField, { shortcutLabel } from "./ProjectShortcutField";
@@ -20,10 +21,40 @@ type ProjectFormProps = {
   onCancel: () => void;
 };
 
-function FolderEditorName() {
+type LaunchTargetButtonProps = ComponentProps<"button"> & {
+  icon: ComponentProps<typeof Icon>["name"];
+  label: string;
+  description: string;
+};
+
+function LaunchTargetButton({ icon, label, description, ...buttonProps }: LaunchTargetButtonProps) {
+  const id = useId();
+  return (
+    <button {...buttonProps} type="button" className="button-secondary launch-target-button"
+      aria-labelledby={`${id}-label`} aria-describedby={`${id}-description`}>
+      <Icon name={icon} className="size-5 text-accent" />
+      <span className="min-w-0">
+        <span id={`${id}-label`} className="block">{label}</span>
+        <span id={`${id}-description`} className="mt-1 block text-xs font-normal text-muted">{description}</span>
+      </span>
+    </button>
+  );
+}
+
+function FolderLaunchSummary({ path }: { path: string }) {
   const { result } = useSettings();
-  if (result.status === "ready") return <p className="text-xs text-muted">{editorName(result.settings.defaultEditor)}で開く</p>;
-  return <p className="text-xs text-muted">{result.status === "loading" ? "エディタ設定を読み込み中…" : "エディタ設定を確認できません。"}</p>;
+  const folderName = path.slice(path.lastIndexOf("/") + 1) || path;
+  return (
+    <div className="min-w-0">
+      <p className="break-words text-sm">
+        {result.status === "ready" ? `${folderName} を ${editorName(result.settings.defaultEditor)}で開く` : folderName}
+      </p>
+      {folderName !== path && <p className="mt-1 break-all text-xs text-muted">{path}</p>}
+      {result.status !== "ready" && (
+        <p className="mt-1 text-xs text-muted">{result.status === "loading" ? "エディタ設定を読み込み中…" : "エディタ設定を確認できません。"}</p>
+      )}
+    </div>
+  );
 }
 
 function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectFormProps) {
@@ -214,13 +245,16 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
       <h2 id={`${id}-heading`} className="section-title">{project ? "プロジェクトを編集" : "プロジェクトを登録"}</h2>
       <fieldset disabled={pending !== null} className="mt-5 space-y-5 disabled:opacity-60">
         {!project && (
-          <section aria-labelledby={`${id}-targets`} className="space-y-3">
+          <section aria-labelledby={`${id}-targets`} className="project-launch-targets space-y-3">
             <h3 id={`${id}-targets`} className="text-sm font-medium text-ink">再開時に開くもの</h3>
             <p className="text-sm text-muted">いずれか1つから登録できます。</p>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" ref={appButton} className="button-secondary" autoFocus={canChooseApps} disabled={!canChooseApps} onClick={(event) => chooseAppItem(event.currentTarget, "app")}>＋ アプリ</button>
-              <button type="button" ref={folderButton} className="button-secondary" autoFocus={!canChooseApps} onClick={(event) => chooseDirectory(event.currentTarget)}>＋ フォルダ</button>
-              <button type="button" ref={urlButton} className="button-secondary" onClick={openUrl}>＋ URL</button>
+            <div className="launch-target-buttons">
+              <LaunchTargetButton ref={appButton} icon="projects" label="アプリ" description="選んだアプリを開く"
+                autoFocus={canChooseApps} disabled={!canChooseApps} onClick={(event) => chooseAppItem(event.currentTarget, "app")} />
+              <LaunchTargetButton ref={folderButton} icon="folder" label="作業フォルダ" description="フォルダをエディタで開く"
+                autoFocus={!canChooseApps} onClick={(event) => chooseDirectory(event.currentTarget)} />
+              <LaunchTargetButton ref={urlButton} icon="link" label="URL" description="Webページをブラウザで開く"
+                aria-expanded={urlOpen} onClick={openUrl} />
             </div>
             {(appLaunchTargets.length > 0 || previewPath || urlOpen) && (
               <ul aria-label="起動先" className="divide-y divide-line rounded-lg border border-line">
@@ -250,10 +284,7 @@ function ProjectForm({ project: initialProject, onSaved, onCancel }: ProjectForm
                 ))}
                 {previewPath && (
                   <li className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                    <div className="min-w-0">
-                      <p className="break-all text-sm">{path}</p>
-                      <FolderEditorName />
-                    </div>
+                    <FolderLaunchSummary path={previewPath} />
                     <div className="flex flex-wrap gap-2">
                       <button type="button" className="button-quiet" aria-label="フォルダを変更" onClick={(event) => chooseDirectory(event.currentTarget)}>変更</button>
                       <button type="button" className="button-quiet" aria-label="フォルダを削除" onClick={() => {

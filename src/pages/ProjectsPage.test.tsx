@@ -198,7 +198,7 @@ describe("project search", () => {
     await user.click(screen.getByRole("button", { name: "プロジェクトを追加" }));
     await user.type(screen.getByLabelText("プロジェクト名"), added.name);
     vi.mocked(api.selectProjectDirectory).mockResolvedValue({ path: added.path, suggestedName: added.name });
-    await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
+    await user.click(screen.getByRole("button", { name: "作業フォルダ" }));
     await user.click(screen.getByRole("button", { name: "登録する" }));
     await screen.findByRole("heading", { name: added.name });
     expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("");
@@ -214,7 +214,7 @@ describe("project registration", () => {
     vi.mocked(resumeProject).mockResolvedValue({ editorName: "VS Code", editor: null, browser: { status: "success" }, history: { status: "saved", timestamp: 3000 } });
     const user = await openForm();
     await user.type(screen.getByLabelText("プロジェクト名"), web.name);
-    await user.click(screen.getByRole("button", { name: "＋ URL" }));
+    await user.click(screen.getByRole("button", { name: "URL" }));
     await user.type(screen.getByLabelText("起動URL（任意）"), "https://example.com");
     await user.click(screen.getByRole("button", { name: "登録する" }));
     await screen.findByRole("heading", { name: web.name });
@@ -270,7 +270,7 @@ describe("project registration", () => {
 
   it("requires a name and at least one launch target before registration", async () => {
     const user = await openForm();
-    await user.click(screen.getByRole("button", { name: "＋ URL" }));
+    await user.click(screen.getByRole("button", { name: "URL" }));
     await user.type(screen.getByLabelText("起動URL（任意）"), "https://example.com");
     await user.click(screen.getByRole("button", { name: "登録する" }));
     expect(api.addProject).not.toHaveBeenCalled();
@@ -288,8 +288,8 @@ describe("project registration", () => {
     const user = await openForm();
     await user.type(screen.getByLabelText("プロジェクト名"), project.name);
     vi.mocked(api.selectProjectDirectory).mockResolvedValue({ path: project.path, suggestedName: project.name });
-    await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
-    await user.click(screen.getByRole("button", { name: "＋ URL" }));
+    await user.click(screen.getByRole("button", { name: "作業フォルダ" }));
+    await user.click(screen.getByRole("button", { name: "URL" }));
     await user.type(screen.getByLabelText("起動URL（任意）"), "http://localhost:3000");
     await user.click(screen.getByRole("button", { name: "登録する" }));
     await screen.findByRole("heading", { name: project.name });
@@ -306,8 +306,8 @@ describe("project registration", () => {
     const user = await openForm();
     await user.type(screen.getByLabelText("プロジェクト名"), project.name);
     vi.mocked(api.selectProjectDirectory).mockResolvedValue({ path: project.path, suggestedName: project.name });
-    await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
-    await user.click(screen.getByRole("button", { name: "＋ URL" }));
+    await user.click(screen.getByRole("button", { name: "作業フォルダ" }));
+    await user.click(screen.getByRole("button", { name: "URL" }));
     const url = screen.getByLabelText("起動URL（任意）");
     await user.type(url, "ftp://example.com");
     await user.click(screen.getByRole("button", { name: "登録する" }));
@@ -338,7 +338,7 @@ describe("project registration", () => {
     const user = await openForm();
     expect(screen.getByRole("button", { name: "アイコン・再開ショートカット（任意）", expanded: false })).toBeTruthy();
     expect(screen.queryByRole("group", { name: "アイコン" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
+    await user.click(screen.getByRole("button", { name: "作業フォルダ" }));
     expect(screen.getByText(project.path)).toBeTruthy();
     expect((screen.getByLabelText("プロジェクト名") as HTMLInputElement).value).toBe(project.name);
     await user.click(screen.getByRole("button", { name: "登録する" }));
@@ -375,8 +375,8 @@ describe("project registration", () => {
     const name = screen.getByRole<HTMLInputElement>("textbox", { name: "プロジェクト名" });
     await user.type(name, project.name);
     vi.mocked(api.selectProjectDirectory).mockResolvedValue({ path: project.path, suggestedName: project.name });
-    await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
-    await user.click(screen.getByRole("button", { name: "＋ URL" }));
+    await user.click(screen.getByRole("button", { name: "作業フォルダ" }));
+    await user.click(screen.getByRole("button", { name: "URL" }));
     const urlField = screen.getByRole<HTMLInputElement>("textbox", { name: "起動URL（任意）" });
     await user.type(urlField, url);
 
@@ -437,8 +437,8 @@ describe("project registration", () => {
       .mockResolvedValueOnce({ path: project.path, suggestedName: project.name });
     const user = await openForm();
     await user.type(screen.getByLabelText("プロジェクト名"), "Custom");
-    await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
-    expect(await screen.findByText("VS Codeで開く")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "作業フォルダ" }));
+    expect(await screen.findByText("original を VS Codeで開く")).toBeTruthy();
     const change = screen.getByRole("button", { name: "フォルダを変更" });
     await user.click(change);
     expect(screen.getByText("/original")).toBeTruthy();
@@ -453,7 +453,7 @@ describe("project registration", () => {
     const user = await openForm();
     await user.type(screen.getByLabelText("プロジェクト名"), project.name);
     vi.mocked(api.selectProjectDirectory).mockResolvedValue({ path: project.path, suggestedName: project.name });
-    await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
+    await user.click(screen.getByRole("button", { name: "作業フォルダ" }));
     await user.click(screen.getByRole("button", { name: "登録する" }));
     expect((await screen.findByRole("alert")).textContent).toContain("すでに登録");
     expect(screen.getByText(project.path)).toBeTruthy();
@@ -465,7 +465,7 @@ describe("project registration", () => {
   it("shows folder selection errors and allows cancelling without saving", async () => {
     vi.mocked(api.selectProjectDirectory).mockRejectedValue(new Error("選択に失敗しました"));
     const user = await openForm();
-    await user.click(screen.getByRole("button", { name: "＋ フォルダ" }));
+    await user.click(screen.getByRole("button", { name: "作業フォルダ" }));
     expect((await screen.findByRole("alert")).textContent).toBe("選択に失敗しました");
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(screen.queryByRole("form", { name: /プロジェクトを/ })).toBeNull();
