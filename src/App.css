@@ -560,8 +560,22 @@
     --toolbar-control-height: calc(var(--ui-space-unit) * 11);
     display: flex;
     flex-wrap: wrap;
-    align-items: end;
-    gap: calc(var(--ui-space-unit) * 4);
+    align-items: center;
+    gap: calc(var(--ui-space-unit) * 3) calc(var(--ui-space-unit) * 4);
+  }
+  /* 一覧のタイトルだけ明朝体にする。設定・詳細の見出しはゴシック体のまま。 */
+  .project-page-title {
+    font-family: var(--ui-font-display);
+    font-weight: var(--ui-weight-medium);
+    letter-spacing: var(--ui-letter-display);
+    white-space: nowrap;
+  }
+  .toolbar-divider {
+    align-self: stretch;
+    width: 1px;
+    margin-block: calc(var(--ui-space-unit) * 1);
+    background: var(--ui-line-strong);
+    opacity: 0.6;
   }
   .project-search {
     flex: 1 1 16rem;
