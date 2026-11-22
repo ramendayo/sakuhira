@@ -14,6 +14,9 @@
   --color-accent-hover: var(--ui-accent-hover);
   --color-accent-soft: var(--ui-accent-soft);
   --color-on-accent: var(--ui-on-accent);
+  --color-action: var(--ui-action);
+  --color-action-hover: var(--ui-action-hover);
+  --color-on-action: var(--ui-on-action);
   --color-success: var(--ui-success);
   --color-warning: var(--ui-warning);
   --color-danger: var(--ui-danger);
@@ -21,6 +24,7 @@
   --color-danger-line: var(--ui-danger-line);
   --font-sans: var(--ui-font);
   --font-mono: var(--ui-font-mono);
+  --font-display: var(--ui-font-display);
   --font-weight-medium: var(--ui-weight-medium);
   --font-weight-semibold: var(--ui-weight-semibold);
   --text-xs: var(--ui-text-xs);

@@ -13,6 +13,10 @@
   --ui-accent-hover: #264b43;
   --ui-accent-soft: #e5eeea;
   --ui-on-accent: #ffffff;
+  /* 再開など「作業に戻る」操作専用。全体の主ボタン（accent）とは分けて、一覧で目を引く一点にする。 */
+  --ui-action: #8a5a1c;
+  --ui-action-hover: #744a14;
+  --ui-on-action: #ffffff;
   --ui-icon-blue-bg: #e7effb;
   --ui-icon-blue-ink: #345787;
   --ui-icon-green-bg: #e3f0e8;
@@ -30,6 +34,8 @@
   --ui-danger-line: #e9caca;
   --ui-font: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Segoe UI", sans-serif;
   --ui-font-mono: "SFMono-Regular", Consolas, monospace;
+  /* 欧文書体に和文グリフが無いため、英数字はセリフ体・日本語は明朝体へ自動でフォールバックする。 */
+  --ui-font-display: "Iowan Old Style", "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", Georgia, serif;
   --ui-root-size: 16px;
   --ui-weight-medium: 500;
   --ui-weight-semibold: 600;
@@ -64,34 +70,38 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ui-canvas: #151c20;
-  --ui-surface: #1d272c;
-  --ui-sidebar: #182126;
-  --ui-subtle: #222f34;
-  --ui-ink: #e0e8e7;
-  --ui-muted: #a2b2b7;
-  --ui-line: #35454b;
-  --ui-line-strong: #52666e;
-  --ui-accent: #b5d3c8;
-  --ui-accent-hover: #cce3db;
-  --ui-accent-soft: #2b433c;
-  --ui-on-accent: #172a24;
-  --ui-icon-blue-bg: #263b54;
+  /* 面は枠線ではなく明暗差で区切るため、canvas < sidebar < surface < subtle の順に一段ずつ明るくする。 */
+  --ui-canvas: #10272b;
+  --ui-surface: #1a3337;
+  --ui-sidebar: #132c30;
+  --ui-subtle: #213b40;
+  --ui-ink: #ece4d2;
+  --ui-muted: #a8b0a4;
+  --ui-line: #28434a;
+  --ui-line-strong: #3f5b60;
+  --ui-accent: #c2d6cb;
+  --ui-accent-hover: #d6e5dc;
+  --ui-accent-soft: #29474a;
+  --ui-on-accent: #13282a;
+  --ui-action: #d8a65e;
+  --ui-action-hover: #e5b874;
+  --ui-on-action: #1f1a10;
+  --ui-icon-blue-bg: #24405a;
   --ui-icon-blue-ink: #b7d0f2;
-  --ui-icon-green-bg: #28463a;
+  --ui-icon-green-bg: #26493d;
   --ui-icon-green-ink: #a9d6bd;
-  --ui-icon-amber-bg: #4e3c26;
+  --ui-icon-amber-bg: #4c3d26;
   --ui-icon-amber-ink: #ebce9b;
-  --ui-icon-purple-bg: #42334f;
+  --ui-icon-purple-bg: #3f344f;
   --ui-icon-purple-ink: #d5c0ef;
-  --ui-icon-gray-bg: #37434b;
-  --ui-icon-gray-ink: #c6d0d6;
+  --ui-icon-gray-bg: #2f464b;
+  --ui-icon-gray-ink: #cbd3cf;
   --ui-success: #a4cfb6;
   --ui-warning: #e4c38c;
   --ui-danger: #f1b1aa;
-  --ui-danger-soft: #38292b;
+  --ui-danger-soft: #3a2c2d;
   --ui-danger-line: #755153;
-  --ui-shadow-panel: 0 2px 6px rgb(0 0 0 / 10%), 0 12px 28px rgb(0 0 0 / 7%);
-  --ui-shadow-button: 0 1px 2px rgb(0 0 0 / 15%);
-  --ui-shadow-field: inset 0 1px 2px rgb(0 0 0 / 8%);
+  --ui-shadow-panel: 0 1px 2px rgb(0 0 0 / 12%);
+  --ui-shadow-button: 0 1px 2px rgb(0 0 0 / 18%);
+  --ui-shadow-field: inset 0 1px 2px rgb(0 0 0 / 10%);
 }
