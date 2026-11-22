@@ -1,38 +1,40 @@
 /* テーマ追加時は、同じ役割のトークンを別のセレクターで上書きする。 */
 :root {
   color-scheme: light;
-  --ui-canvas: #f6f7f8;
+  --ui-canvas: #fbf6f4;
   --ui-surface: #ffffff;
-  --ui-sidebar: #eef1f2;
-  --ui-subtle: #f4f6f6;
-  --ui-ink: #253239;
+  --ui-sidebar: #f4e9e7;
+  --ui-subtle: #f6eeec;
+  --ui-ink: #3a2b33;
   /* サイドバーやアクセント面の上でも補助文字が 4.5:1 を下回らない明度にする。 */
-  --ui-muted: #5f6c74;
-  --ui-line: #dde3e5;
-  --ui-line-strong: #bdc9ce;
-  --ui-accent: #345e55;
-  --ui-accent-hover: #264b43;
-  --ui-accent-soft: #e5eeea;
+  --ui-muted: #6a5961;
+  --ui-line: #eaddd9;
+  --ui-line-strong: #c9b5b8;
+  /* 濃い桜色。選択・フォーカス・主ボタンに使い、再開（action）はやや明るい桜色で見分ける。 */
+  --ui-accent: #9b3d5c;
+  --ui-accent-hover: #82304c;
+  --ui-accent-soft: #f9e4ea;
   --ui-on-accent: #ffffff;
   /* 再開など「作業に戻る」操作専用。全体の主ボタン（accent）とは分けて、一覧で目を引く一点にする。 */
-  --ui-action: #8a5a1c;
-  --ui-action-hover: #744a14;
+  --ui-action: #b84e6c;
+  --ui-action-hover: #a2425d;
   --ui-on-action: #ffffff;
-  --ui-icon-blue-bg: #e7effb;
+  --ui-icon-blue-bg: #e9eff9;
   --ui-icon-blue-ink: #345787;
-  --ui-icon-green-bg: #e3f0e8;
+  --ui-icon-green-bg: #e5f0e7;
   --ui-icon-green-ink: #35654f;
   --ui-icon-amber-bg: #f8ecd4;
   --ui-icon-amber-ink: #795422;
-  --ui-icon-purple-bg: #eee8f8;
+  --ui-icon-purple-bg: #efe8f6;
   --ui-icon-purple-ink: #694b8b;
-  --ui-icon-gray-bg: #eceff1;
-  --ui-icon-gray-ink: #495861;
+  --ui-icon-gray-bg: #f0e9e8;
+  --ui-icon-gray-ink: #5a4a52;
   --ui-success: #30634e;
   --ui-warning: #8b621e;
-  --ui-danger: #a44242;
-  --ui-danger-soft: #fcf2f1;
-  --ui-danger-line: #e9caca;
+  /* 危険は桜色（accent / action）と紛れないよう、朱色寄りの色にする。 */
+  --ui-danger: #b3361c;
+  --ui-danger-soft: #fdf0ec;
+  --ui-danger-line: #efc5b9;
   --ui-font: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Segoe UI", sans-serif;
   --ui-font-mono: "SFMono-Regular", Consolas, monospace;
   --ui-root-size: 16px;
@@ -54,9 +56,9 @@
   --ui-radius-lg: 0.5rem;
   --ui-radius-xl: 0.75rem;
   --ui-radius-2xl: 0.875rem;
-  --ui-shadow-panel: 0 2px 6px rgb(25 40 46 / 3%), 0 12px 28px rgb(25 40 46 / 2%);
-  --ui-shadow-button: 0 1px 2px rgb(25 40 46 / 8%);
-  --ui-shadow-field: inset 0 1px 2px rgb(25 40 46 / 2%);
+  --ui-shadow-panel: 0 2px 6px rgb(58 43 51 / 3%), 0 12px 28px rgb(58 43 51 / 2%);
+  --ui-shadow-button: 0 1px 2px rgb(58 43 51 / 8%);
+  --ui-shadow-field: inset 0 1px 2px rgb(58 43 51 / 2%);
   /* カードの区切り方はテーマで変える。ライトは面の明暗差が小さいため線と影を残す。 */
   --ui-card-line: var(--ui-line);
   --ui-card-line-hover: var(--ui-line-strong);
