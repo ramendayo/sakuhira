@@ -884,10 +884,16 @@
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+  /* メモが無いカードは見出し行が出ないため、見出し＋本文の2行分を常に確保し、
+     同じ行のカード同士で区切り線の高さがずれないようにする。 */
   .cards-standard .item-note-summary {
     grid-area: note;
     align-self: end;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
     min-width: 0;
+    min-height: calc(var(--ui-text-xs) * 1.6 + var(--ui-space-unit) * 0.5 + var(--ui-text-sm) * 1.6);
     margin-top: calc(var(--ui-space-unit) * 4);
   }
   .cards-standard .item-note-label {
