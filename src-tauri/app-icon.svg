@@ -1,0 +1,16 @@
+<!-- アプリアイコンの元画像。macOSの規格に合わせ、周囲に100pxの余白を持つ角丸の四角に、二枚の桜の花びらで作った S を置いている。
+     S の形と色は src/components/SakuraMark.tsx（サイドバーのロゴ）のダーク配色と同じ。形を変えたら両方を揃えること。
+     再生成: npx tauri icon src-tauri/app-icon.svg -o <一時ディレクトリ> を実行し、src-tauri/icons にある既存のファイルと同名のものだけをコピーする（iOS・Android用は不要）。 -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#31282c"/><stop offset="1" stop-color="#1a1618"/></linearGradient>
+<linearGradient id="petal" gradientUnits="userSpaceOnUse" x1="330" y1="470" x2="590" y2="100"><stop offset="0" stop-color="#e393ab"/><stop offset="0.55" stop-color="#f2bccb"/><stop offset="1" stop-color="#fde8ee"/></linearGradient>
+</defs>
+<rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+<g transform="translate(512 512) scale(0.8) translate(-446 -368)">
+<g transform="translate(0 24) rotate(180 414.5 375)"><path d="M655 157 L658 192 L688 180 C698 215 680 262 568 272 C610 240 635 200 655 157 Z" fill="#e2859b" transform="translate(535 284) rotate(20) scale(1.25) translate(-585 -262)"/></g>
+<g transform="translate(0 -24)"><path d="M655 157 L658 192 L688 180 C698 215 680 262 568 272 C610 240 635 200 655 157 Z" fill="#e2859b" transform="translate(577 258) scale(1.8) translate(-585 -262)"/><path d="M578 103 C520 88 470 82 440 83 C260 83 140 170 142 290 C145 380 250 445 348 453 C300 410 300 350 345 310 C400 262 480 245 540 205 C565 188 585 172 598 155 L548 150 Z" fill="url(#petal)"/></g>
+<path d="M578 103 C520 88 470 82 440 83 C260 83 140 170 142 290 C145 380 250 445 348 453 C300 410 300 350 345 310 C400 262 480 245 540 205 C565 188 585 172 598 155 L548 150 Z" fill="url(#petal)" transform="translate(0 24) rotate(180 414.5 375)"/>
+<circle cx="414.5" cy="375" r="28" fill="#e4c38c"/>
+</g>
+</svg>
