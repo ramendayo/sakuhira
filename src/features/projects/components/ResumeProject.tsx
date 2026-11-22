@@ -41,7 +41,7 @@ function ResumeAction({ project, onResumed }: ResumeProjectProps) {
 
   return (
     <div className="resume-action" aria-busy={pending}>
-      <button type="button" onClick={resume} disabled={pending} aria-label={`${project.name}を再開`} className="button-primary"><Icon name="play" />{pending ? "起動中…" : "再開"}</button>
+      <button type="button" onClick={resume} disabled={pending} aria-label={`${project.name}を再開`} className="button-action"><Icon name="play" />{pending ? "起動中…" : "再開"}</button>
       <div className="launch-results mt-3 space-y-2 break-words text-xs leading-6">
         {error && <p role="alert" className="text-danger">{error}</p>}
         {report && <>

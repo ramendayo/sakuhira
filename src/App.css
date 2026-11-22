@@ -171,6 +171,17 @@
   .project-card {
     display: flex;
     flex-direction: column;
+    border-color: var(--ui-card-line);
+    box-shadow: var(--ui-shadow-card);
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+  .project-card:hover {
+    background: var(--ui-card-hover);
+    border-color: var(--ui-card-line-hover);
+  }
+  /* 内側のボタンにフォーカスがあるとき、どのカードを操作中かをカード単位でも示す。 */
+  .project-card:has(:focus-visible) {
+    border-color: var(--ui-line-strong);
   }
   .project-title {
     font-size: var(--ui-text-xl);
@@ -259,7 +270,7 @@
     font-size: var(--ui-text-xs);
     color: var(--ui-muted);
   }
-  .button-primary, .button-secondary, .button-quiet, .button-danger, .button-danger-solid {
+  .button-primary, .button-action, .button-secondary, .button-quiet, .button-danger, .button-danger-solid {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -278,6 +289,14 @@
   }
   .button-primary:hover:not(:disabled) {
     background: var(--ui-accent-hover);
+  }
+  .button-action {
+    background: var(--ui-action);
+    color: var(--ui-on-action);
+    box-shadow: var(--ui-shadow-button);
+  }
+  .button-action:hover:not(:disabled) {
+    background: var(--ui-action-hover);
   }
   .button-secondary {
     background: var(--ui-surface);
@@ -310,7 +329,7 @@
   .button-danger-solid:hover:not(:disabled) {
     filter: brightness(0.92);
   }
-  :is(.button-primary, .button-secondary, .button-quiet, .button-danger, .button-danger-solid):disabled {
+  :is(.button-primary, .button-action, .button-secondary, .button-quiet, .button-danger, .button-danger-solid):disabled {
     opacity: 0.5;
   }
   .field {
@@ -750,15 +769,15 @@
   .cards-small .item-actions {
     padding-top: calc(var(--ui-space-unit) * 2);
   }
-  .cards-small .button-primary {
+  .cards-small .button-action {
     padding-block: calc(var(--ui-space-unit) * 2);
   }
   .project-list {
     display: block;
-    border: 1px solid var(--ui-line);
+    border: 1px solid var(--ui-card-line);
     border-radius: var(--ui-radius-2xl);
     background: var(--ui-surface);
-    box-shadow: var(--ui-shadow-panel);
+    box-shadow: var(--ui-shadow-card);
     overflow: hidden;
   }
   .project-row {

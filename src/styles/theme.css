@@ -58,6 +58,11 @@
   --ui-shadow-panel: 0 2px 6px rgb(25 40 46 / 3%), 0 12px 28px rgb(25 40 46 / 2%);
   --ui-shadow-button: 0 1px 2px rgb(25 40 46 / 8%);
   --ui-shadow-field: inset 0 1px 2px rgb(25 40 46 / 2%);
+  /* カードの区切り方はテーマで変える。ライトは面の明暗差が小さいため線と影を残す。 */
+  --ui-card-line: var(--ui-line);
+  --ui-card-line-hover: var(--ui-line-strong);
+  --ui-card-hover: var(--ui-surface);
+  --ui-shadow-card: var(--ui-shadow-panel);
   --ui-space-unit: 0.25rem;
   --ui-page-padding: 2rem;
   --ui-panel-padding: 1.5rem;
@@ -104,4 +109,9 @@
   --ui-shadow-panel: 0 1px 2px rgb(0 0 0 / 12%);
   --ui-shadow-button: 0 1px 2px rgb(0 0 0 / 18%);
   --ui-shadow-field: inset 0 1px 2px rgb(0 0 0 / 10%);
+  /* ダークは面の明暗差で区切るので、線はほぼ見えない程度にし、ホバーは面を一段明るくして示す。 */
+  --ui-card-line: rgb(236 228 210 / 4%);
+  --ui-card-line-hover: rgb(236 228 210 / 10%);
+  --ui-card-hover: #1e383c;
+  --ui-shadow-card: none;
 }
