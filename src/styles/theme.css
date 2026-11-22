@@ -65,6 +65,11 @@
   --ui-card-line-hover: var(--ui-line-strong);
   --ui-card-hover: var(--ui-surface);
   --ui-shadow-card: var(--ui-shadow-panel);
+  /* 選択中のナビやセグメントなど「一段浮いた操作面」。ライトは白い面＋線＋影で示す。 */
+  --ui-raised: var(--ui-surface);
+  --ui-raised-line: var(--ui-line);
+  --ui-shadow-raised: var(--ui-shadow-button);
+  --ui-sidebar-line: var(--ui-line);
   --ui-space-unit: 0.25rem;
   --ui-page-padding: 2rem;
   --ui-panel-padding: 1.5rem;
@@ -80,7 +85,7 @@
   /* 面は枠線ではなく明暗差で区切るため、canvas < sidebar < surface < subtle の順に一段ずつ明るくする。 */
   --ui-canvas: #10272b;
   --ui-surface: #1a3337;
-  --ui-sidebar: #132c30;
+  --ui-sidebar: #152f33;
   --ui-subtle: #213b40;
   --ui-ink: #ece4d2;
   --ui-muted: #a8b0a4;
@@ -116,4 +121,9 @@
   --ui-card-line-hover: rgb(236 228 210 / 10%);
   --ui-card-hover: #1e383c;
   --ui-shadow-card: none;
+  /* ダークの選択状態は、周囲（subtle）より一段明るい面だけで示し、線と影は使わない。 */
+  --ui-raised: #2a464b;
+  --ui-raised-line: rgb(236 228 210 / 6%);
+  --ui-shadow-raised: none;
+  --ui-sidebar-line: rgb(236 228 210 / 4%);
 }
