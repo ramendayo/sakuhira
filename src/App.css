@@ -24,7 +24,6 @@
   --color-danger-line: var(--ui-danger-line);
   --font-sans: var(--ui-font);
   --font-mono: var(--ui-font-mono);
-  --font-display: var(--ui-font-display);
   --font-weight-medium: var(--ui-weight-medium);
   --font-weight-semibold: var(--ui-weight-semibold);
   --text-xs: var(--ui-text-xs);
@@ -101,10 +100,9 @@
     display: flex;
     align-items: center;
     gap: calc(var(--ui-space-unit) * 3);
-    font-family: var(--ui-font-display);
     font-size: var(--ui-text-xl);
-    font-weight: var(--ui-weight-medium);
-    letter-spacing: var(--ui-letter-display);
+    font-weight: var(--ui-weight-heading);
+    letter-spacing: var(--ui-letter-heading);
   }
   .brand-mark {
     display: grid;
@@ -184,14 +182,11 @@
   .project-card:has(:focus-visible) {
     border-color: var(--ui-line-strong);
   }
-  /* 名前だけを表示書体にし、補助情報や操作のゴシック体と役割を分ける。
-     ヒラギノ明朝はW3/W6のみで、太字だと画面上で重く見えるためW3側に落ちる500にする。 */
   .project-title {
-    font-family: var(--ui-font-display);
     font-size: var(--ui-text-xl);
-    font-weight: var(--ui-weight-medium);
+    font-weight: var(--ui-weight-heading);
     line-height: 1.5;
-    letter-spacing: var(--ui-letter-display);
+    letter-spacing: var(--ui-letter-heading);
     overflow-wrap: anywhere;
   }
   .project-icon {
@@ -563,11 +558,8 @@
     align-items: center;
     gap: calc(var(--ui-space-unit) * 3) calc(var(--ui-space-unit) * 4);
   }
-  /* 一覧のタイトルだけ明朝体にする。設定・詳細の見出しはゴシック体のまま。 */
+  /* 他の見出しと同じ書体のまま、1行に並べるために折り返さない。 */
   .project-page-title {
-    font-family: var(--ui-font-display);
-    font-weight: var(--ui-weight-medium);
-    letter-spacing: var(--ui-letter-display);
     white-space: nowrap;
   }
   .toolbar-divider {

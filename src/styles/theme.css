@@ -35,8 +35,6 @@
   --ui-danger-line: #e9caca;
   --ui-font: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Segoe UI", sans-serif;
   --ui-font-mono: "SFMono-Regular", Consolas, monospace;
-  /* 欧文書体に和文グリフが無いため、英数字はセリフ体・日本語は明朝体へ自動でフォールバックする。 */
-  --ui-font-display: "Iowan Old Style", "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", Georgia, serif;
   --ui-root-size: 16px;
   --ui-weight-medium: 500;
   --ui-weight-semibold: 600;
@@ -45,8 +43,6 @@
   --ui-leading-body: 1.6;
   --ui-leading-heading: 1.45;
   --ui-letter-heading: -0.035em;
-  /* 明朝・セリフ体は詰めると字面が潰れるため、ゴシック見出しとは逆に少し開ける。 */
-  --ui-letter-display: 0.02em;
   --ui-text-xs: 0.75rem;
   --ui-text-sm: 0.8125rem;
   --ui-text-base: 0.9375rem;
