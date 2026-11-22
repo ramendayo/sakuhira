@@ -6,7 +6,8 @@
   --ui-sidebar: #eef1f2;
   --ui-subtle: #f4f6f6;
   --ui-ink: #253239;
-  --ui-muted: #637078;
+  /* サイドバーやアクセント面の上でも補助文字が 4.5:1 を下回らない明度にする。 */
+  --ui-muted: #5f6c74;
   --ui-line: #dde3e5;
   --ui-line-strong: #bdc9ce;
   --ui-accent: #345e55;

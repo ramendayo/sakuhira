@@ -869,6 +869,10 @@
   .cards-standard .git-compact p {
     min-width: 0;
   }
+  /* 長いブランチ名で変更件数まで省略されないよう、縮めるのはブランチ名だけにする。 */
+  .cards-standard .git-compact p + p {
+    flex-shrink: 0;
+  }
   .cards-standard .git-compact .git-refresh {
     position: static;
     flex-shrink: 0;
