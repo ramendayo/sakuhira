@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Icon from "./Icon";
+import SakuraMark from "./SakuraMark";
 
 type AppLayoutProps = {
   children: ReactNode;
@@ -15,7 +16,7 @@ function AppLayout({ children, activePage, onProjectsNavigate, onSettingsNavigat
         メインコンテンツへ移動
       </a>
       <aside className="app-sidebar">
-        <div className="brand"><span aria-hidden="true" className="brand-mark">S</span><span>sakuhira</span></div>
+        <div className="brand"><SakuraMark className="brand-mark" /><span>sakuhira</span></div>
         <nav aria-label="メインナビゲーション">
           <a href="#projects" onClick={(event) => { event.preventDefault(); onProjectsNavigate(); }} aria-current={activePage === "projects" ? "page" : undefined} className="nav-link">
             <Icon name="projects" />プロジェクト

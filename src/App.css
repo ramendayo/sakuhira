@@ -104,15 +104,17 @@
     font-weight: var(--ui-weight-heading);
     letter-spacing: var(--ui-letter-heading);
   }
+  /* 花びらは再開と同じ桜色、中心だけ警告と同じ琥珀にして、画面全体の色づかいとつなげる。 */
   .brand-mark {
-    display: grid;
-    place-items: center;
+    flex-shrink: 0;
     width: calc(var(--ui-space-unit) * 8);
     height: calc(var(--ui-space-unit) * 8);
-    background: var(--ui-accent);
-    color: var(--ui-on-accent);
-    border-radius: var(--ui-radius-lg);
-    font-size: var(--ui-text-lg);
+  }
+  .sakura-petal {
+    fill: var(--ui-action);
+  }
+  .sakura-center {
+    fill: var(--ui-warning);
   }
   .nav-link {
     display: flex;
