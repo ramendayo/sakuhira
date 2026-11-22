@@ -38,12 +38,17 @@ it("persists layout and card size through filtering, reloading, navigation, and 
   const { unmount } = render(<App />);
   await ready();
   screen.getByRole("searchbox").focus();
-  for (const name of ["カード", "リスト", "小", "標準", "大"]) {
+  // ヘッダー（表示形式・並び順）のあとに、件数の行のカードサイズが続く。キーボードの移動順は画面の並びに従う。
+  for (const name of ["カード", "リスト"]) {
     await user.tab();
     expect(document.activeElement).toBe(screen.getByRole("button", { name }));
   }
   await user.tab();
   expect(document.activeElement).toBe(screen.getByRole("combobox", { name: "並び順" }));
+  for (const name of ["小", "標準", "大"]) {
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name }));
+  }
   expect(screen.getByRole("button", { name: "標準", pressed: true })).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "大" }));
   await screen.findByRole("button", { name: "大", pressed: true });

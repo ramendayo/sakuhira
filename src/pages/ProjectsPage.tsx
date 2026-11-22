@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import Icon from "../components/Icon";
 import ProjectCollection from "../features/projects/components/ProjectCollection";
-import ProjectViewControls from "../features/projects/components/ProjectViewControls";
+import ProjectViewControls, { ProjectCardSizeControl } from "../features/projects/components/ProjectViewControls";
 import { useProjectPresentation } from "../features/projects/hooks/useProjectPresentation";
 import ProjectDetails from "./ProjectDetails";
 import ProjectForm from "../features/projects/components/ProjectForm";
@@ -168,7 +168,10 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
               <span role="status" aria-atomic="true" className="badge">
                 {searchTerm ? `${visibleProjects.length} / ${projects.length} 件` : `${projects.length} 件`}
               </span>
-              <button type="button" onClick={() => { retry(); shortcuts.refresh(); }} disabled={showForm || presentation.pending} className="ml-auto button-quiet">再読み込み</button>
+              <div className="ml-auto flex flex-wrap items-center gap-3">
+                <ProjectCardSizeControl view={presentation.view} disabled={presentation.disabled || showForm} onChange={presentation.save} />
+                <button type="button" onClick={() => { retry(); shortcuts.refresh(); }} disabled={showForm || presentation.pending} className="button-quiet">再読み込み</button>
+              </div>
             </div>
 
             {presentation.order.sort === "manual" && <p className="manual-order-help text-xs text-muted" id="manual-order-help">{searchTerm

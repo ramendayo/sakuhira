@@ -598,8 +598,14 @@
   .project-toolbar :is(.field, .segmented-control, .button-secondary) {
     block-size: var(--toolbar-control-height);
   }
-  .view-control-group .segmented-control {
+  .view-control-group .segmented-control,
+  .card-size-controls .segmented-control {
     white-space: nowrap;
+  }
+  /* 件数の行に置くため、ヘッダーの操作部品より一回り小さくして主張を抑える。 */
+  .card-size-controls .segmented-control button {
+    padding-block: calc(var(--ui-space-unit) * 1);
+    font-size: var(--ui-text-xs);
   }
   .sort-control {
     position: relative;
