@@ -20,8 +20,12 @@ export function ProjectNotesPreview({ project, summary = false }: { project: Pro
     [summary, nextExcerpt, lastWork],
   );
   if (summary) {
+    // 「次の作業」が空のときは前回の作業で代用するため、見出しも実際に表示している項目に合わせる。
     const excerpt = nextExcerpt || lastExcerpt;
-    return <p className="item-note-summary text-sm text-muted" title={excerpt || undefined}>{excerpt || "作業メモはまだありません。"}</p>;
+    return <div className="item-note-summary">
+      {excerpt && <p className="item-note-label text-xs text-muted">{nextExcerpt ? "次の作業" : "前回の作業内容"}</p>}
+      <p className={`item-note-text text-sm ${nextExcerpt ? "text-ink" : "text-muted"}`} title={excerpt || undefined}>{excerpt || "作業メモはまだありません。"}</p>
+    </div>;
   }
   return (
     <div className="notes-preview mt-5 space-y-3">

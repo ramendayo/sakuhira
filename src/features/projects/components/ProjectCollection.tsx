@@ -5,7 +5,7 @@ import LastResumedAt from "./LastResumedAt";
 import ProjectGitStatus from "./ProjectGitStatus";
 import { ProjectNotesPreview } from "./ProjectNotes";
 import ResumeProject from "./ResumeProject";
-import { projectLaunchLocation } from "../services/launch";
+import { projectLaunchLocation, projectLaunchTargetSummary } from "../services/launch";
 import type { Project } from "../types/project";
 import type { ProjectView } from "../../../types/settings";
 
@@ -20,6 +20,8 @@ type Props = {
   onTogglePin?: (id: string) => Promise<boolean>;
   onSelect: (id: string) => void;
   onResumed: (id: string, timestamp: number) => void;
+  /** 既定エディタの表示名。標準カードの起動先ラベルに使う。未取得なら汎用名で表示する。 */
+  editorName?: string;
 };
 
 const noPins: ReadonlySet<string> = new Set();
@@ -29,12 +31,18 @@ function ProjectLocation({ project, compact }: { project: Project; compact: bool
   return location && <p className="item-path font-mono text-xs text-muted" title={location}>{location}</p>;
 }
 
+function ProjectLaunchTargets({ project, editorName }: { project: Project; editorName?: string }) {
+  const summary = projectLaunchTargetSummary(project, editorName);
+  return summary && <p className="item-launch text-sm text-muted" title={summary.detail}>{summary.label}</p>;
+}
+
 export default function ProjectCollection({
   projects, view, onSelect, onResumed, manual = false, moveDisabled = false, onMove,
-  pinnedIds = noPins, pinDisabled = false, onTogglePin,
+  pinnedIds = noPins, pinDisabled = false, onTogglePin, editorName,
 }: Props) {
   const cards = view.layout === "cards";
   const small = cards && view.cardSize === "small";
+  const standard = cards && view.cardSize === "standard";
   const collection = useRef<HTMLUListElement>(null);
   const dragId = useRef<string | null>(null);
   const pinFocus = useRef<{ id: string; wasPinned: boolean; button: HTMLButtonElement } | null>(null);
@@ -124,7 +132,7 @@ export default function ProjectCollection({
         <ProjectIcon path={project.path} appearance={project.icon} compact={small || !cards} />
         <div className="item-name-path">
           <h3 className="project-title" aria-label={project.name}><button type="button" aria-label={`${project.name}の詳細を開く`} title={project.name} onClick={() => onSelect(project.id)} className="project-name-button">{project.name}</button></h3>
-          <ProjectLocation project={project} compact={small} />
+          {standard ? <ProjectLaunchTargets project={project} editorName={editorName} /> : <ProjectLocation project={project} compact={small} />}
         </div>
         {onTogglePin && <button
           type="button"
@@ -140,7 +148,7 @@ export default function ProjectCollection({
       </div>
       {!small && <ProjectGitStatus project={project} compact />}
       <LastResumedAt timestamp={project.lastResumedAt} className="item-resumed text-xs leading-6 text-muted" />
-      {cards && !small && <ProjectNotesPreview project={project} summary={view.cardSize === "standard"} />}
+      {cards && !small && <ProjectNotesPreview project={project} summary={standard} />}
       <div className="item-actions"><ResumeProject project={project} onResumed={onResumed} /></div>
     </li>)}
   </ul></>;

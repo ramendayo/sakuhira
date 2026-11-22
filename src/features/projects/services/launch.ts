@@ -52,6 +52,22 @@ export function projectLaunchLocation(project: Project, compact = false): string
   return names.size ? [...names].join("、") : null;
 }
 
+/**
+ * 標準カード向けに「何で開くか」を短く示す。パスやURLは長く読み取りにくいため、
+ * 表示は起動するアプリ名にとどめ、詳細はツールチップ用の `detail` に回す。
+ */
+export function projectLaunchTargetSummary(project: Project, editorLabel = "エディタ"): { label: string; detail: string } | null {
+  const names = new Set<string>();
+  const details: string[] = [];
+  if (project.path) { names.add(editorLabel); details.push(project.path); }
+  if (project.launchUrl) { names.add("ブラウザ"); details.push(project.launchUrl); }
+  for (const target of project.appLaunchTargets ?? []) {
+    names.add(appLaunchTargetName(target.appPath));
+    details.push(appLaunchTargetLabel(target));
+  }
+  return names.size ? { label: [...names].join("、"), detail: details.join("\n") } : null;
+}
+
 export function appLaunchTargetLabel({ appPath, filePath }: AppLaunchTarget): string {
   const app = appLaunchTargetName(appPath);
   const file = filePath?.slice(filePath.lastIndexOf("/") + 1);

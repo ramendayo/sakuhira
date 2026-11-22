@@ -748,13 +748,10 @@
     height: calc(var(--ui-space-unit) * 6);
     padding: 0;
   }
-  .item-note-summary {
+  .item-launch, .item-note-text {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    margin-top: calc(var(--ui-space-unit) * 3);
-    padding-top: calc(var(--ui-space-unit) * 3);
-    border-top: 1px solid var(--ui-line);
   }
   .project-item .notes-preview {
     margin-top: calc(var(--ui-space-unit) * 4);
@@ -811,6 +808,113 @@
   }
   .project-row .launch-results {
     grid-area: feedback;
+  }
+}
+
+/* 標準カード：上段に アイコン・名前・起動先、下段に「次の作業」と「再開」を置く。
+   JSXは全表示形式で共通のため、構造はリスト表示と同じく grid-area と display: contents で組み替える。 */
+@layer components {
+  .cards-standard .project-card {
+    /* 「最終再開：YYYY/MM/DD HH:MM」が xs サイズで収まる幅。 */
+    --card-resumed-width: 11.5rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    /* space 行が余白を吸収し、同じ行のカードで区切り線から下を底に揃える。 */
+    grid-template-rows: auto auto 1fr auto auto auto;
+    grid-template-areas:
+      "identity identity"
+      "meta meta"
+      "space space"
+      "divider divider"
+      "note action"
+      "feedback feedback";
+  }
+  /* 下段の区切り線は2列にまたがるため、片方のセルの枠線ではなく専用の行に引く。 */
+  .cards-standard .project-card::before {
+    content: "";
+    grid-area: divider;
+    height: 1px;
+    margin-top: calc(var(--ui-space-unit) * 4);
+    background: var(--ui-line);
+  }
+  .cards-standard .item-identity {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "icon pin" "name name";
+    align-items: start;
+    row-gap: calc(var(--ui-space-unit) * 3);
+  }
+  .cards-standard .item-identity > .project-icon { grid-area: icon; }
+  .cards-standard .item-name-path { grid-area: name; }
+  .cards-standard .project-pin { grid-area: pin; }
+  .cards-standard .project-title {
+    font-size: var(--ui-text-2xl);
+    line-height: 1.35;
+  }
+  .cards-standard .item-launch {
+    margin-top: calc(var(--ui-space-unit) * 1);
+  }
+  /* Gitと再開日時は補助情報として1行にまとめ、名前や次の作業より目立たせない。
+     別々の列に置くと再開日時の長さが「再開」ボタンの列幅まで決めてしまうため、
+     2列にまたがる同じ領域に左右寄せで重ね、互いの最大幅で重なりを防ぐ。 */
+  .cards-standard .git-compact {
+    grid-area: meta;
+    justify-self: start;
+    max-width: calc(100% - var(--card-resumed-width));
+    display: flex;
+    align-items: center;
+    gap: calc(var(--ui-space-unit) * 2);
+    padding-right: 0;
+  }
+  .cards-standard .git-compact p {
+    min-width: 0;
+  }
+  .cards-standard .git-compact .git-refresh {
+    position: static;
+    flex-shrink: 0;
+  }
+  .cards-standard .item-resumed {
+    grid-area: meta;
+    justify-self: end;
+    align-self: center;
+    max-width: var(--card-resumed-width);
+    margin-top: calc(var(--ui-space-unit) * 3);
+    padding-left: calc(var(--ui-space-unit) * 3);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .cards-standard .item-note-summary {
+    grid-area: note;
+    align-self: end;
+    min-width: 0;
+    margin-top: calc(var(--ui-space-unit) * 4);
+  }
+  .cards-standard .item-note-label {
+    line-height: 1.6;
+  }
+  .cards-standard .item-note-text {
+    margin-top: calc(var(--ui-space-unit) * 0.5);
+    line-height: 1.6;
+  }
+  .cards-standard :is(.item-actions, .resume-action) {
+    display: contents;
+  }
+  .cards-standard .project-card .resume-action > button {
+    grid-area: action;
+    align-self: end;
+    justify-self: end;
+    /* 「起動中…」に変わってもボタン幅が揺れないよう、最小幅を確保する。 */
+    width: auto;
+    min-width: 6rem;
+    margin-top: calc(var(--ui-space-unit) * 4);
+    margin-left: calc(var(--ui-space-unit) * 4);
+  }
+  .cards-standard .launch-results {
+    grid-area: feedback;
+  }
+  .cards-standard .launch-results:empty {
+    display: none;
   }
 }
 

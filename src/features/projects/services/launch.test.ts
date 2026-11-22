@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { resumeProject, setProjectLaunchUrl } from "./launch";
+import { projectLaunchTargetSummary, resumeProject, setProjectLaunchUrl } from "./launch";
 
 const project = { id: "id", name: "Project", path: "/project", launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
 beforeEach(() => vi.stubGlobal("isTauri", true));
@@ -23,4 +23,12 @@ it("propagates launch failures and prevents browser-only native calls", async ()
   vi.stubGlobal("isTauri", false);
   await expect(resumeProject(project)).rejects.toThrow("デスクトップアプリ");
   await expect(setProjectLaunchUrl(project, "")).rejects.toThrow("デスクトップアプリ");
+});
+
+it("summarizes launch targets by app name without duplicates", () => {
+  const base = { id: "id", name: "P", path: null, launchUrl: null, lastResumedAt: null, notes: { lastWork: "", nextTask: "", updatedAt: null } };
+  expect(projectLaunchTargetSummary(base)).toBeNull();
+  expect(projectLaunchTargetSummary({ ...base, path: "/work/p" })).toEqual({ label: "エディタ", detail: "/work/p" });
+  const apps = [{ appPath: "/System/Applications/Preview.app", filePath: "/a.pdf" }, { appPath: "/System/Applications/Preview.app", filePath: null }];
+  expect(projectLaunchTargetSummary({ ...base, appLaunchTargets: apps }, "VS Code")).toEqual({ label: "Preview", detail: "Preview（a.pdf）\nPreview" });
 });

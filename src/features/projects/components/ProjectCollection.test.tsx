@@ -28,7 +28,9 @@ it.each(views)("keeps details accessible with the intended information in $layou
   expect(screen.getByRole("button", { name: `${project.name}を再開` })).toBeTruthy();
   expect(document.querySelector("time")?.dateTime).toBe(new Date(3000).toISOString());
   const small = view.layout === "cards" && view.cardSize === "small";
-  expect(Boolean(screen.queryByText(project.path!))).toBe(!small);
+  const standard = view.layout === "cards" && view.cardSize === "standard";
+  expect(Boolean(screen.queryByText(project.path!))).toBe(!small && !standard);
+  if (standard) expect(screen.getByText("エディタ").getAttribute("title")).toBe(project.path);
   if (small) expect(getGitStatus).not.toHaveBeenCalled();
   else expect(await screen.findByText("Git管理外")).toBeTruthy();
   expect(Boolean(screen.queryByText(project.notes.nextTask))).toBe(view.layout === "cards" && !small);
@@ -56,7 +58,8 @@ it("keeps an in-flight resume across presentation changes and reports its result
 it("handles missing notes and URL-only projects without requesting Git", () => {
   render(<ProjectCollection projects={[{ ...project, path: null, launchUrl: "https://example.com/", notes: { lastWork: "", nextTask: "", updatedAt: null } }]} view={views[1]} onSelect={vi.fn()} onResumed={vi.fn()} />);
   expect(screen.getByText("作業メモはまだありません。")).toBeTruthy();
-  expect(screen.getByText("https://example.com/")).toBeTruthy();
+  expect(screen.queryByText("次の作業")).toBeNull();
+  expect(screen.getByText("ブラウザ").getAttribute("title")).toBe("https://example.com/");
   expect(screen.getByText("Git対象外（フォルダ未設定）")).toBeTruthy();
   expect(getGitStatus).not.toHaveBeenCalled();
 });
@@ -69,6 +72,13 @@ it.each([views[0], views[3]])("shows app names without requesting Git in compact
   render(<ProjectCollection projects={[appOnly]} view={view} onSelect={vi.fn()} onResumed={vi.fn()} />);
   expect(screen.getByText("Codex、Preview").getAttribute("title")).toBe("Codex、Preview");
   expect(getGitStatus).not.toHaveBeenCalled();
+});
+
+it("names the editor, browser, and apps on standard cards and keeps details in the tooltip", () => {
+  const mixed = { ...project, launchUrl: "https://example.com/", appLaunchTargets: [{ appPath: "/Applications/Numbers.app", filePath: "/work/report.numbers" }] };
+  render(<ProjectCollection projects={[mixed]} view={views[1]} editorName="Cursor" onSelect={vi.fn()} onResumed={vi.fn()} />);
+  const launch = screen.getByText("Cursor、ブラウザ、Numbers");
+  expect(launch.getAttribute("title")).toBe([mixed.path, "https://example.com/", "Numbers（report.numbers）"].join("\n"));
 });
 
 it("shows plain Markdown excerpts with the appropriate fields for each card size", async () => {
@@ -90,8 +100,13 @@ it("shows plain Markdown excerpts with the appropriate fields for each card size
   expect(screen.getByText(`作業記録 ${"進".repeat(194)}😀…`)).toBeTruthy();
   expect(screen.queryByText(/省略されるコード/)).toBeNull();
 
+  rerender(<ProjectCollection {...props} view={views[1]} />);
+  expect(screen.getByText("次の作業")).toBeTruthy();
   const fallbackNotes = { ...notes, lastWork: "**前回の作業**", nextTask: "---" };
   rerender(<ProjectCollection {...props} projects={[{ ...project, notes: fallbackNotes }]} view={views[1]} />);
   expect(screen.getByText("前回の作業")).toBeTruthy();
+  // 次の作業が空で前回の作業を代わりに出すときは、見出しも実際の内容に合わせる。
+  expect(screen.getByText("前回の作業内容")).toBeTruthy();
+  expect(screen.queryByText("次の作業")).toBeNull();
   await screen.findByText("Git管理外");
 });

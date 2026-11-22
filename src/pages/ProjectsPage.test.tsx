@@ -219,7 +219,8 @@ describe("project registration", () => {
     await user.click(screen.getByRole("button", { name: "登録する" }));
     await screen.findByRole("heading", { name: web.name });
     expect(api.addProject).toHaveBeenCalledWith(web.name, null, "https://example.com");
-    expect(screen.getByText(web.launchUrl!)).toBeTruthy();
+    const webCard = within(screen.getByRole("heading", { name: web.name }).closest("li")!);
+    expect(webCard.getByText("ブラウザ").getAttribute("title")).toBe(web.launchUrl);
     await user.type(screen.getByRole("searchbox"), "REENTRY");
     await user.click(screen.getByRole("button", { name: "Reentryの詳細を開く" }));
     expect(screen.getByText("フォルダ").nextElementSibling?.textContent).toBe("未設定");
@@ -322,11 +323,12 @@ describe("project registration", () => {
     expect(api.addProject).toHaveBeenLastCalledWith(project.name, project.path, "");
   });
 
-  it("loads saved projects and displays their names, paths, and count", async () => {
+  it("loads saved projects and displays their names, launch targets, and count", async () => {
     vi.mocked(api.listProjects).mockResolvedValue([project]);
     render(<App />);
     expect(await screen.findByRole("heading", { name: project.name })).toBeTruthy();
-    expect(screen.getByText(project.path)).toBeTruthy();
+    // 標準カードは既定エディタ名を表示し、フォルダパスはツールチップで確認できる。
+    expect(screen.getByText("VS Code").getAttribute("title")).toBe(project.path);
     expect(screen.getByText("1 件")).toBeTruthy();
     expect(screen.queryByText("まだプロジェクトがありません")).toBeNull();
   });
@@ -555,7 +557,7 @@ describe("project details", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "プロジェクト情報を編集" }));
     await user.click(screen.getByRole("button", { name: /プロジェクト一覧に戻る/ }));
     expect(screen.getByRole("button", { name: "Renamedの詳細を開く" })).toBeTruthy();
-    expect(screen.getByText(updated.path)).toBeTruthy();
+    expect(screen.getByText("VS Code").getAttribute("title")).toBe(updated.path);
   });
 
   it("keeps failed edits for retry and discards cancelled edits", async () => {

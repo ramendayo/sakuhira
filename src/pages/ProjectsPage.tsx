@@ -182,7 +182,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
                 <ProjectCollection projects={visibleProjects} view={presentation.view}
                   manual={presentation.order.sort === "manual"} moveDisabled={Boolean(searchTerm) || presentation.disabled || showForm}
                   pinnedIds={pinnedIds} pinDisabled={presentation.disabled || showForm} onTogglePin={togglePin}
-                  onMove={move} onSelect={(id) => {
+                  onMove={move} editorName={presentation.editorLabel} onSelect={(id) => {
                   setShowForm(false);
                   onSelect(id);
                 }} onResumed={recordResumed} />

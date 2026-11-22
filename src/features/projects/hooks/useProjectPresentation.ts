@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useSettings } from "../../../hooks/useSettings";
 import { getSettings, saveSettings } from "../../../services/settings";
 import { errorMessage } from "../services/projects";
-import { defaultProjectOrder, defaultProjectView } from "../../../types/settings";
+import { defaultProjectOrder, defaultProjectView, editorName } from "../../../types/settings";
 import type { ProjectOrder, ProjectView, Settings } from "../../../types/settings";
 
 type Preferences = Partial<Pick<Settings, "projectView" | "projectOrder">>;
@@ -14,6 +14,7 @@ export function useProjectPresentation() {
   const [failure, setFailure] = useState<{ preferences: Preferences; message: string } | null>(null);
   const view = result.status === "ready" ? result.settings.projectView : defaultProjectView;
   const order = result.status === "ready" ? result.settings.projectOrder : defaultProjectOrder;
+  const editorLabel = result.status === "ready" ? editorName(result.settings.defaultEditor) : undefined;
 
   async function savePreferences(next: Preferences, refresh = false): Promise<boolean> {
     if (saving.current || result.status !== "ready") return false;
@@ -40,7 +41,7 @@ export function useProjectPresentation() {
   }
 
   return {
-    view, order, pending, failure,
+    view, order, editorLabel, pending, failure,
     save: (next: ProjectView) => savePreferences({ projectView: next }),
     saveOrder: (next: ProjectOrder) => savePreferences({ projectOrder: next }),
     retry: () => failure && savePreferences(failure.preferences, true),
