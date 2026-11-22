@@ -44,6 +44,8 @@
   --ui-leading-body: 1.6;
   --ui-leading-heading: 1.45;
   --ui-letter-heading: -0.035em;
+  /* 明朝・セリフ体は詰めると字面が潰れるため、ゴシック見出しとは逆に少し開ける。 */
+  --ui-letter-display: 0.02em;
   --ui-text-xs: 0.75rem;
   --ui-text-sm: 0.8125rem;
   --ui-text-base: 0.9375rem;
