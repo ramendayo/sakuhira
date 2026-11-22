@@ -19,6 +19,20 @@ const paths: Record<IconName, string> = {
   search: "M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Zm5.5 13 5 5",
 };
 
-export default function Icon({ name, className = "size-4" }: { name: IconName; className?: string }) {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${className}`}><path d={paths[name]} /></svg>;
+// 図形が24マスの端まで広がらないアイコンは、描画領域を図形に合わせて切り詰める。
+// 空白が左右どちらかに残ると、ボタン内で文字を含めた見た目の中身が片側に寄って見えるため。
+// 切り詰めても標準サイズ（1rem = 24マス）の縮尺は変えない。[x, y, 幅, 高さ]
+const crops: Partial<Record<IconName, [number, number, number, number]>> = {
+  play: [8, 4, 13, 16],
+  plus: [4, 4, 16, 16],
+};
+
+export default function Icon({ name, className }: { name: IconName; className?: string }) {
+  const crop = className === undefined ? crops[name] : undefined;
+  const [x, y, width, height] = crop ?? [0, 0, 24, 24];
+  return <svg
+    aria-hidden="true" viewBox={`${x} ${y} ${width} ${height}`} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+    className={`shrink-0 ${className ?? (crop ? "" : "size-4")}`}
+    style={crop ? { width: `${width / 24}rem`, height: `${height / 24}rem` } : undefined}
+  ><path d={paths[name]} /></svg>;
 }

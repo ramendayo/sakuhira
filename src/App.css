@@ -273,7 +273,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: calc(var(--ui-space-unit) * 2);
+    /* アイコンの描画領域を図形ぴったりに切り詰めたため、以前の余白ぶんを間隔で補う。 */
+    gap: calc(var(--ui-space-unit) * 2.5);
     border: 1px solid transparent;
     border-radius: var(--ui-radius-lg);
     padding: calc(var(--ui-space-unit) * 2.5) calc(var(--ui-space-unit) * 4);
