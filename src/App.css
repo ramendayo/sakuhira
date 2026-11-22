@@ -871,22 +871,22 @@
     margin-top: calc(var(--ui-space-unit) * 4);
     background: var(--ui-line);
   }
+  /* 名前をアイコンの横に置き、名前だけが浮いて見えないようにする。名前の下に起動先が続く。 */
   .cards-standard .item-identity {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "icon pin" "name name";
-    align-items: start;
-    row-gap: calc(var(--ui-space-unit) * 3);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "icon name pin";
+    align-items: center;
+    column-gap: calc(var(--ui-space-unit) * 3);
   }
   .cards-standard .item-identity > .project-icon { grid-area: icon; }
   .cards-standard .item-name-path { grid-area: name; }
-  .cards-standard .project-pin { grid-area: pin; }
+  .cards-standard .project-pin { grid-area: pin; align-self: start; }
   .cards-standard .project-title {
-    font-size: var(--ui-text-2xl);
     line-height: 1.35;
   }
   .cards-standard .item-launch {
-    margin-top: calc(var(--ui-space-unit) * 1);
+    margin-top: 0;
   }
   /* Gitと再開日時は補助情報として1行にまとめ、名前や次の作業より目立たせない。
      別々の列に置くと再開日時の長さが「再開」ボタンの列幅まで決めてしまうため、
