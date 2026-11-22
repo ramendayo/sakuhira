@@ -33,9 +33,10 @@ export default function ProjectViewControls({ view, disabled, onChange, sort, on
   return <fieldset ref={fieldset} disabled={disabled} className="view-controls">
     <legend className="sr-only">プロジェクトの表示設定</legend>
     <div className="view-control-group">
-      <div role="group" aria-label="表示形式" className="segmented-control">
-        <button type="button" aria-pressed={view.layout === "cards"} onClick={(event) => choose(event.currentTarget, { ...view, layout: "cards" })}><Icon name="projects" />カード</button>
-        <button type="button" aria-pressed={view.layout === "list"} onClick={(event) => choose(event.currentTarget, { ...view, layout: "list" })}><Icon name="list" />リスト</button>
+      {/* アイコンだけで見た目を絞る代わりに、読み上げ名とツールチップで操作内容を伝える。 */}
+      <div role="group" aria-label="表示形式" className="segmented-control segmented-icons">
+        <button type="button" aria-label="カード" title="カード表示" aria-pressed={view.layout === "cards"} onClick={(event) => choose(event.currentTarget, { ...view, layout: "cards" })}><Icon name="projects" /></button>
+        <button type="button" aria-label="リスト" title="リスト表示" aria-pressed={view.layout === "list"} onClick={(event) => choose(event.currentTarget, { ...view, layout: "list" })}><Icon name="list" /></button>
       </div>
       {view.layout === "cards" && <div role="group" aria-label="カードサイズ" className="segmented-control">
         {(["small", "standard", "large"] as const).map((size, index) => <button type="button" key={size} aria-pressed={view.cardSize === size} onClick={(event) => choose(event.currentTarget, { ...view, cardSize: size })}>{["小", "標準", "大"][index]}</button>)}

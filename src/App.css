@@ -605,11 +605,21 @@
     position: relative;
     max-width: 100%;
   }
+  /* 並び順は枠のない文字＋矢印にして、検索窓や表示切り替えより主張させない。
+     ホバーとフォーカスで操作できる部品だと分かるように、背景と輪郭は出す。 */
   .sort-control .field {
     appearance: none;
     width: auto;
     max-width: 100%;
     padding-inline-end: calc(var(--ui-space-unit) * 8);
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    color: var(--ui-ink);
+    cursor: pointer;
+  }
+  .sort-control .field:hover:not(:disabled) {
+    background: var(--ui-subtle);
   }
   .sort-control::after {
     content: "";
@@ -650,6 +660,10 @@
     color: var(--ui-accent);
     border-color: var(--ui-raised-line);
     box-shadow: var(--ui-shadow-raised);
+  }
+  /* 表示形式はアイコンだけなので、文字付きより正方形に近い押しやすさにする。 */
+  .segmented-icons button {
+    padding-inline: calc(var(--ui-space-unit) * 3);
   }
   .view-controls:disabled {
     opacity: 0.6;
