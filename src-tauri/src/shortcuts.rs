@@ -168,6 +168,9 @@ impl QuickResumeRegistration {
         if key == self.key {
             return None;
         }
+        if let Some(active_key) = key.as_ref() {
+            self.release_errors.remove(active_key);
+        }
         std::mem::replace(&mut self.key, key)
     }
 
@@ -415,7 +418,7 @@ mod runtime {
             && let Err(reason) = rollback_key(app, &key)
         {
             // The macOS backend discards the native handle even when unregistering fails.
-            // Keep the warning for the rest of this process.
+            // Keep the warning until the key becomes active again or the app exits.
             runtime
                 .state
                 .lock()
@@ -954,6 +957,85 @@ mod tests {
         );
         assert_eq!(registration.issue().as_deref(), Some(warning.as_str()));
         assert!(QuickResumeRegistration::default().issue().is_none());
+    }
+
+    #[test]
+    fn only_a_successful_reassignment_clears_the_reactivated_keys_warning() {
+        use super::{QuickResumeRegistration, persist_quick_resume_settings};
+        use crate::settings::{SettingsSaveError, SettingsStore};
+
+        let directory = tempfile::tempdir().unwrap();
+        let store = SettingsStore::new(directory.path().to_owned());
+        let defaults = store.load().unwrap();
+        let mut saved = defaults.clone();
+        saved.quick_resume_shortcut = Some("Control+KeyK".into());
+        let saved = store
+            .save_with_registered_shortcut(&defaults, saved)
+            .unwrap();
+        let mut registration = QuickResumeRegistration {
+            key: saved.quick_resume_shortcut.clone(),
+            release_errors: [
+                ("Control+KeyJ".into(), "OS error for J".into()),
+                ("Control+KeyL".into(), "OS error for L".into()),
+            ]
+            .into(),
+            ..QuickResumeRegistration::default()
+        };
+        let warnings = registration.issue().unwrap();
+        let mut draft = saved.clone();
+        draft.quick_resume_shortcut = Some("Ctrl+J".into());
+
+        let rejected = persist_quick_resume_settings(
+            draft.clone(),
+            registration.key.as_deref(),
+            &[],
+            |key| {
+                assert_eq!(key, "Control+KeyJ");
+                Err("OS denied registration".into())
+            },
+            |_| panic!("a rejected registration must not save"),
+            |_| panic!("a rejected registration must not roll back"),
+        );
+        assert!(matches!(rejected, Err(SettingsSaveError::Shortcut { .. })));
+        assert_eq!(registration.issue().as_deref(), Some(warnings.as_str()));
+        assert_eq!(store.load().unwrap(), saved);
+
+        let stale = persist_quick_resume_settings(
+            draft.clone(),
+            registration.key.as_deref(),
+            &[],
+            |_| Ok(()),
+            |settings| store.save_with_registered_shortcut(&defaults, settings),
+            |key| {
+                assert_eq!(key, "Control+KeyJ");
+                Ok(())
+            },
+        );
+        assert!(matches!(stale, Err(SettingsSaveError::Settings(_))));
+        assert_eq!(registration.key.as_deref(), Some("Control+KeyK"));
+        assert_eq!(registration.issue().as_deref(), Some(warnings.as_str()));
+        assert_eq!(store.load().unwrap(), saved);
+
+        let updated = persist_quick_resume_settings(
+            draft,
+            registration.key.as_deref(),
+            &[],
+            |key| {
+                assert_eq!(key, "Control+KeyJ");
+                Ok(())
+            },
+            |settings| store.save_with_registered_shortcut(&saved, settings),
+            |_| panic!("a successful registration and save must not roll back"),
+        )
+        .unwrap();
+        let old_key = registration.replace_key(updated.quick_resume_shortcut.clone());
+        assert_eq!(old_key.as_deref(), Some("Control+KeyK"));
+        assert_eq!(registration.key.as_deref(), Some("Control+KeyJ"));
+        assert_eq!(store.load().unwrap(), updated);
+        let remaining = registration.issue().unwrap();
+        assert!(!remaining.contains("Control+KeyJ"));
+        assert!(remaining.contains("Control+KeyL"));
+        assert!(remaining.contains("⌘Q"));
     }
 
     #[test]
