@@ -1,5 +1,5 @@
 import type { Project } from "../types/project";
-import type { ProjectOrder } from "../../../types/settings";
+import type { ProjectOrder, ProjectSort } from "../../../types/settings";
 
 const nameCollator = new Intl.Collator("ja", { numeric: true, sensitivity: "base" });
 
@@ -22,6 +22,55 @@ export function normalizeManualIds(projects: Project[], saved: string[]): string
   const retained = [...new Set(saved)].filter((id) => available.has(id));
   const known = new Set(retained);
   return [...projects.map(({ id }) => id).filter((id) => !known.has(id)).reverse(), ...retained];
+}
+
+export type ProjectOrderChange =
+  | { kind: "sort"; sort: ProjectSort }
+  | { kind: "pin"; id: string; pinned: boolean }
+  | { kind: "move"; id: string; anchor: string; placement: "before" | "after" }
+  | { kind: "register"; id: string }
+  | { kind: "remove"; id: string };
+
+export function applyProjectOrderChange(order: ProjectOrder, projects: Project[], change: ProjectOrderChange): ProjectOrder {
+  switch (change.kind) {
+    case "sort":
+      return { ...order, sort: change.sort };
+    case "pin": {
+      if (!projects.some(({ id }) => id === change.id)) {
+        throw new Error("対象のプロジェクトは登録解除されています。一覧を再読み込みしてください。");
+      }
+      const pinnedIds = new Set(order.pinnedIds);
+      if (change.pinned) pinnedIds.add(change.id);
+      else pinnedIds.delete(change.id);
+      return { ...order, pinnedIds: [...pinnedIds] };
+    }
+    case "move": {
+      const ids = normalizeManualIds(projects, order.manualIds);
+      const source = ids.indexOf(change.id);
+      const anchor = ids.indexOf(change.anchor);
+      if (source < 0 || anchor < 0) {
+        throw new Error("移動するプロジェクトか移動先が登録解除されています。一覧を再読み込みしてください。");
+      }
+      const pinnedIds = new Set(order.pinnedIds);
+      if (pinnedIds.has(change.id) !== pinnedIds.has(change.anchor)) {
+        throw new Error("ピン留めの状態が変わりました。同じグループ内で移動し直してください。");
+      }
+      const target = anchor + Number(change.placement === "after") - Number(source < anchor);
+      return { ...order, manualIds: moveProject(ids, change.id, target) };
+    }
+    case "register":
+      if (!projects.some(({ id }) => id === change.id)) return order;
+      return {
+        ...order,
+        manualIds: [change.id, ...normalizeManualIds(projects, order.manualIds).filter((id) => id !== change.id)],
+      };
+    case "remove":
+      return {
+        ...order,
+        manualIds: order.manualIds.filter((id) => id !== change.id),
+        pinnedIds: order.pinnedIds?.filter((id) => id !== change.id),
+      };
+  }
 }
 
 export function orderedProjects(projects: Project[], order: ProjectOrder, query: string): Project[] {

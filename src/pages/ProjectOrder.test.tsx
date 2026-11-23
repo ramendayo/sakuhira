@@ -109,26 +109,50 @@ it("uses the same manual move for drag and drop and ignores external drops", asy
   expect(stored.projectOrder.manualIds).toEqual(["b", "c", "a"]);
 });
 
-it("keeps the saved order on failure and retries with current unrelated preferences", async () => {
+it("replays only the failed move or sort on the latest settings", async () => {
   stored.projectOrder = { sort: "manual", manualIds: ["a", "b", "c"] };
   const user = userEvent.setup(); render(<App />); await ready();
   vi.mocked(saveSettings).mockRejectedValueOnce("書き込めません");
   handle("アプリ10").focus(); await user.keyboard("{End}");
   expect((await screen.findByRole("alert")).textContent).toContain("書き込めません");
   expect(names()).toEqual(["アプリ10", "アプリ2", "サイト"]);
-  stored.theme = "light";
+  stored = { ...stored, theme: "light", projectOrder: { sort: "manual", manualIds: ["a", "c", "b"], pinnedIds: ["b"] } };
   await user.click(screen.getByRole("button", { name: "もう一度保存" }));
-  await waitFor(() => expect(names()).toEqual(["アプリ2", "サイト", "アプリ10"]));
+  await waitFor(() => expect(stored.projectOrder.manualIds).toEqual(["c", "a", "b"]));
+  expect(stored.projectOrder.pinnedIds).toEqual(["b"]);
   expect(stored.theme).toBe("light");
   expect(screen.queryByRole("alert")).toBeNull();
   vi.mocked(saveSettings).mockRejectedValueOnce("選択を保存できません");
   await user.selectOptions(screen.getByRole("combobox", { name: "並び順" }), "name");
   await screen.findByRole("alert");
   expect((screen.getByRole("combobox", { name: "並び順" }) as HTMLSelectElement).value).toBe("manual");
+  stored.projectOrder = { sort: "manual", manualIds: ["b", "a", "c"], pinnedIds: ["b", "c"] };
   await user.click(screen.getByRole("button", { name: "もう一度保存" }));
   await ready();
   expect(stored.projectOrder.sort).toBe("name");
-  expect(stored.projectOrder.manualIds).toEqual(["b", "c", "a"]);
+  expect(stored.projectOrder.manualIds).toEqual(["b", "a", "c"]);
+  expect(stored.projectOrder.pinnedIds).toEqual(["b", "c"]);
+});
+
+it.each([
+  { change: "移動先の登録解除", projects: fixtures.filter(({ id }) => id !== "c"), pinnedIds: [], message: "移動先が登録解除" },
+  { change: "移動先のピン留め", projects: fixtures, pinnedIds: ["c"], message: "ピン留めの状態が変わりました" },
+])("refuses to retry a move after $change", async ({ projects, pinnedIds, message }) => {
+  stored.projectOrder = { sort: "manual", manualIds: ["a", "b", "c"] };
+  const user = userEvent.setup();
+  render(<App />);
+  await ready();
+  vi.mocked(saveSettings).mockRejectedValueOnce("アプリ設定は別の操作で更新されています。");
+  handle("アプリ10").focus();
+  await user.keyboard("{End}");
+  await screen.findByRole("alert");
+
+  vi.mocked(projectsApi.listProjects).mockResolvedValue(projects);
+  stored.projectOrder.pinnedIds = pinnedIds;
+  await user.click(screen.getByRole("button", { name: "もう一度保存" }));
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(message));
+  expect(saveSettings).toHaveBeenCalledTimes(1);
+  expect(stored.projectOrder.manualIds).toEqual(["a", "b", "c"]);
 });
 
 it("prepends new registrations to manual placement in automatic mode and removes unregistered IDs", async () => {
@@ -178,10 +202,11 @@ it("pins from either layout, preserves pins across sorting and reload, and retri
   await user.click(screen.getByRole("button", { ...pin, pressed: true }));
   expect((await screen.findByRole("alert")).textContent).toContain("書き込めません");
   expect(names()[0]).toBe("アプリ10");
+  stored.projectOrder.pinnedIds = ["a", "b"];
   await user.click(screen.getByRole("button", { name: "もう一度保存" }));
   await screen.findByRole("button", { ...pin, pressed: false });
-  expect(names()).toEqual(["サイト", "アプリ2", "アプリ10"]);
-  expect(stored.projectOrder.pinnedIds).toEqual([]);
+  expect(names()).toEqual(["アプリ2", "サイト", "アプリ10"]);
+  expect(stored.projectOrder.pinnedIds).toEqual(["b"]);
 });
 
 it("reorders within a pin group without treating visible indexes as saved indexes", async () => {

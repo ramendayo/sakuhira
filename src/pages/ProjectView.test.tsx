@@ -87,9 +87,11 @@ it("keeps the saved presentation on failure and retries without overwriting othe
   expect((await screen.findByRole("alert")).textContent).toContain("書き込めません");
   expect(screen.getByRole("button", { name: "カード", pressed: true })).toBeTruthy();
   expect(stored.projectView.layout).toBe("cards");
+  stored.projectView.cardSize = "large";
   await user.click(screen.getByRole("button", { name: "もう一度保存" }));
   await screen.findByRole("button", { name: "リスト", pressed: true });
   expect(screen.queryByRole("alert")).toBeNull();
+  expect(stored.projectView).toEqual({ layout: "list", cardSize: "large" });
   expect(stored.theme).toBe("dark");
   expect(stored.defaultEditor).toBe("cursor");
 });

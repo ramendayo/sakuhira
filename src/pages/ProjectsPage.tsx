@@ -8,7 +8,7 @@ import ProjectDetails from "./ProjectDetails";
 import ProjectForm from "../features/projects/components/ProjectForm";
 import { useProjects } from "../features/projects/hooks/useProjects";
 import { useShortcutIssues } from "../features/projects/hooks/useShortcutIssues";
-import { moveProject, normalizeManualIds, orderedProjects } from "../features/projects/utils/projectOrder";
+import { orderedProjects } from "../features/projects/utils/projectOrder";
 import { projectSortLabels } from "../types/settings";
 import type { Project } from "../features/projects/types/project";
 
@@ -20,7 +20,7 @@ type ProjectsPageProps = {
 function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects();
   const shortcuts = useShortcutIssues();
-  const presentation = useProjectPresentation();
+  const presentation = useProjectPresentation(projects);
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
@@ -28,20 +28,16 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   const addButton = useRef<HTMLButtonElement>(null);
   const searchTerm = query.trim().toLowerCase();
   const visibleProjects = orderedProjects(projects, presentation.order, query);
-  const manualIds = normalizeManualIds(projects, presentation.order.manualIds);
   const pinnedIds = new Set(presentation.order.pinnedIds);
 
-  async function move(id: string, target: number) {
-    // 表示位置にはピン留めが反映されるため、保存順での位置はIDから求める。
-    const targetIndex = manualIds.indexOf(visibleProjects[target].id);
-    return presentation.saveOrder({ ...presentation.order, manualIds: moveProject(manualIds, id, targetIndex) });
+  function move(id: string, target: number) {
+    const anchor = visibleProjects[target].id;
+    const placement = visibleProjects.findIndex((project) => project.id === id) < target ? "after" : "before";
+    return presentation.saveOrder({ kind: "move", id, anchor, placement });
   }
 
   function togglePin(id: string) {
-    const next = projects.filter((project) =>
-      project.id === id ? !pinnedIds.has(id) : pinnedIds.has(project.id),
-    ).map((project) => project.id);
-    return presentation.saveOrder({ ...presentation.order, pinnedIds: next });
+    return presentation.saveOrder({ kind: "pin", id, pinned: !pinnedIds.has(id) });
   }
 
   function clearSearch() {
@@ -64,7 +60,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
 
   function registered(project: Project) {
     append(project);
-    void presentation.saveOrder({ ...presentation.order, manualIds: [project.id, ...manualIds] });
+    void presentation.saveOrder({ kind: "register", id: project.id }, [...projects, project]);
     setQuery("");
     setNotice(`「${project.name}」を登録しました。`);
     closeForm();
@@ -85,11 +81,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
       onRemoved={(project) => {
         remove(project.id);
         shortcuts.refresh();
-        void presentation.saveOrder({
-          ...presentation.order,
-          manualIds: manualIds.filter((id) => id !== project.id),
-          pinnedIds: presentation.order.pinnedIds?.filter((id) => id !== project.id),
-        });
+        void presentation.saveOrder({ kind: "remove", id: project.id });
         onSelect((current) => current === project.id ? null : current);
         setNotice(`「${project.name}」の登録を解除しました。`);
       }}
@@ -129,7 +121,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
               {query !== "" && <button type="button" onClick={clearSearch} className="button-secondary shrink-0">検索をクリア</button>}
             </div>
           </div>
-          <ProjectViewControls view={presentation.view} sort={presentation.order.sort} disabled={presentation.disabled || showForm} onChange={presentation.save} onSortChange={(sort) => { void presentation.saveOrder({ ...presentation.order, sort, manualIds }); }} />
+          <ProjectViewControls view={presentation.view} sort={presentation.order.sort} disabled={presentation.disabled || showForm} onChange={presentation.saveView} onSortChange={(sort) => { void presentation.saveOrder({ kind: "sort", sort }); }} />
         </>}
       </header>
 
@@ -159,7 +151,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
               {presentation.pending && <p role="status" className="sr-only">表示設定を保存中…</p>}
               {presentation.failure && <div className="rounded-lg border border-danger-line bg-danger-soft p-3">
                 <p role="alert" className="text-sm text-danger">表示設定を保存できませんでした：{presentation.failure.message}</p>
-                <button type="button" disabled={presentation.disabled} onClick={presentation.retry} className="button-secondary mt-2">もう一度保存</button>
+                <button type="button" disabled={presentation.disabled || showForm} onClick={presentation.retry} className="button-secondary mt-2">もう一度保存</button>
               </div>}
             </div>}
             <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -169,7 +161,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
                 {searchTerm ? `${visibleProjects.length} / ${projects.length} 件` : `${projects.length} 件`}
               </span>
               <div className="ml-auto flex flex-wrap items-center gap-3">
-                <ProjectCardSizeControl view={presentation.view} disabled={presentation.disabled || showForm} onChange={presentation.save} />
+                <ProjectCardSizeControl view={presentation.view} disabled={presentation.disabled || showForm} onChange={presentation.saveView} />
                 <button type="button" onClick={() => { retry(); shortcuts.refresh(); }} disabled={showForm || presentation.pending} className="button-quiet">再読み込み</button>
               </div>
             </div>

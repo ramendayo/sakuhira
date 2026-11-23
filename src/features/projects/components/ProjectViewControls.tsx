@@ -24,14 +24,14 @@ function useFocusRestoredAfterSave(disabled: boolean) {
 type Props = {
   view: ProjectView;
   disabled: boolean;
-  onChange: (view: ProjectView) => void;
+  onChange: (view: Partial<ProjectView>) => void;
 };
 
 /** 表示形式（カード/リスト）と並び順。ヘッダーの1行に置く。 */
 export default function ProjectViewControls({ view, disabled, onChange, sort, onSortChange }: Props & { sort: ProjectSort; onSortChange: (sort: ProjectSort) => void }) {
   const { fieldset, remember } = useFocusRestoredAfterSave(disabled);
 
-  function choose(button: HTMLButtonElement, next: ProjectView) {
+  function choose(button: HTMLButtonElement, next: Partial<ProjectView>) {
     remember(button);
     onChange(next);
   }
@@ -41,8 +41,8 @@ export default function ProjectViewControls({ view, disabled, onChange, sort, on
     <div className="view-control-group">
       {/* アイコンだけで見た目を絞る代わりに、読み上げ名とツールチップで操作内容を伝える。 */}
       <div role="group" aria-label="表示形式" className="segmented-control segmented-icons">
-        <button type="button" aria-label="カード" title="カード表示" aria-pressed={view.layout === "cards"} onClick={(event) => choose(event.currentTarget, { ...view, layout: "cards" })}><Icon name="projects" /></button>
-        <button type="button" aria-label="リスト" title="リスト表示" aria-pressed={view.layout === "list"} onClick={(event) => choose(event.currentTarget, { ...view, layout: "list" })}><Icon name="list" /></button>
+        <button type="button" aria-label="カード" title="カード表示" aria-pressed={view.layout === "cards"} onClick={(event) => choose(event.currentTarget, { layout: "cards" })}><Icon name="projects" /></button>
+        <button type="button" aria-label="リスト" title="リスト表示" aria-pressed={view.layout === "list"} onClick={(event) => choose(event.currentTarget, { layout: "list" })}><Icon name="list" /></button>
       </div>
     </div>
     <label className="sort-control">
@@ -64,7 +64,7 @@ export function ProjectCardSizeControl({ view, disabled, onChange }: Props) {
   return <fieldset ref={fieldset} disabled={disabled} className="view-controls card-size-controls">
     <legend className="sr-only">カードサイズの設定</legend>
     <div role="group" aria-label="カードサイズ" className="segmented-control">
-      {(["small", "standard", "large"] as const).map((size, index) => <button type="button" key={size} aria-pressed={view.cardSize === size} onClick={(event) => { remember(event.currentTarget); onChange({ ...view, cardSize: size }); }}>{["小", "標準", "大"][index]}</button>)}
+      {(["small", "standard", "large"] as const).map((size, index) => <button type="button" key={size} aria-pressed={view.cardSize === size} onClick={(event) => { remember(event.currentTarget); onChange({ cardSize: size }); }}>{["小", "標準", "大"][index]}</button>)}
     </div>
   </fieldset>;
 }
