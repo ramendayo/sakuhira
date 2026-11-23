@@ -106,8 +106,8 @@
   }
   .brand-mark {
     flex-shrink: 0;
-    width: calc(var(--ui-space-unit) * 8);
-    height: calc(var(--ui-space-unit) * 8);
+    width: calc(var(--ui-space-unit) * 10);
+    height: calc(var(--ui-space-unit) * 10);
   }
   .nav-link {
     display: flex;
