@@ -8,6 +8,7 @@ import ProjectsPage from "./pages/ProjectsPage";
 import SettingsProvider from "./components/SettingsProvider";
 import { useAppearance } from "./hooks/useAppearance";
 import { resumeErrorMessages } from "./features/projects/services/launch";
+import { useProjectPresentation } from "./features/projects/hooks/useProjectPresentation";
 import { onShortcutLaunchFailure } from "./services/shortcuts";
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
 
 function Application() {
   const appearance = useAppearance();
+  const projectPresentation = useProjectPresentation();
   const [page, setPage] = useState<"projects" | "settings">("projects");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [shortcutFailure, setShortcutFailure] = useState<{ projectName: string; messages: string[] } | null>(null);
@@ -59,7 +61,7 @@ function Application() {
           </div>
         </div>
       )}
-      {page === "projects" ? <ProjectsPage selectedId={selectedId} onSelect={setSelectedId} /> : <SettingsPage />}
+      {page === "projects" ? <ProjectsPage selectedId={selectedId} onSelect={setSelectedId} presentation={projectPresentation} /> : <SettingsPage />}
     </AppLayout>
   );
 }

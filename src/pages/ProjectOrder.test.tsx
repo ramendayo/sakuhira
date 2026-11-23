@@ -246,3 +246,47 @@ it("serializes manual saves and leaves focus and placement stable while pending"
   await waitFor(() => expect(names()).toEqual(["アプリ2", "サイト", "アプリ10"]));
   expect(document.activeElement).toBe(handle("アプリ10"));
 });
+
+it.each(["success", "retry"] as const)("saves a queued removal after an in-flight preference save (%s)", async (outcome) => {
+  stored.projectOrder = { sort: "manual", manualIds: ["a", "b", "c"], pinnedIds: ["a", "c"] };
+  let finish!: () => void;
+  vi.mocked(saveSettings).mockImplementationOnce((_expected, next) => new Promise((resolve) => {
+    finish = () => {
+      stored = structuredClone(next);
+      resolve(next);
+    };
+  }));
+  vi.mocked(projectsApi.removeProject).mockImplementation(async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue(fixtures.filter(({ id }) => id !== "a"));
+  });
+
+  const user = userEvent.setup();
+  render(<App />);
+  await ready();
+  await user.selectOptions(screen.getByRole("combobox", { name: "並び順" }), "name");
+  await user.click(screen.getByRole("button", { name: "アプリ10の詳細を開く" }));
+  await user.click(screen.getByRole("button", { name: "登録を解除" }));
+  await user.click(screen.getByRole("button", { name: "登録解除を確定" }));
+  await screen.findByText("「アプリ10」の登録を解除しました。");
+  expect(names()).not.toContain("アプリ10");
+  expect(saveSettings).toHaveBeenCalledTimes(1);
+  expect(stored.projectOrder.pinnedIds).toEqual(["a", "c"]);
+
+  if (outcome === "retry") vi.mocked(saveSettings).mockRejectedValueOnce("登録解除後の並び順を保存できません。");
+  await act(async () => finish());
+
+  const sorted = { ...stored, projectOrder: { sort: "name", manualIds: ["a", "b", "c"], pinnedIds: ["a", "c"] } };
+  const cleaned = { ...sorted, projectOrder: { sort: "name", manualIds: ["b", "c"], pinnedIds: ["c"] } };
+  if (outcome === "retry") {
+    expect((await screen.findByRole("alert")).textContent).toContain("登録解除後の並び順を保存できません。");
+    expect(stored).toEqual(sorted);
+    await user.click(screen.getByRole("link", { name: "設定" }));
+    await user.click(screen.getByRole("link", { name: "プロジェクト" }));
+    await user.click(await screen.findByRole("button", { name: "もう一度保存" }));
+  }
+  await ready();
+  expect(stored).toEqual(cleaned);
+  expect(saveSettings).toHaveBeenLastCalledWith(sorted, cleaned);
+  expect(saveSettings).toHaveBeenCalledTimes(outcome === "retry" ? 3 : 2);
+  expect(screen.queryByRole("alert")).toBeNull();
+});

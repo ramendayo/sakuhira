@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import Icon from "../components/Icon";
 import ProjectCollection from "../features/projects/components/ProjectCollection";
 import ProjectViewControls, { ProjectCardSizeControl } from "../features/projects/components/ProjectViewControls";
-import { useProjectPresentation } from "../features/projects/hooks/useProjectPresentation";
+import type { useProjectPresentation } from "../features/projects/hooks/useProjectPresentation";
 import ProjectDetails from "./ProjectDetails";
 import ProjectForm from "../features/projects/components/ProjectForm";
 import { useProjects } from "../features/projects/hooks/useProjects";
@@ -15,12 +15,12 @@ import type { Project } from "../features/projects/types/project";
 type ProjectsPageProps = {
   selectedId: string | null;
   onSelect: Dispatch<SetStateAction<string | null>>;
+  presentation: ReturnType<typeof useProjectPresentation>;
 };
 
-function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
+function ProjectsPage({ selectedId, onSelect, presentation }: ProjectsPageProps) {
   const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects();
   const shortcuts = useShortcutIssues();
-  const presentation = useProjectPresentation(projects);
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
@@ -33,11 +33,11 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
   function move(id: string, target: number) {
     const anchor = visibleProjects[target].id;
     const placement = visibleProjects.findIndex((project) => project.id === id) < target ? "after" : "before";
-    return presentation.saveOrder({ kind: "move", id, anchor, placement });
+    return presentation.saveOrder({ kind: "move", id, anchor, placement }, projects);
   }
 
   function togglePin(id: string) {
-    return presentation.saveOrder({ kind: "pin", id, pinned: !pinnedIds.has(id) });
+    return presentation.saveOrder({ kind: "pin", id, pinned: !pinnedIds.has(id) }, projects);
   }
 
   function clearSearch() {
@@ -60,7 +60,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
 
   function registered(project: Project) {
     append(project);
-    void presentation.saveOrder({ kind: "register", id: project.id }, [...projects, project]);
+    presentation.syncProjectOrder({ kind: "register", id: project.id }, [...projects, project]);
     setQuery("");
     setNotice(`「${project.name}」を登録しました。`);
     closeForm();
@@ -81,7 +81,7 @@ function ProjectsPage({ selectedId, onSelect }: ProjectsPageProps) {
       onRemoved={(project) => {
         remove(project.id);
         shortcuts.refresh();
-        void presentation.saveOrder({ kind: "remove", id: project.id });
+        presentation.syncProjectOrder({ kind: "remove", id: project.id });
         onSelect((current) => current === project.id ? null : current);
         setNotice(`「${project.name}」の登録を解除しました。`);
       }}
