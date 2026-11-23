@@ -6,7 +6,7 @@ use objc2_app_kit::{
     NSApplicationActivationOptions, NSRunningApplication, NSWindow, NSWindowCollectionBehavior,
     NSWorkspace,
 };
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 pub const WINDOW_LABEL: &str = "quick-resume";
@@ -17,10 +17,36 @@ pub struct QuickResumeWindow {
     launching: tauri::async_runtime::Mutex<()>,
 }
 
+impl QuickResumeWindow {
+    fn presentation(&self) -> MutexGuard<'_, Presentation> {
+        self.presentation
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+    }
+}
+
 #[derive(Default)]
 struct Presentation {
     focus: PresentationFocus,
     previous_app: Option<i32>,
+    resume_failed: bool,
+}
+
+impl Presentation {
+    fn should_reload(&self) -> bool {
+        !self.resume_failed
+    }
+
+    fn finish_failed_resume(&mut self, is_focused: bool) {
+        if self.focus == PresentationFocus::Hidden {
+            return;
+        }
+        self.resume_failed = true;
+        // A queued blur from the launched app must not dismiss the retained result.
+        if !is_focused {
+            self.focus = PresentationFocus::AwaitingFocus;
+        }
+    }
 }
 
 #[derive(Default, PartialEq, Eq)]
@@ -68,7 +94,10 @@ fn open(app: &AppHandle) -> tauri::Result<()> {
     let previous_app = frontmost_pid().filter(|pid| *pid != std::process::id() as i32);
     let existing = app.get_webview_window(WINDOW_LABEL);
     let window = if let Some(window) = existing {
-        window.reload()?;
+        let should_reload = state.presentation().should_reload();
+        if should_reload {
+            window.reload()?;
+        }
         window
     } else {
         WebviewWindowBuilder::new(app, WINDOW_LABEL, WebviewUrl::App("index.html".into()))
@@ -85,10 +114,7 @@ fn open(app: &AppHandle) -> tauri::Result<()> {
     move_to_active_space(&window)?;
     let already_focused = window.is_focused()?;
     {
-        let mut presentation = state
-            .presentation
-            .lock()
-            .unwrap_or_else(|error| error.into_inner());
+        let mut presentation = state.presentation();
         if previous_app.is_some() || !already_focused {
             presentation.previous_app = previous_app;
         }
@@ -121,9 +147,7 @@ pub fn focus_changed(window: &WebviewWindow, focused: bool) -> tauri::Result<()>
     let state = window.state::<QuickResumeWindow>();
     let handoff = state.launching.try_lock();
     let should_hide = state
-        .presentation
-        .lock()
-        .unwrap_or_else(|error| error.into_inner())
+        .presentation()
         .focus
         .event(focused, is_focused, handoff.is_err());
     if should_hide {
@@ -140,14 +164,23 @@ pub async fn resume(window: &WebviewWindow, project: Project) -> Result<ResumeRe
         .map_err(|_| "プロジェクトを再開中です。")?;
     let project_id = project.id.clone();
     let app = window.app_handle();
-    let report = launch::resume_and_record(app.clone(), project).await?;
-    launch::notify_shortcut_resume(app, &project_id, &report.history);
-    if resume_completed(&report) {
-        // The launched app should keep focus after a successful resume.
-        hide(window)
-            .map_err(|error| format!("再開しましたが、クイック再開を閉じられません: {error}"))?;
+    let result = launch::resume_and_record(app.clone(), project)
+        .await
+        .and_then(|report| {
+            launch::notify_shortcut_resume(app, &project_id, &report.history);
+            if resume_completed(&report) {
+                // The launched app should keep focus after a successful resume.
+                hide(window).map_err(|error| {
+                    format!("再開しましたが、クイック再開を閉じられません: {error}")
+                })?;
+            }
+            Ok(report)
+        });
+    if !result.as_ref().is_ok_and(resume_completed) {
+        let is_focused = window.is_focused().unwrap_or(true);
+        state.presentation().finish_failed_resume(is_focused);
     }
-    Ok(report)
+    result
 }
 
 fn resume_completed(report: &ResumeReport) -> bool {
@@ -181,11 +214,7 @@ pub fn open_main_window(window: &WebviewWindow) -> Result<(), String> {
 fn hide(window: &WebviewWindow) -> tauri::Result<Option<i32>> {
     window.hide()?;
     let state = window.state::<QuickResumeWindow>();
-    let mut presentation = state
-        .presentation
-        .lock()
-        .unwrap_or_else(|error| error.into_inner());
-    Ok(std::mem::take(&mut *presentation).previous_app)
+    Ok(std::mem::take(&mut *state.presentation()).previous_app)
 }
 
 pub fn dismiss(window: &WebviewWindow) -> tauri::Result<()> {
@@ -240,6 +269,36 @@ mod tests {
         assert!(!focus.event(false, false, false));
         assert!(!focus.event(true, true, false));
         assert!(focus.event(false, false, false));
+    }
+
+    #[test]
+    fn failed_resume_retains_the_view_even_if_the_blur_is_delivered_late() {
+        let mut presentation = Presentation {
+            focus: PresentationFocus::Focused,
+            ..Presentation::default()
+        };
+        assert!(presentation.should_reload());
+
+        presentation.finish_failed_resume(false);
+        assert!(!presentation.focus.event(false, false, false));
+        assert!(!presentation.should_reload());
+
+        assert!(!presentation.focus.event(true, true, false));
+        assert!(presentation.focus.event(false, false, false));
+    }
+
+    #[test]
+    fn closing_resets_the_view_even_if_a_resume_is_still_finishing() {
+        let mut presentation = Presentation {
+            focus: PresentationFocus::Focused,
+            ..Presentation::default()
+        };
+        presentation.finish_failed_resume(true);
+        assert!(!presentation.should_reload());
+
+        std::mem::take(&mut presentation);
+        presentation.finish_failed_resume(false);
+        assert!(presentation.should_reload());
     }
 
     #[test]
