@@ -213,6 +213,13 @@ mod runtime {
         capturing: bool,
     }
 
+    impl State {
+        fn record_project_shortcut(&mut self, key: String, project_id: String) {
+            self.quick_resume.release_errors.remove(&key);
+            self.routes.insert(key, project_id);
+        }
+    }
+
     #[derive(Default)]
     pub struct ShortcutRuntime {
         operation: Mutex<()>,
@@ -356,7 +363,7 @@ mod runtime {
             match app.global_shortcut().register(key.as_str()) {
                 Ok(()) => {
                     if let Ok(mut state) = runtime.state.lock() {
-                        state.routes.insert(key, project.id);
+                        state.record_project_shortcut(key, project.id);
                     }
                 }
                 Err(e) => {
@@ -528,8 +535,7 @@ mod runtime {
             .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .routes
-            .insert(key, project.id.clone());
+            .record_project_shortcut(key, project.id.clone());
         Ok(project)
     }
 
@@ -608,7 +614,7 @@ mod runtime {
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             if let Some(key) = normalized.as_ref() {
-                state.routes.insert(key.clone(), expected.id.clone());
+                state.record_project_shortcut(key.clone(), expected.id.clone());
             }
             let mut old_key_owned = false;
             if let Some(key) = old.as_ref().filter(|key| Some(*key) != normalized.as_ref())
@@ -666,6 +672,33 @@ mod runtime {
             state.errors.remove(&project.id);
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::State;
+
+        #[test]
+        fn project_reassignment_clears_only_the_reclaimed_keys_release_warning() {
+            let mut state = State::default();
+            state.quick_resume.key = Some("Control+KeyK".into());
+            state.quick_resume.release_errors = [
+                ("Control+KeyJ".into(), "OS error for J".into()),
+                ("Control+KeyL".into(), "OS error for L".into()),
+            ]
+            .into();
+
+            state.record_project_shortcut("Control+KeyJ".into(), "project".into());
+
+            assert_eq!(state.routes["Control+KeyJ"], "project");
+            assert_eq!(state.quick_resume.key.as_deref(), Some("Control+KeyK"));
+            let warning = state.quick_resume.issue().unwrap();
+            assert!(!warning.contains("Control+KeyJ"));
+            assert!(warning.contains("Control+KeyL"));
+
+            state.record_project_shortcut("Control+KeyL".into(), "other".into());
+            assert!(state.quick_resume.issue().is_none());
+        }
     }
 }
 
