@@ -32,7 +32,21 @@ struct Presentation {
     resume_failed: bool,
 }
 
+enum HideReason {
+    FocusLoss,
+    SessionEnded,
+}
+
 impl Presentation {
+    fn did_hide(&mut self, reason: HideReason) -> Option<i32> {
+        self.focus = PresentationFocus::Hidden;
+        // A launched app can take focus after the failure has already been reported.
+        if let HideReason::SessionEnded = reason {
+            self.resume_failed = false;
+        }
+        self.previous_app.take()
+    }
+
     fn should_reload(&self) -> bool {
         !self.resume_failed
     }
@@ -155,7 +169,7 @@ pub fn focus_changed(window: &WebviewWindow, focused: bool) -> tauri::Result<()>
         .focus
         .event(focused, is_focused, handoff.is_err());
     if should_hide {
-        hide(window)?;
+        hide(window, HideReason::FocusLoss)?;
     }
     Ok(())
 }
@@ -174,7 +188,7 @@ pub async fn resume(window: &WebviewWindow, project: Project) -> Result<ResumeRe
             launch::notify_shortcut_resume(app, &project_id, &report.history);
             if resume_completed(&report) {
                 // The launched app should keep focus after a successful resume.
-                hide(window).map_err(|error| {
+                hide(window, HideReason::SessionEnded).map_err(|error| {
                     format!("再開しましたが、クイック再開を閉じられません: {error}")
                 })?;
             }
@@ -211,19 +225,20 @@ pub fn open_main_window(window: &WebviewWindow) -> Result<(), String> {
         .map_err(|error| format!("プロジェクト一覧を開けません: {error}"))?;
     main.set_focus().map_err(display_error)?;
     // Keep focus in sakuhira instead of returning to the previous app.
-    hide(window).map_err(|error| format!("クイック再開を閉じられません: {error}"))?;
+    hide(window, HideReason::SessionEnded)
+        .map_err(|error| format!("クイック再開を閉じられません: {error}"))?;
     Ok(())
 }
 
-fn hide(window: &WebviewWindow) -> tauri::Result<Option<i32>> {
+fn hide(window: &WebviewWindow, reason: HideReason) -> tauri::Result<Option<i32>> {
     window.hide()?;
     let state = window.state::<QuickResumeWindow>();
-    Ok(std::mem::take(&mut *state.presentation()).previous_app)
+    Ok(state.presentation().did_hide(reason))
 }
 
 pub fn dismiss(window: &WebviewWindow) -> tauri::Result<()> {
     let was_frontmost = frontmost_pid() == Some(std::process::id() as i32);
-    let previous_app = hide(window)?;
+    let previous_app = hide(window, HideReason::SessionEnded)?;
     if was_frontmost
         && let Some(previous_app) =
             previous_app.and_then(NSRunningApplication::runningApplicationWithProcessIdentifier)
@@ -292,6 +307,22 @@ mod tests {
     }
 
     #[test]
+    fn focus_loss_after_a_failed_resume_hides_but_retains_the_view() {
+        let mut presentation = Presentation {
+            focus: PresentationFocus::Focused,
+            previous_app: Some(42),
+            ..Presentation::default()
+        };
+
+        presentation.finish_failed_resume(true);
+        assert!(presentation.focus.event(false, false, false));
+        presentation.did_hide(HideReason::FocusLoss);
+        assert!(!presentation.should_reload());
+        assert!(presentation.focus == PresentationFocus::Hidden);
+        assert!(presentation.previous_app.is_none());
+    }
+
+    #[test]
     fn closing_resets_the_view_even_if_a_resume_is_still_finishing() {
         let mut presentation = Presentation {
             focus: PresentationFocus::Focused,
@@ -300,7 +331,7 @@ mod tests {
         presentation.finish_failed_resume(true);
         assert!(!presentation.should_reload());
 
-        std::mem::take(&mut presentation);
+        presentation.did_hide(HideReason::SessionEnded);
         presentation.finish_failed_resume(false);
         assert!(presentation.should_reload());
     }
