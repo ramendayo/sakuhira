@@ -93,9 +93,9 @@ fn open(app: &AppHandle) -> tauri::Result<()> {
     };
     let previous_app = frontmost_pid().filter(|pid| *pid != std::process::id() as i32);
     let existing = app.get_webview_window(WINDOW_LABEL);
+    let restore_search_focus = existing.is_some() && !state.presentation().should_reload();
     let window = if let Some(window) = existing {
-        let should_reload = state.presentation().should_reload();
-        if should_reload {
+        if !restore_search_focus {
             window.reload()?;
         }
         window
@@ -125,7 +125,11 @@ fn open(app: &AppHandle) -> tauri::Result<()> {
         };
     }
     window.show()?;
-    window.set_focus()
+    window.set_focus()?;
+    if restore_search_focus {
+        app.emit_to(WINDOW_LABEL, "quick-resume-focus-search", ())?;
+    }
+    Ok(())
 }
 
 fn move_to_active_space(window: &WebviewWindow) -> tauri::Result<()> {

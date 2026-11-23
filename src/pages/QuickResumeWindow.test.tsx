@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
@@ -14,8 +15,8 @@ const latest: Project = {
   ...pinned, id: "latest", name: "開発ツール", path: "/work/tool", launchUrl: null, lastResumedAt: 100,
 };
 
-afterEach(() => {
-  cleanup();
+afterEach(async () => {
+  await act(() => cleanup());
   clearMocks();
   vi.unstubAllGlobals();
 });
@@ -103,7 +104,7 @@ it("leaves IME confirmation and an empty result alone", async () => {
   expect(onResume).toHaveBeenCalledOnce();
 });
 
-it("resumes a clicked candidate and retains the query and selection after a partial failure", async () => {
+it("refocuses retained search results after a partial failure and supports keyboard retry", async () => {
   vi.stubGlobal("isTauri", true);
   const other = { ...pinned, name: "開発ガイド", path: "/work/guide" };
   const success: ResumeReport = {
@@ -140,7 +141,20 @@ it("resumes a clicked candidate and retains the query and selection after a part
   expect(screen.getByRole("alert").textContent).toBe("Preview（仕様書.pdf）：起動先を開けませんでした。");
   expect(input.value).toBe("開発");
   expect(screen.getByRole("option", { name: /開発ガイド/, selected: true })).toBeTruthy();
-  await user.keyboard("{Enter}");
+  const mainButton = screen.getByRole("button", { name: "sakuhiraを開く" });
+  await user.tab();
+  expect(document.activeElement).toBe(mainButton);
+  fireEvent.focus(window);
+  expect(document.activeElement).toBe(mainButton);
+
+  await act(async () => emit("quick-resume-focus-search"));
+  expect(document.activeElement).toBe(input);
+  expect(input.value).toBe("開発");
+  expect(screen.getByRole("alert").textContent).toContain("Preview（仕様書.pdf）");
+  expect(screen.getByRole("option", { name: /開発ガイド/, selected: true })).toBeTruthy();
+  await user.keyboard("{ArrowUp}");
+  expect(screen.getByRole("option", { name: /開発ツール/, selected: true })).toBeTruthy();
+  await user.keyboard("{ArrowDown}{Enter}");
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(resume).toHaveBeenCalledTimes(2);
   expect(resume).toHaveBeenLastCalledWith({ project: other });

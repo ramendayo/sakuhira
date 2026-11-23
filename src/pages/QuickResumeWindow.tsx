@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import Icon from "../components/Icon";
 import ProjectIcon from "../features/projects/components/ProjectIcon";
 import SettingsProvider from "../components/SettingsProvider";
@@ -31,6 +32,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const composing = useRef(false);
+  const searchInput = useRef<HTMLInputElement>(null);
   const selectedRow = useRef<HTMLLIElement>(null);
   const candidates = quickResumeCandidates(projects, query, pinnedIds);
   const selectedIndex = Math.max(0, candidates.findIndex((project) => project.id === selectedId));
@@ -39,6 +41,19 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
   useEffect(() => {
     selectedRow.current?.scrollIntoView?.({ block: "nearest" });
   }, [selected?.id]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    const subscription = listen("quick-resume-focus-search", () => {
+      if (!cancelled) searchInput.current?.focus();
+    }, { target: "quick-resume" });
+    void subscription.catch(console.error);
+    return () => {
+      cancelled = true;
+      void subscription.then((unlisten) => unlisten(), () => {}).catch(console.error);
+    };
+  }, []);
 
   function resumeCandidate(project: Project) {
     if (pending) return;
@@ -82,6 +97,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
       <div className="relative shrink-0">
         <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted"><Icon name="search" /></span>
         <input
+          ref={searchInput}
           autoFocus
           id={`${id}-search`}
           role="combobox"
