@@ -368,7 +368,7 @@ pub async fn save_settings_with_shortcut(
     {
         tauri::async_runtime::spawn_blocking(move || {
             if settings.quick_resume_shortcut == expected.quick_resume_shortcut
-                && crate::shortcuts::quick_resume_error(&app).is_none()
+                && !crate::shortcuts::quick_resume_restore_failed(&app)
             {
                 return app
                     .state::<crate::settings::SettingsStore>()

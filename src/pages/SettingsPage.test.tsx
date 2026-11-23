@@ -152,6 +152,40 @@ it("reports a restore failure even when restoration finishes after opening setti
   expect(saveSettingsWithShortcut).toHaveBeenCalledWith(stored, stored);
 });
 
+it("keeps an old-key release warning after saving the active shortcut again", async () => {
+  stored.quickResumeShortcut = "Control+KeyJ";
+  vi.mocked(shortcuts.supportsShortcuts).mockReturnValue(true);
+  vi.mocked(shortcuts.onShortcutResume).mockResolvedValue(() => {});
+  vi.mocked(shortcuts.onShortcutsRestored).mockResolvedValue(() => {});
+  vi.mocked(shortcuts.onCapturedShortcut).mockResolvedValue(() => {});
+  vi.mocked(shortcuts.setShortcutCapture).mockResolvedValue(undefined);
+  vi.mocked(shortcuts.readShortcutIssues).mockResolvedValue([]);
+  const warning = "旧ショートカット「Control+KeyJ」を解除できませんでした: OS error\n⌘Qでsakuhiraを完全終了してから起動し直してください。";
+  vi.mocked(shortcuts.readQuickResumeShortcutIssue).mockImplementation(async () =>
+    stored.quickResumeShortcut === "Control+KeyK" ? warning : null);
+
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole("link", { name: "設定" }));
+  const quick = within(await screen.findByRole("region", { name: "ショートカット" }));
+  await user.click(quick.getByRole("button", { name: "変更" }));
+  await quick.findByRole("button", { name: "キーを入力してください" });
+  await user.keyboard("{Control>}k{/Control}");
+
+  const save = screen.getByRole("button", { name: "設定を保存" });
+  await user.click(save);
+  expect((await quick.findByRole("alert")).textContent).toBe(warning);
+  expect(quick.getByText("⌃ + K")).toBeTruthy();
+  expect(stored.quickResumeShortcut).toBe("Control+KeyK");
+
+  await user.selectOptions(screen.getByRole("combobox", { name: "表示テーマ" }), "dark");
+  await user.click(save);
+  await screen.findByText("設定を保存しました。");
+  expect(stored.theme).toBe("dark");
+  expect(stored.quickResumeShortcut).toBe("Control+KeyK");
+  expect(quick.getByRole("alert").textContent).toBe(warning);
+});
+
 it("applies themes only after a successful save and retains the saved choice across navigation", async () => {
   vi.mocked(saveSettingsWithShortcut).mockRejectedValueOnce("保存できません").mockImplementation(async (_expected, settings) => { stored = { ...settings }; return { ...stored }; });
   const user = userEvent.setup();

@@ -62,7 +62,7 @@ export default function QuickResumeSettings({ settings, shortcut, saveError, onC
           {shortcut !== saved && (
             <p className="text-xs text-muted">保存済みの割り当て：{saved ? <kbd>{shortcutLabel(saved)}</kbd> : "未設定"}</p>
           )}
-          {issue && <p role="alert" className="break-words text-sm text-danger">{issue}</p>}
+          {issue && <p role="alert" className="whitespace-pre-line break-words text-sm text-danger">{issue}</p>}
         </div>
       </div>
     </section>

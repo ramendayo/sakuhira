@@ -153,11 +153,41 @@ fn persist_quick_resume_settings(
     )
 }
 
+#[cfg(any(target_os = "macos", test))]
+#[derive(Default)]
+struct QuickResumeRegistration {
+    key: Option<String>,
+    restore_error: Option<String>,
+    release_errors: std::collections::BTreeMap<String, String>,
+}
+
+#[cfg(any(target_os = "macos", test))]
+impl QuickResumeRegistration {
+    fn replace_key(&mut self, key: Option<String>) -> Option<String> {
+        self.restore_error = None;
+        if key == self.key {
+            return None;
+        }
+        std::mem::replace(&mut self.key, key)
+    }
+
+    fn issue(&self) -> Option<String> {
+        let mut issues: Vec<_> = self.restore_error.iter().cloned().collect();
+        if !self.release_errors.is_empty() {
+            issues.extend(self.release_errors.iter().map(|(key, reason)| {
+                format!("旧ショートカット「{key}」を解除できませんでした: {reason}")
+            }));
+            issues.push("⌘Qでsakuhiraを完全終了してから起動し直してください。".into());
+        }
+        (!issues.is_empty()).then(|| issues.join("\n"))
+    }
+}
+
 #[cfg(target_os = "macos")]
 mod runtime {
     use super::{
-        check_quick_resume_conflict, normalize_shortcut, persist_quick_resume_settings,
-        register_then_save, transition_pressed,
+        QuickResumeRegistration, check_quick_resume_conflict, normalize_shortcut,
+        persist_quick_resume_settings, register_then_save, transition_pressed,
     };
     use crate::{
         launch,
@@ -175,8 +205,7 @@ mod runtime {
     struct State {
         routes: HashMap<String, String>,
         errors: HashMap<String, String>,
-        quick_resume_key: Option<String>,
-        quick_resume_error: Option<String>,
+        quick_resume: QuickResumeRegistration,
         pressed: HashSet<String>,
         capturing: bool,
     }
@@ -199,7 +228,7 @@ mod runtime {
             match event.state {
                 ShortcutState::Pressed if transition_pressed(&mut state.pressed, &key, true) => (
                     state.capturing,
-                    state.quick_resume_key.as_deref() == Some(&key),
+                    state.quick_resume.key.as_deref() == Some(&key),
                     state.routes.get(&key).cloned(),
                 ),
                 ShortcutState::Released => {
@@ -275,13 +304,13 @@ mod runtime {
             .lock()
             .map_err(|_| "ショートカット処理を開始できません。")?;
         let projects = app.state::<ProjectStore>().list().inspect_err(|reason| {
-            record_quick_resume_error(
+            record_quick_resume_restore_error(
                 &runtime,
                 format!("プロジェクトのショートカットを確認できません: {reason}"),
             );
         })?;
         if let Err(reason) = restore_quick_resume(&app, &runtime, &projects) {
-            record_quick_resume_error(
+            record_quick_resume_restore_error(
                 &runtime,
                 format!("クイック再開のショートカットを復元できません: {reason}"),
             );
@@ -351,7 +380,7 @@ mod runtime {
         let key = checked_shortcut(projects, None, &saved)?;
         if active_quick_resume_key(runtime).as_deref() != Some(&key) {
             register_key(app, &key)?;
-            replace_quick_resume_key(runtime, Some(key));
+            let _ = replace_quick_resume_key(runtime, Some(key));
         }
         Ok(())
     }
@@ -382,16 +411,18 @@ mod runtime {
             |settings| store.save_with_registered_shortcut(expected, settings),
             |key| rollback_key(app, key),
         )?;
-        let normalized = &saved.quick_resume_shortcut;
-
-        replace_quick_resume_key(&runtime, normalized.clone());
-        if let Some(key) = old_key.filter(|key| Some(key) != normalized.as_ref())
+        if let Some(key) = replace_quick_resume_key(&runtime, saved.quick_resume_shortcut.clone())
             && let Err(reason) = rollback_key(app, &key)
         {
-            record_quick_resume_error(
-                &runtime,
-                format!("保存後に旧ショートカットを解除できませんでした: {reason}"),
-            );
+            // The macOS backend discards the native handle even when unregistering fails.
+            // Keep the warning for the rest of this process.
+            runtime
+                .state
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .quick_resume
+                .release_errors
+                .insert(key, reason);
         }
         Ok(saved)
     }
@@ -401,23 +432,34 @@ mod runtime {
             .state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .quick_resume_key
+            .quick_resume
+            .key
             .clone()
     }
 
-    fn replace_quick_resume_key(runtime: &ShortcutRuntime, key: Option<String>) {
-        let mut state = runtime
+    fn replace_quick_resume_key(runtime: &ShortcutRuntime, key: Option<String>) -> Option<String> {
+        runtime
             .state
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        state.quick_resume_key = key;
-        state.quick_resume_error = None;
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .quick_resume
+            .replace_key(key)
     }
 
-    fn record_quick_resume_error(runtime: &ShortcutRuntime, reason: String) {
+    fn record_quick_resume_restore_error(runtime: &ShortcutRuntime, reason: String) {
         if let Ok(mut state) = runtime.state.lock() {
-            state.quick_resume_error = Some(reason);
+            state.quick_resume.restore_error = Some(reason);
         }
+    }
+
+    pub fn quick_resume_restore_failed(app: &AppHandle) -> bool {
+        app.state::<ShortcutRuntime>()
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .quick_resume
+            .restore_error
+            .is_some()
     }
 
     pub fn quick_resume_error(app: &AppHandle) -> Option<String> {
@@ -425,7 +467,7 @@ mod runtime {
             .state
             .lock()
             .ok()
-            .and_then(|state| state.quick_resume_error.clone())
+            .and_then(|state| state.quick_resume.issue())
     }
 
     pub fn errors(app: &AppHandle) -> Vec<super::ShortcutError> {
@@ -626,8 +668,9 @@ mod runtime {
 
 #[cfg(target_os = "macos")]
 pub use runtime::{
-    ShortcutRuntime, errors, on_shortcut, quick_resume_error, register_new_project, remove,
-    restore, save_with_quick_resume, set, set_capture, set_with_save, unregister_all,
+    ShortcutRuntime, errors, on_shortcut, quick_resume_error, quick_resume_restore_failed,
+    register_new_project, remove, restore, save_with_quick_resume, set, set_capture, set_with_save,
+    unregister_all,
 };
 
 #[cfg(test)]
@@ -845,6 +888,72 @@ mod tests {
         .unwrap();
         assert_eq!(cleared, draft(None));
         assert_eq!(reopened.load().unwrap(), cleared);
+    }
+
+    #[test]
+    fn quick_resume_keeps_failed_release_warnings_after_saving_the_active_key_again() {
+        use super::QuickResumeRegistration;
+        use crate::settings::{Editor, SettingsStore};
+
+        let directory = tempfile::tempdir().unwrap();
+        let store = SettingsStore::new(directory.path().to_owned());
+        let defaults = store.load().unwrap();
+        let mut initial = defaults.clone();
+        initial.quick_resume_shortcut = Some("Control+KeyJ".into());
+        let initial = store
+            .save_with_registered_shortcut(&defaults, initial)
+            .unwrap();
+        let mut registration = QuickResumeRegistration::default();
+        assert!(
+            registration
+                .replace_key(initial.quick_resume_shortcut.clone())
+                .is_none()
+        );
+
+        let mut draft = initial.clone();
+        draft.quick_resume_shortcut = Some("Control+KeyK".into());
+        let saved = super::persist_quick_resume_settings(
+            draft,
+            registration.key.as_deref(),
+            &[],
+            |_| Ok(()),
+            |settings| store.save_with_registered_shortcut(&initial, settings),
+            |_| Ok(()),
+        )
+        .unwrap();
+
+        let old_key = registration
+            .replace_key(saved.quick_resume_shortcut.clone())
+            .unwrap();
+        registration
+            .release_errors
+            .insert(old_key, "OS error".into());
+        let warning = registration.issue().unwrap();
+        assert!(warning.contains("Control+KeyJ"));
+        assert!(warning.contains("⌘Q"));
+        assert_eq!(registration.key.as_deref(), Some("Control+KeyK"));
+        assert_eq!(store.load().unwrap(), saved);
+
+        let mut draft = saved.clone();
+        draft.default_editor = Editor::Cursor;
+        let resaved = store.save(&saved, draft.clone()).unwrap();
+        assert_eq!(resaved, draft);
+        assert!(
+            registration
+                .replace_key(resaved.quick_resume_shortcut)
+                .is_none()
+        );
+        assert!(registration.restore_error.is_none());
+        assert_eq!(registration.issue().as_deref(), Some(warning.as_str()));
+
+        registration.restore_error = Some("復元エラー".into());
+        assert!(registration.issue().unwrap().contains("復元エラー"));
+        assert_eq!(
+            registration.replace_key(None).as_deref(),
+            Some("Control+KeyK")
+        );
+        assert_eq!(registration.issue().as_deref(), Some(warning.as_str()));
+        assert!(QuickResumeRegistration::default().issue().is_none());
     }
 
     #[test]
