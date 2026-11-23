@@ -153,6 +153,21 @@ it.each([
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(message));
   expect(saveSettings).toHaveBeenCalledTimes(1);
   expect(stored.projectOrder.manualIds).toEqual(["a", "b", "c"]);
+  expect(screen.queryByRole("button", { name: "もう一度保存" })).toBeNull();
+
+  vi.mocked(projectsApi.listProjects).mockRejectedValueOnce("一覧を取得できませんでした。");
+  await user.click(screen.getByRole("button", { name: "一覧を再読み込み" }));
+  await screen.findByText("一覧を取得できませんでした。");
+  await user.click(screen.getByRole("button", { name: "再読み込み" }));
+  await ready();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(names()).toEqual(pinnedIds.length ? ["サイト", "アプリ10", "アプリ2"] : ["アプリ10", "アプリ2"]);
+  expect(saveSettings).toHaveBeenCalledTimes(1);
+  handle("アプリ10").focus();
+  await user.keyboard("{ArrowDown}");
+  await waitFor(() => expect(stored.projectOrder.manualIds).toEqual(
+    pinnedIds.length ? ["b", "a", "c"] : ["b", "a"],
+  ));
 });
 
 it("preserves concurrent manual placement when registering from a stale list and removes unregistered IDs", async () => {

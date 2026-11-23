@@ -9,7 +9,7 @@ function keepLatestResume(project: Project, timestamp?: number | null): Project 
     : project;
 }
 
-export function useProjects() {
+export function useProjects(onLoaded?: () => void) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +40,7 @@ export function useProjects() {
         if (!cancelled) {
           setProjects((current) => loaded.map((project) => keepLatestResume(project, current.find((item) => item.id === project.id)?.lastResumedAt)));
           setStatus("ready");
+          onLoaded?.();
         }
       },
       (error: unknown) => {
@@ -50,7 +51,7 @@ export function useProjects() {
       },
     );
     return () => { cancelled = true; };
-  }, [revision]);
+  }, [revision, onLoaded]);
 
   return {
     projects,

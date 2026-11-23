@@ -19,7 +19,7 @@ type ProjectsPageProps = {
 };
 
 function ProjectsPage({ selectedId, onSelect, presentation }: ProjectsPageProps) {
-  const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects();
+  const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects(presentation.clearInvalidChange);
   const shortcuts = useShortcutIssues();
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
@@ -151,7 +151,11 @@ function ProjectsPage({ selectedId, onSelect, presentation }: ProjectsPageProps)
               {presentation.pending && <p role="status" className="sr-only">表示設定を保存中…</p>}
               {presentation.failure && <div className="rounded-lg border border-danger-line bg-danger-soft p-3">
                 <p role="alert" className="text-sm text-danger">表示設定を保存できませんでした：{presentation.failure.message}</p>
-                <button type="button" disabled={presentation.disabled || showForm} onClick={presentation.retry} className="button-secondary mt-2">もう一度保存</button>
+                <button type="button" disabled={presentation.disabled || showForm}
+                  onClick={presentation.failure.recovery === "reload" ? retry : presentation.retry}
+                  className="button-secondary mt-2">
+                  {presentation.failure.recovery === "reload" ? "一覧を再読み込み" : "もう一度保存"}
+                </button>
               </div>}
             </div>}
             <div className="mb-5 flex flex-wrap items-center gap-3">

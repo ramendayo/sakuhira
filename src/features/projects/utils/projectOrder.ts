@@ -31,13 +31,15 @@ export type ProjectOrderChange =
   | { kind: "register"; id: string }
   | { kind: "remove"; id: string };
 
+export class InvalidProjectOrderChange extends Error {}
+
 export function applyProjectOrderChange(order: ProjectOrder, projects: Project[], change: ProjectOrderChange): ProjectOrder {
   switch (change.kind) {
     case "sort":
       return { ...order, sort: change.sort };
     case "pin": {
       if (!projects.some(({ id }) => id === change.id)) {
-        throw new Error("対象のプロジェクトは登録解除されています。一覧を再読み込みしてください。");
+        throw new InvalidProjectOrderChange("対象のプロジェクトは登録解除されています。一覧を再読み込みしてください。");
       }
       const pinnedIds = new Set(order.pinnedIds);
       if (change.pinned) pinnedIds.add(change.id);
@@ -49,11 +51,11 @@ export function applyProjectOrderChange(order: ProjectOrder, projects: Project[]
       const source = ids.indexOf(change.id);
       const anchor = ids.indexOf(change.anchor);
       if (source < 0 || anchor < 0) {
-        throw new Error("移動するプロジェクトか移動先が登録解除されています。一覧を再読み込みしてください。");
+        throw new InvalidProjectOrderChange("移動するプロジェクトか移動先が登録解除されています。一覧を再読み込みしてください。");
       }
       const pinnedIds = new Set(order.pinnedIds);
       if (pinnedIds.has(change.id) !== pinnedIds.has(change.anchor)) {
-        throw new Error("ピン留めの状態が変わりました。同じグループ内で移動し直してください。");
+        throw new InvalidProjectOrderChange("ピン留めの状態が変わりました。一覧を再読み込みし、同じグループ内で移動し直してください。");
       }
       const target = anchor + Number(change.placement === "after") - Number(source < anchor);
       return { ...order, manualIds: moveProject(ids, change.id, target) };

@@ -1,11 +1,11 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useSettings } from "../../../hooks/useSettings";
 import { getSettings, saveSettings } from "../../../services/settings";
 import { errorMessage, listProjects } from "../services/projects";
 import { defaultProjectOrder, defaultProjectView, editorName } from "../../../types/settings";
 import type { ProjectView, Settings } from "../../../types/settings";
 import type { Project } from "../types/project";
-import { applyProjectOrderChange } from "../utils/projectOrder";
+import { applyProjectOrderChange, InvalidProjectOrderChange } from "../utils/projectOrder";
 import type { ProjectOrderChange } from "../utils/projectOrder";
 
 type PreferenceChange =
@@ -14,12 +14,16 @@ type PreferenceChange =
 
 type ProjectMembershipChange = Extract<ProjectOrderChange, { kind: "register" | "remove" }>;
 
+type PreferenceFailure =
+  | { recovery: "retry"; message: string; change: PreferenceChange }
+  | { recovery: "reload"; message: string };
+
 export function useProjectPresentation() {
   const { result, replace } = useSettings();
   const saving = useRef(false);
   const queuedProjectChanges = useRef<ProjectMembershipChange[]>([]);
   const [pending, setPending] = useState(false);
-  const [failure, setFailure] = useState<{ change: PreferenceChange; message: string } | null>(null);
+  const [failure, setFailure] = useState<PreferenceFailure | null>(null);
   const [projectChangeError, setProjectChangeError] = useState<string | null>(null);
   const view = result.status === "ready" ? result.settings.projectView : defaultProjectView;
   const order = result.status === "ready" ? result.settings.projectOrder : defaultProjectOrder;
@@ -72,7 +76,9 @@ export function useProjectPresentation() {
         await persistPreferences(change, expected, available);
         return true;
       } catch (error) {
-        setFailure({ change, message: errorMessage(error) });
+        setFailure(error instanceof InvalidProjectOrderChange
+          ? { recovery: "reload", message: error.message }
+          : { recovery: "retry", change, message: errorMessage(error) });
         return false;
       }
     });
@@ -83,14 +89,19 @@ export function useProjectPresentation() {
     if (!saving.current) void runSaves();
   }
 
+  const clearInvalidChange = useCallback(() => {
+    setFailure((current) => current?.recovery === "reload" ? null : current);
+  }, []);
+
   return {
     view, order, editorLabel, pending,
-    failure: projectChangeError !== null ? { message: projectChangeError } : failure,
+    failure: projectChangeError !== null ? { recovery: "retry" as const, message: projectChangeError } : failure,
+    clearInvalidChange,
     saveView: (view: Partial<ProjectView>) => savePreferences({ kind: "view", view }),
     saveOrder: (order: Exclude<ProjectOrderChange, ProjectMembershipChange>, projects?: Project[]) =>
       savePreferences({ kind: "order", order }, projects),
     syncProjectOrder,
-    retry: () => projectChangeError !== null ? runSaves() : failure && savePreferences(failure.change, [], true),
+    retry: () => projectChangeError !== null ? runSaves() : failure?.recovery === "retry" && savePreferences(failure.change, [], true),
     loading: result.status === "loading",
     disabled: pending || result.status !== "ready",
   };
