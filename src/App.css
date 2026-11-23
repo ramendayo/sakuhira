@@ -104,17 +104,10 @@
     font-weight: var(--ui-weight-heading);
     letter-spacing: var(--ui-letter-heading);
   }
-  /* 二枚の大きな花びらはグラデーション（コンポーネント内）で塗り、舞う花びらと花芯だけここで色を決める。 */
   .brand-mark {
     flex-shrink: 0;
     width: calc(var(--ui-space-unit) * 8);
     height: calc(var(--ui-space-unit) * 8);
-  }
-  .logo-petal {
-    fill: var(--ui-logo-petal);
-  }
-  .logo-center {
-    fill: var(--ui-logo-center);
   }
   .nav-link {
     display: flex;
