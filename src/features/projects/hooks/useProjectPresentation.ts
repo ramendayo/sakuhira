@@ -13,12 +13,11 @@ type PreferenceChange =
   | { kind: "order"; order: ProjectOrderChange };
 
 type ProjectMembershipChange = Extract<ProjectOrderChange, { kind: "register" | "remove" }>;
-type QueuedProjectChange = { change: ProjectMembershipChange; projects?: Project[] };
 
 export function useProjectPresentation() {
   const { result, replace } = useSettings();
   const saving = useRef(false);
-  const queuedProjectChanges = useRef<QueuedProjectChange[]>([]);
+  const queuedProjectChanges = useRef<ProjectMembershipChange[]>([]);
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<{ change: PreferenceChange; message: string } | null>(null);
   const [projectChangeError, setProjectChangeError] = useState<string | null>(null);
@@ -40,18 +39,16 @@ export function useProjectPresentation() {
     try {
       const saved = saveInteractiveChange ? await saveInteractiveChange() : true;
       while (queuedProjectChanges.current.length > 0) {
-        const job = queuedProjectChanges.current[0];
+        const change = queuedProjectChanges.current[0];
         setProjectChangeError(null);
         try {
           const expected = await getSettings();
           replace(expected);
-          // 待機後の登録は、登録解除などを反映した最新のプロジェクトで順序を計算する。
-          const projects = job.change.kind === "register" ? job.projects ?? await listProjects() : [];
-          await persistPreferences({ kind: "order", order: job.change }, expected, projects);
+          // 一覧を開いた後に別プロセスが登録した項目も手動順に残す。
+          const projects = change.kind === "register" ? await listProjects() : [];
+          await persistPreferences({ kind: "order", order: change }, expected, projects);
           queuedProjectChanges.current.shift();
         } catch (error) {
-          // 次の再試行では、失敗した操作から最新データを使ってやり直す。
-          delete job.projects;
           setProjectChangeError(errorMessage(error));
           break;
         }
@@ -81,9 +78,8 @@ export function useProjectPresentation() {
     });
   }
 
-  function syncProjectOrder(change: ProjectMembershipChange, projects?: Project[]) {
-    const useCurrentProjects = !saving.current && queuedProjectChanges.current.length === 0;
-    queuedProjectChanges.current.push({ change, projects: useCurrentProjects ? projects : undefined });
+  function syncProjectOrder(change: ProjectMembershipChange) {
+    queuedProjectChanges.current.push(change);
     if (!saving.current) void runSaves();
   }
 

@@ -155,28 +155,35 @@ it.each([
   expect(stored.projectOrder.manualIds).toEqual(["a", "b", "c"]);
 });
 
-it("prepends new registrations to manual placement in automatic mode and removes unregistered IDs", async () => {
+it("preserves concurrent manual placement when registering from a stale list and removes unregistered IDs", async () => {
   stored.projectOrder = { sort: "name", manualIds: ["a", "c", "b"], pinnedIds: ["a"] };
+  const external = fixture("external", "別のアプリ");
   const added = fixture("new", "新しいアプリ");
-  vi.mocked(projectsApi.addProject).mockResolvedValue(added);
+  vi.mocked(projectsApi.addProject).mockImplementation(async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([...fixtures, external, added]);
+    return added;
+  });
   vi.mocked(projectsApi.removeProject).mockResolvedValue();
   const user = userEvent.setup(); render(<App />); await ready();
+  // 一覧を開いた後、別プロセスが登録した項目を手動順の末尾へ移動した。
+  stored.projectOrder.manualIds.push(external.id);
   await user.click(screen.getByRole("button", { name: "プロジェクトを追加" }));
   await user.type(screen.getByRole("textbox", { name: "プロジェクト名" }), added.name);
   await user.click(screen.getByRole("button", { name: "URL" }));
   await user.type(screen.getByRole("textbox", { name: /起動URL/ }), added.launchUrl!);
   await user.click(screen.getByRole("button", { name: "登録する" }));
-  await waitFor(() => expect(stored.projectOrder.manualIds).toEqual(["new", "a", "c", "b"]));
+  await waitFor(() => expect(stored.projectOrder.manualIds).toEqual(["new", "a", "c", "b", "external"]));
   expect(stored.projectOrder.sort).toBe("name");
-  expect(names()).toEqual(["アプリ10", "アプリ2", "サイト", "新しいアプリ"]);
+  await user.click(screen.getByRole("button", { name: "再読み込み" }));
+  await waitFor(() => expect(names()).toEqual(["アプリ10", "アプリ2", "サイト", added.name, external.name]));
   await user.selectOptions(screen.getByRole("combobox", { name: "並び順" }), "manual");
-  expect(names().slice(0, 2)).toEqual(["アプリ10", added.name]);
+  await waitFor(() => expect(names()).toEqual(["アプリ10", added.name, "サイト", "アプリ2", external.name]));
   await user.click(screen.getByRole("button", { name: "アプリ10の詳細を開く" }));
   await user.click(screen.getByRole("button", { name: "登録を解除" }));
   await user.click(screen.getByRole("button", { name: "登録解除を確定" }));
-  await waitFor(() => expect(stored.projectOrder.manualIds).toEqual(["new", "c", "b"]));
+  await waitFor(() => expect(stored.projectOrder.manualIds).toEqual(["new", "c", "b", "external"]));
   expect(stored.projectOrder.pinnedIds).toEqual([]);
-  expect(names()).toEqual(["新しいアプリ", "サイト", "アプリ2"]);
+  expect(names()).toEqual([added.name, "サイト", "アプリ2", external.name]);
 });
 
 it("pins from either layout, preserves pins across sorting and reload, and retries a failed unpin", async () => {

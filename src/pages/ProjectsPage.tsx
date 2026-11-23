@@ -60,7 +60,7 @@ function ProjectsPage({ selectedId, onSelect, presentation }: ProjectsPageProps)
 
   function registered(project: Project) {
     append(project);
-    presentation.syncProjectOrder({ kind: "register", id: project.id }, [...projects, project]);
+    presentation.syncProjectOrder({ kind: "register", id: project.id });
     setQuery("");
     setNotice(`「${project.name}」を登録しました。`);
     closeForm();
