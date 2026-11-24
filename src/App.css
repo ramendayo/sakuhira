@@ -94,7 +94,7 @@
     padding: var(--ui-panel-padding);
     display: flex;
     flex-direction: column;
-    gap: calc(var(--ui-space-unit) * 10);
+    gap: calc(var(--ui-space-unit) * 6);
   }
   .brand {
     display: flex;
@@ -109,7 +109,42 @@
     width: calc(var(--ui-space-unit) * 10);
     height: calc(var(--ui-space-unit) * 10);
   }
+  .sidebar-navigation,
+  .sidebar-pinned {
+    display: flex;
+    flex-direction: column;
+    min-block-size: 0;
+  }
+  .sidebar-navigation {
+    flex: 1;
+    gap: calc(var(--ui-space-unit) * 5);
+  }
+  .sidebar-navigation > .nav-link,
+  .sidebar-settings {
+    flex-shrink: 0;
+  }
+  .sidebar-pinned-heading {
+    flex-shrink: 0;
+    padding-inline: calc(var(--ui-space-unit) * 3);
+    margin-block-end: calc(var(--ui-space-unit) * 2);
+    color: var(--ui-muted);
+    font-size: var(--ui-text-xs);
+    font-weight: var(--ui-weight-semibold);
+  }
+  .sidebar-pinned-list {
+    min-block-size: 0;
+    overflow-y: auto;
+  }
+  .sidebar-pinned-list > li + li {
+    margin-block-start: var(--ui-space-unit);
+  }
+  .sidebar-settings {
+    margin-block-start: auto;
+    padding-block-start: calc(var(--ui-space-unit) * 4);
+    border-block-start: 1px solid var(--ui-sidebar-line);
+  }
   .nav-link {
+    position: relative;
     display: flex;
     align-items: center;
     gap: calc(var(--ui-space-unit) * 3);
@@ -126,9 +161,22 @@
   }
   .nav-link[aria-current="page"] {
     background: var(--ui-raised);
-    border-color: var(--ui-raised-active-line);
     color: var(--ui-accent);
-    box-shadow: var(--ui-shadow-raised);
+  }
+  .nav-link[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block: calc(var(--ui-space-unit) * 2);
+    inline-size: 2px;
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-accent);
+  }
+  .nav-link:focus-visible {
+    outline-offset: -2px;
+  }
+  .sidebar-project-link {
+    padding-block: var(--ui-space-unit);
   }
   .page-shell {
     padding: var(--ui-page-padding);
@@ -460,6 +508,9 @@
   .app-sidebar {
     gap: calc(var(--ui-space-unit) * 5);
   }
+  .sidebar-pinned-list {
+    max-block-size: min(32vh, 13rem);
+  }
 }
 
 @layer components {
@@ -536,18 +587,6 @@
     align-items: start;
   }
 }
-@media (min-width: 640px) and (max-width: 767px) {
-  .app-sidebar {
-    flex-direction: row;
-    align-items: center;
-  }
-  .app-sidebar > div:last-child {
-    margin-left: auto;
-    border-top: 0;
-    padding-top: 0;
-  }
-}
-
 @layer components {
   .project-toolbar {
     --toolbar-control-height: calc(var(--ui-space-unit) * 11);

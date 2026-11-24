@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import App from "../App";
 import * as api from "../features/projects/services/projects";
 import * as shortcuts from "../services/shortcuts";
+import { getSettings } from "../services/settings";
 import { setProjectNotes } from "../features/projects/services/notes";
 import { resumeProject } from "../features/projects/services/launch";
 import type { Project } from "../features/projects/types/project";
@@ -518,7 +519,11 @@ describe("project details", () => {
     expect(document.activeElement).toBe(screen.getByRole("heading", { name: "プロジェクト" }));
   });
 
-  it("prepopulates editing, persists changes, and updates the list", async () => {
+  it("prepopulates editing and updates the list and pinned navigation after saving", async () => {
+    vi.mocked(getSettings).mockResolvedValueOnce({
+      projectOrder: { sort: "recent", manualIds: [], pinnedIds: [project.id] },
+      projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode",
+    });
     const updated = {
       ...project, name: "Renamed", path: "/new/path",
       icon: { mode: "custom", shape: "code", color: "blue" },
@@ -551,6 +556,10 @@ describe("project details", () => {
     const information = within(screen.getByRole("region", { name: "プロジェクト情報" }));
     expect(information.getByText("コード・青").querySelector('[data-icon-color="blue"] svg')).toBeTruthy();
     expect(information.getByText("⌃ + J")).toBeTruthy();
+    const pinned = screen.getByRole("link", { name: updated.name, current: "page" });
+    expect(pinned.querySelector('[data-icon-color="blue"] svg')).toBeTruthy();
+    expect(screen.queryByRole("link", { name: project.name })).toBeNull();
+    expect(api.listProjects).toHaveBeenCalledTimes(1);
     const header = screen.getByRole("button", { name: "Renamedを再開" }).closest("header");
     expect(header?.querySelector('[data-icon-color="blue"] svg')).toBeTruthy();
     expect(header?.querySelector("kbd")?.textContent).toBe("⌃ + J");

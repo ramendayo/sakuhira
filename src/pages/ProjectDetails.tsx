@@ -59,7 +59,7 @@ function ProjectDetails({ project, shortcutIssue, onBack, onUpdated, onRemoved, 
   }
 
   return (
-    <section id="projects" aria-labelledby="detail-heading" className="page-shell">
+    <section id={`project-${encodeURIComponent(project.id)}`} aria-labelledby="detail-heading" className="page-shell">
       <button type="button" onClick={onBack} className="mb-6 button-quiet">
         ← プロジェクト一覧に戻る
       </button>

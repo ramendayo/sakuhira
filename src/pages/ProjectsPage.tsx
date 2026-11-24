@@ -51,6 +51,7 @@ function ProjectsPage({ selectedId, projectState, onOpenProject, onBack, onProje
   useEffect(() => { listHeading.current?.focus(); }, []);
   const previousSelection = useRef<string | null>(null);
   useEffect(() => {
+    if (selectedId) setShowForm(false);
     if (previousSelection.current && !selectedId) listHeading.current?.focus();
     previousSelection.current = selectedId;
   }, [selectedId]);
@@ -180,10 +181,7 @@ function ProjectsPage({ selectedId, projectState, onOpenProject, onBack, onProje
                 <ProjectCollection projects={visibleProjects} view={presentation.view}
                   manual={presentation.order.sort === "manual"} moveDisabled={Boolean(searchTerm) || presentation.disabled || showForm}
                   pinnedIds={pinnedIds} pinDisabled={presentation.disabled || showForm} onTogglePin={togglePin}
-                  onMove={move} editorName={presentation.editorLabel} onSelect={(id) => {
-                  setShowForm(false);
-                  onOpenProject(id);
-                }} onResumed={recordResumed} />
+                  onMove={move} editorName={presentation.editorLabel} onSelect={onOpenProject} onResumed={recordResumed} />
               ) : projects.length > 0 ? <div className="empty-state">
                 <h3 className="section-title">一致するプロジェクトがありません</h3>
                 <p className="mt-3 text-sm leading-7 text-muted">検索語を変えるか、検索をクリアしてください。</p>

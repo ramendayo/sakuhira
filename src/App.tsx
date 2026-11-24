@@ -10,6 +10,7 @@ import { useAppearance } from "./hooks/useAppearance";
 import { resumeErrorMessages } from "./features/projects/services/launch";
 import { useProjectPresentation } from "./features/projects/hooks/useProjectPresentation";
 import { useProjects } from "./features/projects/hooks/useProjects";
+import { orderedProjects } from "./features/projects/utils/projectOrder";
 import { onShortcutLaunchFailure } from "./services/shortcuts";
 
 type AppPage =
@@ -59,8 +60,23 @@ function Application() {
   }
 
   function openSettings() { setPage({ kind: "settings" }); }
+
+  const pinnedIds = new Set(projectPresentation.order.pinnedIds);
+  const pinnedProjects = pinnedIds.size
+    ? orderedProjects(projectState.projects, projectPresentation.order, "").filter(({ id }) => pinnedIds.has(id))
+    : [];
+  const selectedProjectId = page.kind === "projects" && projectState.status === "ready"
+    && projectState.projects.some(({ id }) => id === page.selectedId) ? page.selectedId : null;
+
   return (
-    <AppLayout activePage={page.kind} onProjectsNavigate={showProjects} onSettingsNavigate={openSettings}>
+    <AppLayout
+      activePage={page.kind}
+      selectedProjectId={selectedProjectId}
+      pinnedProjects={pinnedProjects}
+      onProjectNavigate={showProject}
+      onProjectsNavigate={showProjects}
+      onSettingsNavigate={openSettings}
+    >
       {appearance.loadError && page.kind !== "settings" && <div className="page-shell pb-0"><div role="alert" className="rounded-xl border border-danger-line bg-danger-soft p-5"><p className="text-sm text-danger">表示設定を読み込めませんでした：{appearance.loadError}</p><button type="button" onClick={openSettings} className="button-secondary mt-3">設定を開く</button></div></div>}
       {appearance.error && <div className="page-shell pb-0"><div role="alert" className="rounded-xl border border-danger-line bg-danger-soft p-5"><p className="text-sm text-danger">{appearance.error}</p><button type="button" onClick={appearance.retry} className="button-secondary mt-3">表示テーマを再適用</button></div></div>}
       {shortcutFailure && (

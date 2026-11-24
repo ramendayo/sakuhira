@@ -201,6 +201,36 @@ it("preserves concurrent manual placement when registering from a stale list and
   expect(names()).toEqual([added.name, "サイト", "アプリ2", external.name]);
 });
 
+it("shows live pins during search and opens a pinned detail from settings by keyboard", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await ready();
+  expect(screen.queryByRole("region", { name: "ピン留め" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "アプリ10のピン留め" }));
+  const pin = await screen.findByRole("link", { name: "アプリ10" });
+
+  await user.type(screen.getByRole("searchbox"), "サイト");
+  expect(names()).toEqual(["サイト"]);
+  expect(screen.getByRole("link", { name: "アプリ10" })).toBe(pin);
+
+  const settings = screen.getByRole("link", { name: "設定" });
+  await user.click(settings);
+  expect(settings.getAttribute("aria-current")).toBe("page");
+  settings.focus();
+  await user.tab({ shift: true });
+  expect(document.activeElement).toBe(pin);
+  expect(pin.hasAttribute("aria-current")).toBe(false);
+  await user.keyboard("{Enter}");
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "アプリ10", level: 1 }));
+  expect(screen.getAllByRole("link", { current: "page" })).toEqual([pin]);
+
+  await user.click(screen.getByRole("link", { name: "プロジェクト" }));
+  expect(screen.getByRole("heading", { name: "プロジェクト", level: 1 })).toBe(document.activeElement);
+  await user.click(screen.getByRole("button", { name: "アプリ10のピン留め", pressed: true }));
+  await waitFor(() => expect(screen.queryByRole("region", { name: "ピン留め" })).toBeNull());
+  expect(projectsApi.listProjects).toHaveBeenCalledTimes(1);
+});
+
 it("pins from either layout, preserves pins across sorting and reload, and retries a failed unpin", async () => {
   const user = userEvent.setup();
   const { unmount } = render(<App />);
@@ -241,6 +271,8 @@ it("reorders within a pin group without treating visible indexes as saved indexe
   await user.keyboard("{End}");
   await waitFor(() => expect(names()).toEqual(["サイト", "アプリ10", "アプリ2"]));
   expect(stored.projectOrder.manualIds).toEqual(["b", "c", "a"]);
+  expect(within(screen.getByRole("list", { name: "ピン留め" })).getAllByRole("link").map((link) => link.textContent))
+    .toEqual(["サイト", "アプリ10"]);
   await user.keyboard("{ArrowDown}");
   const transfer = { setData: vi.fn(), effectAllowed: "", dropEffect: "" };
   fireEvent.dragStart(handle("アプリ10"), { dataTransfer: transfer });
