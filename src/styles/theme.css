@@ -1,14 +1,15 @@
 /* テーマ追加時は、同じ役割のトークンを別のセレクターで上書きする。 */
 :root {
   color-scheme: light;
-  --ui-canvas: #fbf6f4;
+  /* 広い背景の赤みを抑え、白いカードや桜色の操作が埋もれないようにする。 */
+  --ui-canvas: #f4f2f1;
   --ui-surface: #ffffff;
-  --ui-sidebar: #f4e9e7;
+  --ui-sidebar: #ede9e8;
   --ui-subtle: #f6eeec;
   --ui-ink: #3a2b33;
   /* サイドバーやアクセント面の上でも補助文字が 4.5:1 を下回らない明度にする。 */
   --ui-muted: #6a5961;
-  --ui-line: #eaddd9;
+  --ui-line: #dfd9d7;
   --ui-line-strong: #c9b5b8;
   /* 濃い桜色。選択・フォーカス・主ボタンに使い、再開（action）はやや明るい桜色で見分ける。 */
   --ui-accent: #9b3d5c;
@@ -56,7 +57,7 @@
   --ui-radius-lg: 0.5rem;
   --ui-radius-xl: 0.75rem;
   --ui-radius-2xl: 0.875rem;
-  --ui-shadow-panel: 0 2px 6px rgb(58 43 51 / 3%), 0 12px 28px rgb(58 43 51 / 2%);
+  --ui-shadow-panel: 0 1px 3px rgb(58 43 51 / 6%), 0 8px 24px rgb(58 43 51 / 4%);
   --ui-shadow-button: 0 1px 2px rgb(58 43 51 / 8%);
   --ui-shadow-field: inset 0 1px 2px rgb(58 43 51 / 2%);
   /* カードの区切り方はテーマで変える。ライトは面の明暗差が小さいため線と影を残す。 */
