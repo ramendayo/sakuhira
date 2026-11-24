@@ -6,6 +6,7 @@
   --ui-surface: #ffffff;
   --ui-sidebar: #ede9e8;
   --ui-subtle: #f6eeec;
+  --ui-hover: #e7dfe0;
   --ui-ink: #3a2b33;
   /* サイドバーやアクセント面の上でも補助文字が 4.5:1 を下回らない明度にする。 */
   --ui-muted: #6a5961;
@@ -68,9 +69,10 @@
   --ui-card-line-hover: var(--ui-line-strong);
   --ui-card-hover: var(--ui-surface);
   --ui-shadow-card: var(--ui-shadow-panel);
-  /* 選択中のナビやセグメントなど「一段浮いた操作面」。ライトは白い面＋線＋影で示す。 */
-  --ui-raised: var(--ui-surface);
+  /* 選択中のナビとセグメントは、淡い桜色と濃い枠でホバーから見分けられるようにする。 */
+  --ui-raised: var(--ui-accent-soft);
   --ui-raised-line: var(--ui-line);
+  --ui-raised-active-line: var(--ui-accent);
   --ui-shadow-raised: var(--ui-shadow-button);
   --ui-sidebar-line: var(--ui-line);
   --ui-space-unit: 0.25rem;
@@ -90,6 +92,7 @@
   --ui-surface: #2a2326;
   --ui-sidebar: #221d20;
   --ui-subtle: #342b2f;
+  --ui-hover: var(--ui-subtle);
   --ui-ink: #f0e8e2;
   --ui-muted: #b3a7a4;
   --ui-placeholder-opacity: 0.8;
@@ -131,6 +134,7 @@
   /* ダークの選択状態は、周囲（subtle）より一段明るい面だけで示し、線と影は使わない。 */
   --ui-raised: #3f3539;
   --ui-raised-line: rgb(240 232 226 / 6%);
+  --ui-raised-active-line: var(--ui-raised-line);
   --ui-shadow-raised: none;
   --ui-sidebar-line: rgb(240 232 226 / 4%);
 }

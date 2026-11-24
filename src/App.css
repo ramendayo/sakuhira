@@ -6,6 +6,7 @@
   --color-surface: var(--ui-surface);
   --color-sidebar: var(--ui-sidebar);
   --color-subtle: var(--ui-subtle);
+  --color-hover: var(--ui-hover);
   --color-ink: var(--ui-ink);
   --color-muted: var(--ui-muted);
   --color-line: var(--ui-line);
@@ -121,12 +122,12 @@
     font-weight: var(--ui-weight-medium);
   }
   .nav-link:hover {
-    background: var(--ui-subtle);
+    background: var(--ui-hover);
     color: var(--ui-ink);
   }
   .nav-link[aria-current="page"] {
     background: var(--ui-raised);
-    border-color: var(--ui-raised-line);
+    border-color: var(--ui-raised-active-line);
     color: var(--ui-accent);
     box-shadow: var(--ui-shadow-raised);
   }
@@ -646,14 +647,19 @@
     font-size: var(--ui-text-sm);
     color: var(--ui-muted);
   }
-  .segmented-control button:hover:not(:disabled) {
+  .segmented-control button:hover:not(:disabled, [aria-pressed="true"]) {
+    background: var(--ui-hover);
     color: var(--ui-ink);
   }
   .segmented-control button[aria-pressed="true"] {
     background: var(--ui-raised);
     color: var(--ui-accent);
-    border-color: var(--ui-raised-line);
+    border-color: var(--ui-raised-active-line);
     box-shadow: var(--ui-shadow-raised);
+  }
+  .segmented-control button:focus-visible {
+    /* 隣のボタンとの間隔が狭いため、フォーカスリングをボタンに近づける。 */
+    outline-offset: 1px;
   }
   /* 表示形式はアイコンだけなので、文字付きより正方形に近い押しやすさにする。 */
   .segmented-icons button {

@@ -141,7 +141,7 @@ export function QuickResumeSearch({ projects, pinnedIds, loading, error, actionE
                 ref={active ? selectedRow : undefined}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => resumeCandidate(project)}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 hover:bg-subtle aria-disabled:cursor-default aria-selected:border-accent aria-selected:bg-accent-soft"
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent px-3 py-2 not-aria-selected:not-aria-disabled:hover:bg-hover aria-disabled:cursor-default aria-selected:border-accent aria-selected:bg-accent-soft"
               >
                 <ProjectIcon path={project.path} appearance={project.icon} compact />
                 <div className="min-w-0">
