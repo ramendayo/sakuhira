@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import "./App.css";
 import App from "./App";
 import QuickResumeWindow from "./pages/QuickResumeWindow";
 
