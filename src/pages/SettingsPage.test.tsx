@@ -230,8 +230,12 @@ it("moves keyboard focus to the page heading when navigating, including a failed
 
   screen.getByRole("link", { name: "プロジェクト" }).focus();
   await user.keyboard("{Enter}");
-  await screen.findByRole("button", { name: "Exampleの詳細を開く" });
+  expect((await screen.findByRole("alert")).textContent).toBe("プロジェクトを読み込めません");
   expect(document.activeElement).toBe(screen.getByRole("heading", { name: "プロジェクト", level: 1 }));
+  expect(listProjects).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole("button", { name: "再読み込み" }));
+  await screen.findByRole("button", { name: "Exampleの詳細を開く" });
+  expect(listProjects).toHaveBeenCalledTimes(2);
 });
 
 it("saves a default editor, reloads it on return, and shows it in project details and launch results", async () => {

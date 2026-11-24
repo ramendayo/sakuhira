@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
 import Icon from "../components/Icon";
 import ProjectCollection from "../features/projects/components/ProjectCollection";
 import ProjectViewControls, { ProjectCardSizeControl } from "../features/projects/components/ProjectViewControls";
 import type { useProjectPresentation } from "../features/projects/hooks/useProjectPresentation";
 import ProjectDetails from "./ProjectDetails";
 import ProjectForm from "../features/projects/components/ProjectForm";
-import { useProjects } from "../features/projects/hooks/useProjects";
+import type { useProjects } from "../features/projects/hooks/useProjects";
 import { useShortcutIssues } from "../features/projects/hooks/useShortcutIssues";
 import { orderedProjects } from "../features/projects/utils/projectOrder";
 import { projectSortLabels } from "../types/settings";
@@ -14,12 +13,15 @@ import type { Project } from "../features/projects/types/project";
 
 type ProjectsPageProps = {
   selectedId: string | null;
-  onSelect: Dispatch<SetStateAction<string | null>>;
+  projectState: ReturnType<typeof useProjects>;
+  onOpenProject: (id: string) => void;
+  onBack: () => void;
+  onProjectRemoved: (id: string) => void;
   presentation: ReturnType<typeof useProjectPresentation>;
 };
 
-function ProjectsPage({ selectedId, onSelect, presentation }: ProjectsPageProps) {
-  const { projects, status, error, retry, append, replace, remove, recordResumed } = useProjects(presentation.clearInvalidChange);
+function ProjectsPage({ selectedId, projectState, onOpenProject, onBack, onProjectRemoved, presentation }: ProjectsPageProps) {
+  const { projects, status, error, retry, append, replace, remove, recordResumed } = projectState;
   const shortcuts = useShortcutIssues();
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
@@ -72,7 +74,7 @@ function ProjectsPage({ selectedId, onSelect, presentation }: ProjectsPageProps)
       key={selected.id}
       project={selected}
       shortcutIssue={shortcuts.issues.find((issue) => issue.projectId === selected.id)?.reason}
-      onBack={() => onSelect(null)}
+      onBack={onBack}
       onUpdated={(project) => {
         replace(project);
         shortcuts.refresh();
@@ -82,7 +84,7 @@ function ProjectsPage({ selectedId, onSelect, presentation }: ProjectsPageProps)
         remove(project.id);
         shortcuts.refresh();
         presentation.syncProjectOrder({ kind: "remove", id: project.id });
-        onSelect((current) => current === project.id ? null : current);
+        onProjectRemoved(project.id);
         setNotice(`「${project.name}」の登録を解除しました。`);
       }}
     />;
@@ -180,7 +182,7 @@ function ProjectsPage({ selectedId, onSelect, presentation }: ProjectsPageProps)
                   pinnedIds={pinnedIds} pinDisabled={presentation.disabled || showForm} onTogglePin={togglePin}
                   onMove={move} editorName={presentation.editorLabel} onSelect={(id) => {
                   setShowForm(false);
-                  onSelect(id);
+                  onOpenProject(id);
                 }} onResumed={recordResumed} />
               ) : projects.length > 0 ? <div className="empty-state">
                 <h3 className="section-title">一致するプロジェクトがありません</h3>

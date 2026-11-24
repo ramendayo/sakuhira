@@ -12,21 +12,29 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it("returns the main window from settings to the project list on request", async () => {
+it("returns to the project list on request without reloading projects across navigation", async () => {
   vi.stubGlobal("isTauri", true);
+  const listProjects = vi.fn(() => [{
+    id: "docs", name: "開発", path: null, launchUrl: "https://example.com/",
+    notes: { lastWork: "", nextTask: "", updatedAt: null }, lastResumedAt: null,
+  }]);
   mockIPC((command) => {
     if (command === "get_settings") {
       return { theme: "light", defaultEditor: "vsCode", projectOrder: defaultProjectOrder, projectView: defaultProjectView };
     }
-    if (command === "list_projects") return [];
+    if (command === "list_projects") return listProjects();
   }, { shouldMockEvents: true });
 
   const user = userEvent.setup();
   render(<App />);
+  await user.click(await screen.findByRole("button", { name: "開発の詳細を開く" }));
+  expect(screen.getByRole("heading", { name: "開発", level: 1 })).toBe(document.activeElement);
   await user.click(screen.getByRole("link", { name: "設定" }));
   expect(await screen.findByRole("heading", { name: "設定", level: 1 })).toBeTruthy();
   await act(() => emit("show-project-list"));
   expect(await screen.findByRole("heading", { name: "プロジェクト", level: 1 })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "開発の詳細を開く" })).toBeTruthy();
+  expect(listProjects).toHaveBeenCalledTimes(1);
 });
 
 it("shows per-target launch errors from a project shortcut", async () => {

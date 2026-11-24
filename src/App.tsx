@@ -9,7 +9,12 @@ import SettingsProvider from "./components/SettingsProvider";
 import { useAppearance } from "./hooks/useAppearance";
 import { resumeErrorMessages } from "./features/projects/services/launch";
 import { useProjectPresentation } from "./features/projects/hooks/useProjectPresentation";
+import { useProjects } from "./features/projects/hooks/useProjects";
 import { onShortcutLaunchFailure } from "./services/shortcuts";
+
+type AppPage =
+  | { kind: "projects"; selectedId: string | null }
+  | { kind: "settings" };
 
 function App() {
   return <SettingsProvider><Application /></SettingsProvider>;
@@ -18,12 +23,11 @@ function App() {
 function Application() {
   const appearance = useAppearance();
   const projectPresentation = useProjectPresentation();
-  const [page, setPage] = useState<"projects" | "settings">("projects");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const projectState = useProjects(projectPresentation.clearInvalidChange);
+  const [page, setPage] = useState<AppPage>({ kind: "projects", selectedId: null });
   const [shortcutFailure, setShortcutFailure] = useState<{ projectName: string; messages: string[] } | null>(null);
   const showProjects = useCallback(() => {
-    setPage("projects");
-    setSelectedId(null);
+    setPage({ kind: "projects", selectedId: null });
   }, []);
   useEffect(() => {
     if (!isTauri()) return;
@@ -45,10 +49,19 @@ function Application() {
     };
   }, [showProjects]);
 
-  function openSettings() { setPage("settings"); setSelectedId(null); }
+  function showProject(id: string) {
+    setPage({ kind: "projects", selectedId: id });
+  }
+
+  function closeRemovedProject(id: string) {
+    setPage((current) => current.kind === "projects" && current.selectedId === id
+      ? { kind: "projects", selectedId: null } : current);
+  }
+
+  function openSettings() { setPage({ kind: "settings" }); }
   return (
-    <AppLayout activePage={page} onProjectsNavigate={showProjects} onSettingsNavigate={openSettings}>
-      {appearance.loadError && page !== "settings" && <div className="page-shell pb-0"><div role="alert" className="rounded-xl border border-danger-line bg-danger-soft p-5"><p className="text-sm text-danger">表示設定を読み込めませんでした：{appearance.loadError}</p><button type="button" onClick={openSettings} className="button-secondary mt-3">設定を開く</button></div></div>}
+    <AppLayout activePage={page.kind} onProjectsNavigate={showProjects} onSettingsNavigate={openSettings}>
+      {appearance.loadError && page.kind !== "settings" && <div className="page-shell pb-0"><div role="alert" className="rounded-xl border border-danger-line bg-danger-soft p-5"><p className="text-sm text-danger">表示設定を読み込めませんでした：{appearance.loadError}</p><button type="button" onClick={openSettings} className="button-secondary mt-3">設定を開く</button></div></div>}
       {appearance.error && <div className="page-shell pb-0"><div role="alert" className="rounded-xl border border-danger-line bg-danger-soft p-5"><p className="text-sm text-danger">{appearance.error}</p><button type="button" onClick={appearance.retry} className="button-secondary mt-3">表示テーマを再適用</button></div></div>}
       {shortcutFailure && (
         <div className="page-shell pb-0">
@@ -61,7 +74,16 @@ function Application() {
           </div>
         </div>
       )}
-      {page === "projects" ? <ProjectsPage selectedId={selectedId} onSelect={setSelectedId} presentation={projectPresentation} /> : <SettingsPage />}
+      {page.kind === "projects" ? (
+        <ProjectsPage
+          projectState={projectState}
+          selectedId={page.selectedId}
+          onOpenProject={showProject}
+          onBack={showProjects}
+          onProjectRemoved={closeRemovedProject}
+          presentation={projectPresentation}
+        />
+      ) : <SettingsPage />}
     </AppLayout>
   );
 }
