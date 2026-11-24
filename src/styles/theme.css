@@ -1,29 +1,29 @@
 /* テーマ追加時は、同じ役割のトークンを別のセレクターで上書きする。 */
 :root {
   color-scheme: light;
-  /* 広い背景の赤みを抑え、白いカードや桜色の操作が埋もれないようにする。 */
-  --ui-canvas: #f4f2f1;
+  /* 広い面は生成りでそろえ、白いカードと桜色の操作に視線が向くようにする。 */
+  --ui-canvas: #f4f3ef;
   --ui-surface: #ffffff;
-  --ui-sidebar: #ede9e8;
-  --ui-subtle: #f6eeec;
-  --ui-hover: #e7dfe0;
-  --ui-ink: #3a2b33;
+  --ui-sidebar: #fbfaf7;
+  --ui-subtle: #eeece6;
+  --ui-hover: #e9e5df;
+  --ui-ink: #302d2a;
   /* サイドバーやアクセント面の上でも補助文字が 4.5:1 を下回らない明度にする。 */
-  --ui-muted: #6a5961;
+  --ui-muted: #625e58;
   --ui-placeholder-opacity: 1;
-  --ui-line: #dfd9d7;
-  --ui-line-strong: #c9b5b8;
+  --ui-line: #ddd9d0;
+  --ui-line-strong: #c1bcb1;
   /* 入力欄の輪郭は白い入力面とページ背景の両方で見分けられるようにする。 */
-  --ui-field-line: #96878e;
-  /* 濃い桜色。選択・フォーカス・主ボタンに使い、再開（action）はやや明るい桜色で見分ける。 */
-  --ui-accent: #9b3d5c;
-  --ui-accent-hover: #82304c;
-  --ui-accent-soft: #f9e4ea;
+  --ui-field-line: #8c8982;
+  --ui-accent: #8d3d54;
+  --ui-accent-hover: #743045;
+  --ui-accent-soft: #f6e9ed;
   --ui-on-accent: #ffffff;
-  /* 再開など「作業に戻る」操作専用。全体の主ボタン（accent）とは分けて、一覧で目を引く一点にする。 */
-  --ui-action: #b84e6c;
-  --ui-action-hover: #a2425d;
-  --ui-on-action: #ffffff;
+  /* 再開ボタンが並ぶ一覧でも、プロジェクト名より強く目を引かないようにする。 */
+  --ui-action: #f4e4e9;
+  --ui-action-hover: #edd3dc;
+  --ui-action-line: #a2687a;
+  --ui-on-action: #702b41;
   --ui-icon-blue-bg: #e9eff9;
   --ui-icon-blue-ink: #345787;
   --ui-icon-green-bg: #e5f0e7;
@@ -61,9 +61,9 @@
   --ui-radius-lg: 0.5rem;
   --ui-radius-xl: 0.75rem;
   --ui-radius-2xl: 0.875rem;
-  --ui-shadow-panel: 0 1px 3px rgb(58 43 51 / 6%), 0 8px 24px rgb(58 43 51 / 4%);
-  --ui-shadow-button: 0 1px 2px rgb(58 43 51 / 8%);
-  --ui-shadow-field: inset 0 1px 2px rgb(58 43 51 / 2%);
+  --ui-shadow-panel: 0 1px 3px rgb(48 45 42 / 6%), 0 8px 24px rgb(48 45 42 / 4%);
+  --ui-shadow-button: 0 1px 2px rgb(48 45 42 / 8%);
+  --ui-shadow-field: inset 0 1px 2px rgb(48 45 42 / 2%);
   /* カードの区切り方はテーマで変える。ライトは面の明暗差が小さいため線と影を残す。 */
   --ui-card-line: var(--ui-line);
   --ui-card-line-hover: var(--ui-line-strong);
@@ -72,7 +72,7 @@
   /* 選択中のナビとセグメントは、淡い桜色と濃い枠でホバーから見分けられるようにする。 */
   --ui-raised: var(--ui-accent-soft);
   --ui-raised-line: var(--ui-line);
-  --ui-raised-active-line: var(--ui-accent);
+  --ui-raised-active-line: #a16d7d;
   --ui-shadow-raised: var(--ui-shadow-button);
   --ui-sidebar-line: var(--ui-line);
   --ui-space-unit: 0.25rem;
@@ -106,6 +106,7 @@
   --ui-on-accent: #2a1219;
   --ui-action: #e3a2b1;
   --ui-action-hover: #ecb4c1;
+  --ui-action-line: transparent;
   --ui-on-action: #2a1219;
   --ui-icon-blue-bg: #2d3a4e;
   --ui-icon-blue-ink: #b7d0f2;

@@ -288,6 +288,7 @@
   }
   .button-action {
     background: var(--ui-action);
+    border-color: var(--ui-action-line);
     color: var(--ui-on-action);
     box-shadow: var(--ui-shadow-button);
   }
