@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Icon from "./Icon";
 import ProjectIcon from "../features/projects/components/ProjectIcon";
 import type { Project } from "../features/projects/types/project";
@@ -17,6 +17,7 @@ type AppLayoutProps = {
 function AppLayout({
   children, activePage, selectedProjectId, pinnedProjects, onProjectNavigate, onProjectsNavigate, onSettingsNavigate,
 }: AppLayoutProps) {
+  const [pinnedExpanded, setPinnedExpanded] = useState(true);
   return (
     <div className="app-shell">
       <a href="#main-content" className="sr-only button-primary focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-10">
@@ -33,8 +34,19 @@ function AppLayout({
           </a>
           {pinnedProjects.length > 0 && (
             <section aria-labelledby="sidebar-pinned-heading" className="sidebar-pinned">
-              <h2 id="sidebar-pinned-heading" className="sidebar-pinned-heading">ピン留め</h2>
-              <ul aria-labelledby="sidebar-pinned-heading" className="sidebar-pinned-list">
+              <h2 id="sidebar-pinned-heading" className="sidebar-pinned-heading">
+                <button
+                  type="button"
+                  className="sidebar-pinned-toggle"
+                  aria-expanded={pinnedExpanded}
+                  aria-controls="sidebar-pinned-list"
+                  onClick={() => setPinnedExpanded((expanded) => !expanded)}
+                >
+                  ピン留め
+                  <Icon name="chevron" className="sidebar-pinned-chevron size-3" />
+                </button>
+              </h2>
+              <ul id="sidebar-pinned-list" aria-labelledby="sidebar-pinned-heading" className="sidebar-pinned-list" hidden={!pinnedExpanded}>
                 {pinnedProjects.map((project) => (
                   <li key={project.id}>
                     <a

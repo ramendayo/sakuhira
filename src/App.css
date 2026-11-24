@@ -131,6 +131,25 @@
     font-size: var(--ui-text-xs);
     font-weight: var(--ui-weight-semibold);
   }
+  .sidebar-pinned-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    inline-size: 100%;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .sidebar-pinned-toggle:hover {
+    color: var(--ui-ink);
+  }
+  .sidebar-pinned-chevron {
+    transition: transform 0.15s;
+  }
+  .sidebar-pinned-toggle[aria-expanded="false"] .sidebar-pinned-chevron {
+    transform: rotate(-90deg);
+  }
   .sidebar-pinned-list {
     min-block-size: 0;
     overflow-y: auto;

@@ -27,6 +27,30 @@ it("preserves native navigation for the skip link", () => {
   expect(screen.getByRole("main").tabIndex).toBe(-1);
 });
 
+it("collapses and expands the pinned list from its heading button", () => {
+  const pinnedProjects: Project[] = [{
+    id: "1", name: "sakuhira", path: null, launchUrl: "https://example.com/", lastResumedAt: null,
+    notes: { lastWork: "", nextTask: "", updatedAt: null },
+  }];
+  render(
+    <AppLayout activePage="projects" selectedProjectId={null} pinnedProjects={pinnedProjects}
+      onProjectNavigate={vi.fn()} onProjectsNavigate={vi.fn()} onSettingsNavigate={vi.fn()}>
+      Content
+    </AppLayout>,
+  );
+  const toggle = screen.getByRole("button", { name: "ピン留め" });
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByRole("link", { name: "sakuhira" })).toBeTruthy();
+
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(screen.queryByRole("link", { name: "sakuhira" })).toBeNull();
+
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByRole("link", { name: "sakuhira" })).toBeTruthy();
+});
+
 it("keeps one current link and settings after a long pinned list", () => {
   const pinnedProjects: Project[] = Array.from({ length: 24 }, (_, index) => ({
     id: String(index), name: `Project with a long name ${index + 1}`, path: null,
