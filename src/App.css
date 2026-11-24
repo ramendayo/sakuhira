@@ -12,7 +12,6 @@
   --color-line: var(--ui-line);
   --color-line-strong: var(--ui-line-strong);
   --color-accent: var(--ui-accent);
-  --color-accent-hover: var(--ui-accent-hover);
   --color-accent-soft: var(--ui-accent-soft);
   --color-on-accent: var(--ui-on-accent);
   --color-action: var(--ui-action);
@@ -279,12 +278,13 @@
     font-weight: var(--ui-weight-control);
   }
   .button-primary {
-    background: var(--ui-accent);
-    color: var(--ui-on-accent);
+    background: var(--ui-primary);
+    border-color: var(--ui-primary-line);
+    color: var(--ui-on-primary);
     box-shadow: var(--ui-shadow-button);
   }
   .button-primary:hover:not(:disabled) {
-    background: var(--ui-accent-hover);
+    background: var(--ui-primary-hover);
   }
   .button-action {
     background: var(--ui-action);

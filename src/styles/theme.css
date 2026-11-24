@@ -16,14 +16,17 @@
   /* 入力欄の輪郭は白い入力面とページ背景の両方で見分けられるようにする。 */
   --ui-field-line: #8c8982;
   --ui-accent: #8d3d54;
-  --ui-accent-hover: #743045;
   --ui-accent-soft: #f6e9ed;
   --ui-on-accent: #ffffff;
-  /* 再開ボタンが並ぶ一覧でも、プロジェクト名より強く目を引かないようにする。 */
+  /* 一覧でボタンが並んでも、プロジェクト名より強く目を引かないようにする。 */
   --ui-action: #f4e4e9;
   --ui-action-hover: #edd3dc;
   --ui-action-line: #a2687a;
   --ui-on-action: #702b41;
+  --ui-primary: var(--ui-action);
+  --ui-primary-hover: var(--ui-action-hover);
+  --ui-primary-line: var(--ui-action-line);
+  --ui-on-primary: var(--ui-on-action);
   --ui-icon-blue-bg: #e9eff9;
   --ui-icon-blue-ink: #345787;
   --ui-icon-green-bg: #e5f0e7;
@@ -101,9 +104,12 @@
   --ui-field-line: var(--ui-line-strong);
   /* 桜色。選択・フォーカス・主ボタンに使い、再開（action）はより濃いピンクで見分ける。 */
   --ui-accent: #ecc4cd;
-  --ui-accent-hover: #f4d6dd;
   --ui-accent-soft: #46303a;
   --ui-on-accent: #2a1219;
+  --ui-primary: var(--ui-accent);
+  --ui-primary-hover: #f4d6dd;
+  --ui-primary-line: transparent;
+  --ui-on-primary: var(--ui-on-accent);
   --ui-action: #e3a2b1;
   --ui-action-hover: #ecb4c1;
   --ui-action-line: transparent;
