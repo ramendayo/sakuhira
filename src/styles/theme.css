@@ -9,8 +9,11 @@
   --ui-ink: #3a2b33;
   /* サイドバーやアクセント面の上でも補助文字が 4.5:1 を下回らない明度にする。 */
   --ui-muted: #6a5961;
+  --ui-placeholder-opacity: 1;
   --ui-line: #dfd9d7;
   --ui-line-strong: #c9b5b8;
+  /* 入力欄の輪郭は白い入力面とページ背景の両方で見分けられるようにする。 */
+  --ui-field-line: #96878e;
   /* 濃い桜色。選択・フォーカス・主ボタンに使い、再開（action）はやや明るい桜色で見分ける。 */
   --ui-accent: #9b3d5c;
   --ui-accent-hover: #82304c;
@@ -89,8 +92,10 @@
   --ui-subtle: #342b2f;
   --ui-ink: #f0e8e2;
   --ui-muted: #b3a7a4;
+  --ui-placeholder-opacity: 0.8;
   --ui-line: #3d3337;
   --ui-line-strong: #5a4d52;
+  --ui-field-line: var(--ui-line-strong);
   /* 桜色。選択・フォーカス・主ボタンに使い、再開（action）はより濃いピンクで見分ける。 */
   --ui-accent: #ecc4cd;
   --ui-accent-hover: #f4d6dd;
