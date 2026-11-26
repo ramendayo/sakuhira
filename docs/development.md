@@ -111,13 +111,26 @@ macOS上での確認項目と検証範囲は[手動確認手順](macos-verificat
 - `src-tauri/src/launch/tests.rs`: 実アプリを起動しない起動処理のテスト
 - `src-tauri/src/shortcuts.rs`: キーの検証、macOSへの登録・解除・復元
 - `src-tauri/src/quick_resume.rs`: クイック再開ウィンドウと再開処理
+- `src-tauri/src/main_window.rs`: メインウィンドウの表示・非表示と、それに合わせたDockアイコンの切り替え
+- `src-tauri/src/tray.rs`: メニューバーのアイコンとメニュー
 - `src-tauri/src/settings.rs`: アプリ設定の初期値・検証・JSON保存
 - `src-tauri/src/storage.rs`: 保存処理で共有するファイルロック・JSONの安全な置換
 - `src-tauri/tauri.conf.json`: アプリ、ウィンドウ、CSP、ビルド設定
 - `src-tauri/capabilities/`: ウィンドウに許可するTauriの権限
 - `src-tauri/icons/`: アプリのビルドで使用するアイコン
+- `src-tauri/tray-template.svg`: メニューバーのアイコン（`icons/tray-template.png`）の元データ
 
 OS操作と保存処理をRust側に分離しています。SQLiteへ移行する場合は、主に`ProjectStore`の読み書き部分を変更します。
+
+### メニューバーのアイコン
+
+`src-tauri/tray-template.svg`は図形の境目をマスクで抜いているため、マスクに対応していないImageMagick内蔵の描画では正しく書き出せません。
+Chromeで描画してから縮小します。`tauri::include_image!`はRGBAのPNGしか読み込めないため、`PNG32:`を付けて書き出します。
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --hide-scrollbars --default-background-color=00000000 --window-size=352,352 --screenshot="$TMPDIR/tray-template.png" "file://$PWD/src-tauri/tray-template.svg"
+magick "$TMPDIR/tray-template.png" -resize 44x44 PNG32:src-tauri/icons/tray-template.png
+```
 
 ## プロジェクトの登録と保存
 

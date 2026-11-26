@@ -9,6 +9,8 @@ mod quick_resume;
 mod settings;
 mod shortcuts;
 mod storage;
+#[cfg(target_os = "macos")]
+mod tray;
 
 use tauri::Manager;
 
@@ -32,6 +34,7 @@ pub fn run() {
             {
                 app.manage(shortcuts::ShortcutRuntime::default());
                 app.manage(quick_resume::QuickResumeWindow::default());
+                tray::create(app.handle())?;
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     if let Err(error) = shortcuts::restore(handle.clone()).await {
