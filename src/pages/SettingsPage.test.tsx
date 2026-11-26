@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
-import { getSettings, saveSettingsWithShortcut } from "../services/settings";
+import { getLaunchAtLogin, getSettings, onLaunchAtLoginChanged, saveSettingsWithShortcut, setLaunchAtLogin } from "../services/settings";
 import { resumeProject } from "../features/projects/services/launch";
 import * as shortcuts from "../services/shortcuts";
 import { editorName } from "../types/settings";
@@ -14,6 +14,9 @@ vi.mock("../services/settings", async (importOriginal) => ({
   applyTheme: vi.fn(async () => {}),
   getSettings: vi.fn(),
   saveSettingsWithShortcut: vi.fn(),
+  getLaunchAtLogin: vi.fn(),
+  setLaunchAtLogin: vi.fn(),
+  onLaunchAtLoginChanged: vi.fn(),
 }));
 vi.mock("../features/projects/services/launch", async (importOriginal) => ({ ...await importOriginal<typeof import("../features/projects/services/launch")>(), resumeProject: vi.fn(), setProjectLaunchUrl: vi.fn() }));
 vi.mock("../features/projects/services/projects", async (importOriginal) => ({
@@ -36,6 +39,8 @@ beforeEach(() => {
   stored = { projectOrder: { sort: "recent", manualIds: [] }, projectView: { layout: "cards", cardSize: "standard" }, theme: "light", defaultEditor: "vsCode" };
   vi.mocked(getSettings).mockImplementation(async () => ({ ...stored }));
   vi.mocked(saveSettingsWithShortcut).mockImplementation(async (_expected, settings) => { stored = { ...settings }; return { ...stored }; });
+  vi.mocked(getLaunchAtLogin).mockResolvedValue(true);
+  vi.mocked(onLaunchAtLoginChanged).mockResolvedValue(() => {});
   vi.mocked(resumeProject).mockImplementation(async () => ({ history: { status: "skipped" }, editorName: editorName(stored.defaultEditor), editor: { status: "success" }, browser: null }));
 });
 afterEach(cleanup);
@@ -67,7 +72,7 @@ it("saves all settings together, keeps drafts on a shortcut failure, and clears 
   await user.click(screen.getByRole("link", { name: "設定" }));
   const quick = within(await screen.findByRole("region", { name: "ショートカット" }));
   expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
-    "外観", "プロジェクトの再開", "ショートカット",
+    "外観", "プロジェクトの再開", "ショートカット", "起動",
   ]);
   expect(quick.getByText("⌃ + J")).toBeTruthy();
   const save = screen.getByRole("button", { name: "設定を保存" });
@@ -103,6 +108,8 @@ it("saves all settings together, keeps drafts on a shortcut failure, and clears 
   await capture("m");
   await user.tab();
   expect(document.activeElement).toBe(quick.getByRole("button", { name: "解除" }));
+  await user.tab();
+  expect(document.activeElement).toBe(screen.getByRole("checkbox", { name: "ログイン時に起動" }));
   await user.tab();
   expect(document.activeElement).toBe(save);
   await user.keyboard("{Enter}");
@@ -308,4 +315,37 @@ it("discards unsaved selections when reloading and navigating away", async () =>
   await user.click(await screen.findByRole("button", { name: "Exampleの詳細を開く" }));
   expect(await screen.findByText("エディタ：VS Code（アプリ設定）")).toBeTruthy();
   expect(saveSettingsWithShortcut).not.toHaveBeenCalled();
+});
+
+it("changes launch at login immediately, follows the menu bar, and shows the real state after a failure", async () => {
+  vi.mocked(shortcuts.supportsShortcuts).mockReturnValue(true);
+  vi.mocked(shortcuts.onShortcutResume).mockResolvedValue(() => {});
+  vi.mocked(shortcuts.onShortcutsRestored).mockResolvedValue(() => {});
+  vi.mocked(shortcuts.readShortcutIssues).mockResolvedValue([]);
+  vi.mocked(shortcuts.readQuickResumeShortcutIssue).mockResolvedValue(null);
+  let notifyChanged!: (enabled: boolean) => void;
+  vi.mocked(onLaunchAtLoginChanged).mockImplementation(async (handler) => {
+    notifyChanged = handler;
+    return () => {};
+  });
+  vi.mocked(setLaunchAtLogin).mockResolvedValueOnce(false).mockRejectedValueOnce("登録できません。");
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole("link", { name: "設定" }));
+  const startup = within(await screen.findByRole("region", { name: "起動" }));
+  const toggle = startup.getByRole("checkbox", { name: "ログイン時に起動" });
+  await waitFor(() => expect((toggle as HTMLInputElement).checked).toBe(true));
+
+  await user.click(toggle);
+  await waitFor(() => expect((toggle as HTMLInputElement).checked).toBe(false));
+  expect(setLaunchAtLogin).toHaveBeenLastCalledWith(false);
+  expect(saveSettingsWithShortcut).not.toHaveBeenCalled();
+
+  act(() => notifyChanged(true));
+  expect((toggle as HTMLInputElement).checked).toBe(true);
+
+  await user.click(toggle);
+  expect((await startup.findByRole("alert")).textContent).toBe("ログイン時の起動を変更できません：登録できません。");
+  act(() => notifyChanged(true));
+  expect((toggle as HTMLInputElement).checked).toBe(true);
 });

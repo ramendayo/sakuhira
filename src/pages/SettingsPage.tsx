@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useSettings } from "../hooks/useSettings";
 import QuickResumeSettings from "../components/QuickResumeSettings";
+import LaunchAtLoginSettings from "../components/LaunchAtLoginSettings";
 import { quickResumeSaveError, saveSettingsWithShortcut } from "../services/settings";
 import { supportsShortcuts } from "../services/shortcuts";
 import { errorMessage } from "../features/projects/services/projects";
@@ -101,12 +102,15 @@ function SettingsForm({ initial, reload, onSaved }: { initial: Settings; reload:
             </div>
           </section>
           {supportsShortcuts() && (
-            <QuickResumeSettings
-              settings={baseline}
-              shortcut={shortcut}
-              saveError={shortcutError}
-              onChange={changeShortcut}
-            />
+            <>
+              <QuickResumeSettings
+                settings={baseline}
+                shortcut={shortcut}
+                saveError={shortcutError}
+                onChange={changeShortcut}
+              />
+              <LaunchAtLoginSettings />
+            </>
           )}
           <div className="settings-form-actions flex flex-wrap gap-3">
             <button type="submit" className="button-primary">{pending ? "保存中…" : "設定を保存"}</button>

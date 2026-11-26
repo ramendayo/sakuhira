@@ -113,6 +113,7 @@ macOS上での確認項目と検証範囲は[手動確認手順](macos-verificat
 - `src-tauri/src/quick_resume.rs`: クイック再開ウィンドウと再開処理
 - `src-tauri/src/main_window.rs`: メインウィンドウの表示・非表示と、それに合わせたDockアイコンの切り替え
 - `src-tauri/src/tray.rs`: メニューバーのアイコンとメニュー
+- `src-tauri/src/launch_at_login.rs`: ログイン時の起動（初回だけ既定でオンにする処理と、オン・オフの切り替え）
 - `src-tauri/src/settings.rs`: アプリ設定の初期値・検証・JSON保存
 - `src-tauri/src/storage.rs`: 保存処理で共有するファイルロック・JSONの安全な置換
 - `src-tauri/tauri.conf.json`: アプリ、ウィンドウ、CSP、ビルド設定

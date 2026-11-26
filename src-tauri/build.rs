@@ -23,6 +23,8 @@ fn main() {
         "open_main_window",
         "select_project_directory",
         "select_project_launch_item",
+        "get_launch_at_login",
+        "set_launch_at_login",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("failed to build sakuhira's Tauri configuration");

@@ -2,6 +2,8 @@ mod commands;
 mod git_status;
 mod launch;
 #[cfg(target_os = "macos")]
+mod launch_at_login;
+#[cfg(target_os = "macos")]
 mod main_window;
 mod projects;
 #[cfg(target_os = "macos")]
@@ -20,21 +22,34 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init());
     #[cfg(target_os = "macos")]
-    let builder = builder.plugin(
-        tauri_plugin_global_shortcut::Builder::new()
-            .with_handler(shortcuts::on_shortcut)
-            .build(),
-    );
+    let builder = builder
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(shortcuts::on_shortcut)
+                .build(),
+        )
+        .plugin(launch_at_login::plugin());
     let app = builder
         .setup(|app| {
             let directory = app.path().app_data_dir()?;
             app.manage(projects::ProjectStore::new(directory.clone()));
+            #[cfg(target_os = "macos")]
+            if let Err(error) = launch_at_login::apply_default(app.handle(), &directory) {
+                // Startup continues; the user can still turn it on from settings.
+                eprintln!("{error}");
+            }
             app.manage(settings::SettingsStore::new(directory));
             #[cfg(target_os = "macos")]
             {
                 app.manage(shortcuts::ShortcutRuntime::default());
                 app.manage(quick_resume::QuickResumeWindow::default());
                 tray::create(app.handle())?;
+                // The window starts hidden in tauri.conf.json so a login launch never flashes it.
+                if launch_at_login::launched_at_login(std::env::args()) {
+                    main_window::hide(app.handle())?;
+                } else {
+                    main_window::show(app.handle())?;
+                }
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     if let Err(error) = shortcuts::restore(handle.clone()).await {
@@ -46,6 +61,10 @@ pub fn run() {
                         eprintln!("ショートカットの復元結果を通知できません: {error}");
                     }
                 });
+            }
+            #[cfg(not(target_os = "macos"))]
+            if let Some(window) = app.get_webview_window("main") {
+                window.show()?;
             }
             Ok(())
         })
@@ -72,7 +91,9 @@ pub fn run() {
             commands::close_quick_resume,
             commands::open_main_window,
             commands::select_project_directory,
-            commands::select_project_launch_item
+            commands::select_project_launch_item,
+            commands::get_launch_at_login,
+            commands::set_launch_at_login
         ])
         .build(tauri::generate_context!())
         .expect("failed to build sakuhira");
@@ -158,5 +179,7 @@ mod tests {
             .expect("main window config should exist");
 
         assert!(!main_window.drag_drop_enabled);
+        // Shown from setup instead, so a launch at login can stay in the menu bar.
+        assert!(!main_window.visible);
     }
 }

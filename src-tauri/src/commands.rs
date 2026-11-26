@@ -452,3 +452,29 @@ pub fn open_main_window(window: tauri::WebviewWindow) -> Result<(), String> {
     let _ = window;
     Err("クイック再開ウィンドウから実行してください。".into())
 }
+
+#[tauri::command]
+pub fn get_launch_at_login(app: tauri::AppHandle) -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::launch_at_login::is_enabled(&app)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        Err("ログイン時の起動はmacOSのみ対応しています。".into())
+    }
+}
+
+#[tauri::command]
+pub fn set_launch_at_login(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::launch_at_login::set_enabled(&app, enabled)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, enabled);
+        Err("ログイン時の起動はmacOSのみ対応しています。".into())
+    }
+}

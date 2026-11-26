@@ -1,4 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { Settings } from "../types/settings";
 
 function requireDesktop() {
@@ -31,4 +32,17 @@ export function quickResumeSaveError(error: unknown): string | null {
 
 export async function applyTheme(): Promise<void> {
   if (isTauri()) await invoke<void>("apply_theme");
+}
+
+export function getLaunchAtLogin(): Promise<boolean> {
+  return invoke<boolean>("get_launch_at_login");
+}
+
+export function setLaunchAtLogin(enabled: boolean): Promise<boolean> {
+  return invoke<boolean>("set_launch_at_login", { enabled });
+}
+
+// Also fires when the menu bar changes it, so the settings page never shows a stale state.
+export function onLaunchAtLoginChanged(handler: (enabled: boolean) => void) {
+  return listen<boolean>("launch-at-login-changed", ({ payload }) => handler(payload));
 }
