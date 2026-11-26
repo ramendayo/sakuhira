@@ -1,6 +1,8 @@
 mod commands;
 mod git_status;
 mod launch;
+#[cfg(target_os = "macos")]
+mod main_window;
 mod projects;
 #[cfg(target_os = "macos")]
 mod quick_resume;
@@ -99,13 +101,11 @@ fn handle_macos_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             label,
             event: WindowEvent::CloseRequested { api, .. },
             ..
-        } if label == "main" => {
-            if let Some(window) = app.get_webview_window(&label) {
-                // Keep the webview and the shortcut listener alive after closing the window.
-                api.prevent_close();
-                if let Err(error) = window.hide() {
-                    eprintln!("ウィンドウを非表示にできません: {error}");
-                }
+        } if label == main_window::WINDOW_LABEL => {
+            // Keep the webview and the shortcut listener alive after closing the window.
+            api.prevent_close();
+            if let Err(error) = main_window::hide(app) {
+                eprintln!("ウィンドウを非表示にできません: {error}");
             }
         }
         RunEvent::WindowEvent {
@@ -123,7 +123,7 @@ fn handle_macos_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             label,
             event: WindowEvent::Focused(false),
             ..
-        } if label == "main" => {
+        } if label == main_window::WINDOW_LABEL => {
             if let Err(error) = shortcuts::set_capture(app, false) {
                 eprintln!("{error}");
             }
@@ -132,9 +132,7 @@ fn handle_macos_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             has_visible_windows: false,
             ..
         } => {
-            if let Some(window) = app.get_webview_window("main")
-                && let Err(error) = window.show().and_then(|()| window.set_focus())
-            {
+            if let Err(error) = main_window::show(app) {
                 eprintln!("ウィンドウを再表示できません: {error}");
             }
         }

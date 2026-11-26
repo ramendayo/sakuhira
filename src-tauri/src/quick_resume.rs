@@ -1,5 +1,6 @@
 use crate::{
     launch::{self, ResumeHistory, ResumeReport},
+    main_window,
     projects::Project,
 };
 use objc2_app_kit::{
@@ -212,18 +213,9 @@ pub fn open_main_window(window: &WebviewWindow) -> Result<(), String> {
         .try_lock()
         .map_err(|_| "プロジェクトを再開中です。")?;
     let app = window.app_handle();
-    let main = app
-        .get_webview_window("main")
-        .ok_or("メインウィンドウが見つかりません。")?;
-    let display_error = |error| format!("メインウィンドウを表示できません: {error}");
-
-    if main.is_minimized().map_err(display_error)? {
-        main.unminimize().map_err(display_error)?;
-    }
-    main.show().map_err(display_error)?;
-    app.emit_to("main", "show-project-list", ())
+    main_window::show(app).map_err(|error| format!("メインウィンドウを表示できません: {error}"))?;
+    app.emit_to(main_window::WINDOW_LABEL, "show-project-list", ())
         .map_err(|error| format!("プロジェクト一覧を開けません: {error}"))?;
-    main.set_focus().map_err(display_error)?;
     // Keep focus in sakuhira instead of returning to the previous app.
     hide(window, HideReason::SessionEnded)
         .map_err(|error| format!("クイック再開を閉じられません: {error}"))?;
